@@ -15,6 +15,11 @@ import styles from './Chat.module.css'
 import Contoso from '../../assets/Contoso.svg'
 import { XSSAllowTags } from '../../constants/sanatizeAllowables'
 
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
+
+import LocalizedStrings from 'react-localization';
+
 import {
   ChatMessage,
   ConversationRequest,
@@ -32,6 +37,8 @@ import {
   CosmosDBStatus,
   ErrorMessage,
   ExecResults,
+  authenticate,
+  getTokenStatus
 } from "../../api";
 import { Answer } from "../../components/Answer";
 import { QuestionInput } from "../../components/QuestionInput";
@@ -56,7 +63,7 @@ const Chat = () => {
   const [isCitationPanelOpen, setIsCitationPanelOpen] = useState<boolean>(false)
   const [isIntentsPanelOpen, setIsIntentsPanelOpen] = useState<boolean>(false)
   const abortFuncs = useRef([] as AbortController[])
-  const [showAuthMessage, setShowAuthMessage] = useState<boolean | undefined>()
+  const [showAuthMessage, setShowAuthMessage] = useState<boolean>(true)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [execResults, setExecResults] = useState<ExecResults[]>([])
   const [processMessages, setProcessMessages] = useState<messageStatus>(messageStatus.NotRunning)
@@ -66,6 +73,24 @@ const Chat = () => {
   const [logo, setLogo] = useState('')
   const [answerId, setAnswerId] = useState<string>('')
 
+
+  const [token, setToken] = useState<string>("");
+
+  const [alertWarnTokens, setAlertWarnTokens] = useState(false);
+  const [alertErrTokens, setAlertErrTokens] = useState(false);
+  const [shouldDisplayInput, setShouldDisplayInput] = useState(false);
+  const [errAlertMsg, setErrAlertMsg] = useState<string>("");
+  const [currentUser, setCurrentUser] = useState<string>("");
+  const [appReady, setAppReady] = useState(false); 
+
+  const handleCloseAlert = (event?: React.SyntheticEvent | Event, reason?: string) => {
+      if (reason == "clickaway"){
+          return;
+      }
+      setAlertWarnTokens(false);
+  }
+
+  
   const errorDialogContentProps = {
     type: DialogType.close,
     title: errorMsg?.title,
@@ -82,6 +107,21 @@ const Chat = () => {
 
   const [ASSISTANT, TOOL, ERROR] = ['assistant', 'tool', 'error']
   const NO_CONTENT_ERROR = 'No content in messages object.'
+
+
+
+  // Notification à l'application parent qu'on est prêt
+  useEffect(() => {
+    if(appReady){
+
+      const message = {
+        action: "AskMeReady",
+      };
+      console.log("AskMe prêt, notification.");
+      window.parent.postMessage(message, "*");
+    }
+      
+  }, [appReady]);
 
   useEffect(() => {
     if (
@@ -116,18 +156,52 @@ const Chat = () => {
     setIsLoading(appStateContext?.state.chatHistoryLoadingState === ChatHistoryLoadingState.Loading)
   }, [appStateContext?.state.chatHistoryLoadingState])
 
-  const getUserInfoList = async () => {
-    if (!AUTH_ENABLED) {
-      setShowAuthMessage(false)
-      return
-    }
-    const userInfoList = await getUserInfo()
-    if (userInfoList.length === 0 && window.location.hostname !== '127.0.0.1') {
-      setShowAuthMessage(true)
-    } else {
-      setShowAuthMessage(false)
-    }
-  }
+  /* Gestion de l'auth */
+  useEffect(() => {
+    const handleMessage = async (event: any) => {
+      if (event.data.AuthToken) {
+        // Définition de la langue de l'appli
+        localizedStrings.setLanguage((event.data.Language) ? event.data.Language : 'FR');
+        setCurrentUser((event.data.CurrentUser) ? event.data.CurrentUser : "Anonyme (WEB)");
+
+        // setToken(event.data.AuthToken);
+
+        // Est-ce que le token pour accéder à l'appli est OK ?
+        const resp = await authenticate(event.data.AuthToken);
+        if (resp){
+          setShowAuthMessage(false);
+          setToken(event.data.AuthToken);
+
+          // vérifier le nombre de crédits restants au client
+          const tokenStatus = await getTokenStatus();
+          if (tokenStatus == "ERR"){
+            setAlertErrTokens(true);
+            setErrAlertMsg(localizedStrings.tokenRetrievalError);
+            setShouldDisplayInput(false);
+          } else if (tokenStatus == "KO"){
+            setAlertErrTokens(true);
+            setErrAlertMsg(localizedStrings.tokensExpired);
+            setShouldDisplayInput(false);
+          } else if (tokenStatus == "WARN"){
+            setAlertWarnTokens(true);
+            setShouldDisplayInput(true);
+          } else {
+            setShouldDisplayInput(true);
+          }
+        }
+      }
+
+    };
+
+    // Ajout du listener
+    window.addEventListener('message', handleMessage);
+    setAppReady(true);
+    // Cleanup
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []);
+
 
   let assistantMessage = {} as ChatMessage
   let toolMessage = {} as ChatMessage
@@ -179,6 +253,10 @@ const Chat = () => {
     }
   }
 
+  const getToken = () => {
+    return token;
+  }
+
   const makeApiRequestWithoutCosmosDB = async (question: ChatMessage["content"], conversationId?: string) => {
     setIsLoading(true)
     setShowLoadingMessage(true)
@@ -225,7 +303,7 @@ const Chat = () => {
 
     let result = {} as ChatResponse
     try {
-      const response = await conversationApi(request, abortController.signal)
+      const response = await conversationApi(request, abortController.signal, getToken(), currentUser)
       if (response?.body) {
         const reader = response.body.getReader()
 
@@ -693,9 +771,6 @@ const Chat = () => {
     }
   }, [processMessages])
 
-  useEffect(() => {
-    if (AUTH_ENABLED !== undefined) getUserInfoList()
-  }, [AUTH_ENABLED])
 
   useLayoutEffect(() => {
     chatMessageStreamEnd.current?.scrollIntoView({ behavior: 'smooth' })
@@ -765,35 +840,36 @@ const Chat = () => {
             className={styles.chatIcon}
             style={{ color: 'darkorange', height: '200px', width: '200px' }}
           />
-          <h1 className={styles.chatEmptyStateTitle}>Authentication Not Configured</h1>
-          <h2 className={styles.chatEmptyStateSubtitle}>
-            This app does not have authentication configured. Please add an identity provider by finding your app in the{' '}
-            <a href="https://portal.azure.com/" target="_blank">
-              Azure Portal
-            </a>
-            and following{' '}
-            <a
-              href="https://learn.microsoft.com/en-us/azure/app-service/scenario-secure-app-authentication-app-service#3-configure-authentication-and-authorization"
-              target="_blank">
-              these instructions
-            </a>
-            .
+          <h1 className={styles.chatEmptyStateTitle}>{localizedStrings.accesDenied}</h1>
+          <h2 className={styles.chatEmptyStateSubtitle} style={{ fontSize: "20px" }}>
+              <strong>{localizedStrings.unauthentifiedConnection}</strong>
           </h2>
-          <h2 className={styles.chatEmptyStateSubtitle} style={{ fontSize: '20px' }}>
-            <strong>Authentication configuration takes a few minutes to apply. </strong>
-          </h2>
-          <h2 className={styles.chatEmptyStateSubtitle} style={{ fontSize: '20px' }}>
-            <strong>If you deployed in the last 10 minutes, please wait and reload the page after 10 minutes.</strong>
-          </h2>
+          <h2 className={styles.chatEmptyStateSubtitle}>{localizedStrings.unauthentifiedConnectionPrecisions}</h2>
+
         </Stack>
       ) : (
         <Stack horizontal className={styles.chatRoot}>
           <div className={styles.chatContainer}>
+          <Snackbar 
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            open={alertWarnTokens} 
+            onClose={handleCloseAlert} >
+            <Alert severity="warning">
+              {localizedStrings.tokenExpirationWarning}
+            </Alert>
+          </Snackbar>
+          <Snackbar 
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            open={alertErrTokens} >
+            <Alert severity="error">
+              {errAlertMsg}
+            </Alert>
+          </Snackbar>
             {!messages || messages.length < 1 ? (
               <Stack className={styles.chatEmptyState}>
                 <img src={logo} className={styles.chatIcon} aria-hidden="true" />
-                <h1 className={styles.chatEmptyStateTitle}>{ui?.chat_title}</h1>
-                <h2 className={styles.chatEmptyStateSubtitle}>{ui?.chat_description}</h2>
+                <h1 className={styles.chatEmptyStateTitle}>{localizedStrings.uiChatTitle}</h1>
+                <h2 className={styles.chatEmptyStateSubtitle}>{localizedStrings.uiChatDescription}</h2>
               </Stack>
             ) : (
               <div className={styles.chatMessageStream} style={{ marginBottom: isLoading ? '40px' : '0px' }} role="log">
@@ -818,6 +894,7 @@ const Chat = () => {
                           }}
                           onCitationClicked={c => onShowCitation(c)}
                           onExectResultClicked={() => onShowExecResult(answerId)}
+                          language={localizedStrings.getLanguage()}
                         />}
                       </div>
                     ) : answer.role === ERROR ? (
@@ -836,12 +913,13 @@ const Chat = () => {
                     <div className={styles.chatMessageGpt}>
                       <Answer
                         answer={{
-                          answer: "Generating answer...",
+                          answer: localizedStrings.answerGenerationText,
                           citations: [],
                           generated_chart: null
                         }}
                         onCitationClicked={() => null}
                         onExectResultClicked={() => null}
+                        language={localizedStrings.getLanguage()}
                       />
                     </div>
                   </>
@@ -849,21 +927,19 @@ const Chat = () => {
                 <div ref={chatMessageStreamEnd} />
               </div>
             )}
-
+            { shouldDisplayInput && (
             <Stack horizontal className={styles.chatInput}>
               {isLoading && messages.length > 0 && (
                 <Stack
                   horizontal
                   className={styles.stopGeneratingContainer}
                   role="button"
-                  aria-label="Stop generating"
+                  aria-label="Interrompre"
                   tabIndex={0}
                   onClick={stopGenerating}
                   onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? stopGenerating() : null)}>
                   <SquareRegular className={styles.stopGeneratingIcon} aria-hidden="true" />
-                  <span className={styles.stopGeneratingText} aria-hidden="true">
-                    Stop generating
-                  </span>
+                  <span className={styles.stopGeneratingText} aria-hidden="true">{localizedStrings.stopGenerationButton}</span>
                 </Stack>
               )}
               <Stack>
@@ -933,7 +1009,7 @@ const Chat = () => {
               </Stack>
               <QuestionInput
                 clearOnSend
-                placeholder="Type a new question..."
+                placeholder={localizedStrings.yourQuestionPlaceholder}
                 disabled={isLoading}
                 onSend={(question, id) => {
                   appStateContext?.state.isCosmosDBAvailable?.cosmosDB
@@ -945,6 +1021,7 @@ const Chat = () => {
                 }
               />
             </Stack>
+            )}
           </div>
           {/* Citation Panel */}
           {messages && messages.length > 0 && isCitationPanelOpen && activeCitation && (
@@ -1040,4 +1117,37 @@ const Chat = () => {
   )
 }
 
+
+let localizedStrings = new LocalizedStrings({
+  FR: {
+      tokensExpired : "Votre solde de tokens AskMe est expiré. Rapprochez-vous de votre administrateur pour pouvoir utiliser AskMe à nouveau.",
+      tokenRetrievalError : "Erreur lors de la récupération du solde de tokens. Merci de vous rapprocher d'un adminsitrateur.",
+      tokenExpirationWarning : "Votre solde de tokens AskMe est sur le point d'expirer. Rapprochez-vous de votre administrateur pour pouvoir continuer à utiliser AskMe.",
+      yourQuestionPlaceholder: "Votre question ...",
+      stopGenerationButton : "Interrompre",
+      answerGenerationText : "Génération de la réponse...",
+      unauthentifiedConnection : "Votre connexion n'est pas authentifiée. Accès interdit.",
+      unauthentifiedConnectionPrecisions : "Si vous pensez que ceci est une erreur, merci de prendre contact avec votre administrateur.",
+      uiChatTitle : "Commençons à discuter !",
+      uiChatDescription : "Cet assistant est configuré pour répondre à vos questions.",
+      accesDenied : "Accès refusé",
+  },
+  EN:{
+      tokensExpired : "Your AskMe token balance has expired. Please contact your administrator to be able to use AskMe again.",
+      tokenRetrievalError : "Error retrieving token balance. Please contact an administrator.",
+      tokenExpirationWarning : "Your AskMe token balance is about to expire. Please contact your administrator to continue using AskMe.",
+      yourQuestionPlaceholder: "Your question ...",
+      stopGenerationButton : "Stop generation",
+      answerGenerationText : "Answer generation...",
+      unauthentifiedConnection : "Your connection is not authenticated. Access denied.",
+      unauthentifiedConnectionPrecisions : "If you believe this is an error, please contact your administrator.",
+      uiChatTitle : "Let's chat !",
+      uiChatDescription : "This assistant is configured to answer your questions.",
+      accesDenied : "Acces denied",
+
+  }
+  
+ });
+
+ 
 export default Chat

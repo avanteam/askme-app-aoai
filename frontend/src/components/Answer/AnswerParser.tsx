@@ -45,6 +45,20 @@ export function parseAnswer(answer: AskResponse): ParsedAnswer {
 
   filteredCitations = enumerateCitations(filteredCitations)
 
+  /* Remplacement des liens pour ouvrir les documents */
+  const matchesIdDocs = answerText.matchAll(/\[iddoc\|([^|]+)\|([^|]+)\]/g);
+
+  for (const matchIdDoc of matchesIdDocs) {
+      const idDuDoc = matchIdDoc[1]; // Premier groupe capturé (ID_DU_DOC)
+      const refDuDoc = matchIdDoc[2]; // Deuxième groupe capturé (REF_DU_DOC)
+
+      // Action personnalisée
+      answerText = answerText.replaceAll(
+          `[iddoc|${idDuDoc}|${refDuDoc}]`,
+          `[${refDuDoc}](${idDuDoc})`
+      );
+  }
+
   return {
     citations: filteredCitations,
     markdownFormatText: answerText,

@@ -207,9 +207,9 @@
   padding: 5px 16px;
   gap: 4px;
   position: absolute;
-  width: 161px;
+  /* width: 161px; */
   height: 32px;
-  left: calc(50% - 161px / 2 + 25.8px);
+  left: calc(50% - 190px/2);
   bottom: 116px;
   border: 1px solid #d1d1d1;
   border-radius: 16px;
@@ -222,7 +222,7 @@
 }
 
 .stopGeneratingText {
-  width: 103px;
+  /* width: 103px; */
   height: 20px;
   font-style: normal;
   font-weight: 600;

@@ -5,6 +5,18 @@ import logging
 import uuid
 import httpx
 import asyncio
+
+import requests
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
+import base64
+from datetime import datetime
+from hashlib import sha256
+
+from requests.adapters import HTTPAdapter, Retry
+
 from quart import (
     Blueprint,
     Quart,
@@ -101,6 +113,7 @@ frontend_settings = {
         "chat_description": app_settings.ui.chat_description,
         "show_share_button": app_settings.ui.show_share_button,
         "show_chat_history_button": app_settings.ui.show_chat_history_button,
+        "avanteam_url_base": app_settings.custom_avanteam_settings.url_base,
     },
     "sanitize_answer": app_settings.base_settings.sanitize_answer,
     "oyd_enabled": app_settings.base_settings.datasource_type,
@@ -206,7 +219,7 @@ async def init_cosmosdb_client():
     return cosmos_conversation_client
 
 
-def prepare_model_args(request_body, request_headers):
+def prepare_model_args(request_body, request_headers, shouldStream = True):
     request_messages = request_body.get("messages", [])
     messages = []
     if not app_settings.datasource:
@@ -249,7 +262,7 @@ def prepare_model_args(request_body, request_headers):
         "max_tokens": app_settings.azure_openai.max_tokens,
         "top_p": app_settings.azure_openai.top_p,
         "stop": app_settings.azure_openai.stop_sequence,
-        "stream": app_settings.azure_openai.stream,
+        "stream": shouldStream,
         "model": app_settings.azure_openai.model,
         "user": user_json
     }
@@ -335,7 +348,7 @@ async def promptflow_request(request):
         logging.error(f"An error occurred while making promptflow_request: {e}")
 
 
-async def send_chat_request(request_body, request_headers):
+async def send_chat_request(request_body, request_headers, shouldStream = True):
     filtered_messages = []
     messages = request_body.get("messages", [])
     for message in messages:
@@ -343,7 +356,7 @@ async def send_chat_request(request_body, request_headers):
             filtered_messages.append(message)
             
     request_body['messages'] = filtered_messages
-    model_args = prepare_model_args(request_body, request_headers)
+    model_args = prepare_model_args(request_body, request_headers, shouldStream)
 
     try:
         azure_openai_client = await init_openai_client()
@@ -368,7 +381,7 @@ async def complete_chat_request(request_body, request_headers):
             app_settings.promptflow.citations_field_name
         )
     else:
-        response, apim_request_id = await send_chat_request(request_body, request_headers)
+        response, apim_request_id = await send_chat_request(request_body, request_headers, False)
         history_metadata = request_body.get("history_metadata", {})
         return format_non_streaming_response(response, history_metadata, apim_request_id)
 
@@ -383,10 +396,36 @@ async def stream_chat_request(request_body, request_headers):
 
     return generate()
 
-
-async def conversation_internal(request_body, request_headers):
+def LogCallToAiManager(request_body):
+    
     try:
-        if app_settings.azure_openai.stream and not app_settings.base_settings.use_promptflow:
+        if (app_settings.custom_avanteam_settings.licencehub_key is None or app_settings.custom_avanteam_settings.licencehub_key == ""):
+            return jsonify({"status":"ERR", "details":"AVANTEAM_LICENCEHUB_KEY n'est pas défini"}), 200
+
+        logContent = {
+            'licenceHubKey' : app_settings.custom_avanteam_settings.licencehub_key,
+            'who' : request_body.get("currentUser", "-"),
+            'messages' : json.dumps(request_body.get("messages", [])) 
+        }
+
+        query_params = {
+            'q': 'LogAskMeCall',
+            'logContent': encrypt_string(json.dumps(logContent))
+        }
+
+        response = requests.get(app_settings.custom_avanteam_settings.licencehub_handlerurl, params=query_params)
+        response.raise_for_status()  # raise an exception for HTTP errors
+
+    except Exception as e:
+        return jsonify({"status":"ERR", "details":str(e)}), 200
+    
+
+
+async def conversation_internal(request_body, request_headers, preventShouldStream = False):
+    try:
+        # LogCallToAiManager(request_body)
+
+        if app_settings.azure_openai.stream and not app_settings.base_settings.use_promptflow and not preventShouldStream:
             result = await stream_chat_request(request_body, request_headers)
             response = await make_response(format_as_ndjson(result))
             response.timeout = None
@@ -403,15 +442,75 @@ async def conversation_internal(request_body, request_headers):
         else:
             return jsonify({"error": str(ex)}), 500
 
+def CheckAuthenticate(request):
+    
+    if "AuthToken" in request.headers:
+        salt = datetime.now().strftime("%d%m%Y")
+        fullchain = app_settings.custom_avanteam_settings.auth_token + salt
+        shaEncoded = sha256(fullchain.encode('utf-8')).hexdigest()
+        return request.headers["AuthToken"] == shaEncoded
+    else:
+        return False
+    
+
+def GetRemainingTokens():
+    return 150000
+    if (app_settings.custom_avanteam_settings.licencehub_key is None or app_settings.custom_avanteam_settings.licencehub_key == ""):
+        return False
+
+    query_params = {
+        'q': 'GetTokensForKey',
+        'key': app_settings.custom_avanteam_settings.licencehub_key
+    }
+
+    retries = Retry(total=5, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
+    s = requests.Session()
+    s.mount('https://', HTTPAdapter(max_retries=retries))
+
+    try:
+        response = s.get(app_settings.custom_avanteam_settings.licencehub_handlerurl, params=query_params)
+        response.raise_for_status()  # raise an exception for HTTP errors
+        nb = int(response.text)
+        return nb
+    except requests.exceptions.RequestException as e:
+        logging.debug(f"Request failed: {e}")
+        return False
+
 
 @bp.route("/conversation", methods=["POST"])
 async def conversation():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if GetRemainingTokens() < 0:
+        return jsonify({"error": "No tokens left"}), 401
+    
     if not request.is_json:
         return jsonify({"error": "request must be json"}), 415
     request_json = await request.get_json()
 
     return await conversation_internal(request_json, request.headers)
 
+@bp.route("/conversation-mobile", methods=["POST"])
+async def conversation_mobile():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    if GetRemainingTokens() < 0:
+        return jsonify({"error": "No tokens left"}), 401
+    
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    request_json = await request.get_json()
+    
+    return await conversation_internal(request_json, request.headers, True)
+
+@bp.route("/authenticate", methods=["POST"])
+async def authenticate():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"status": "ko"}), 200
+
+    return jsonify({"status":"ok"}), 200
 
 @bp.route("/frontend_settings", methods=["GET"])
 def get_frontend_settings():
@@ -421,10 +520,32 @@ def get_frontend_settings():
         logging.exception("Exception in /frontend_settings")
         return jsonify({"error": str(e)}), 500
 
+@bp.route("/check-tokens", methods=["POST"])
+async def check_tokens():
+
+    try:
+        if (app_settings.custom_avanteam_settings.licencehub_key is None or app_settings.custom_avanteam_settings.licencehub_key == ""):
+            return jsonify({"status":"ERR", "details":"AVANTEAM_LICENCEHUB_KEY n'est pas défini"}), 200
+
+        nb = GetRemainingTokens()
+        logging.debug(f"Récupération des tokens : {nb}")
+        if (nb <= 0):
+            return jsonify({"status":"KO"}), 200
+        elif (nb <= app_settings.custom_avanteam_settings.threshold_remaining_alert):
+            return jsonify({"status":"WARN"}), 200
+        else:
+            return jsonify({"status":"OK"}), 200
+        
+
+    except Exception as e:
+        return jsonify({"status":"ERR", "details":str(e)}), 200
+    
 
 ## Conversation History API ##
-@bp.route("/history/generate", methods=["POST"])
+# @bp.route("/history/generate", methods=["POST"])
 async def add_conversation():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
@@ -479,8 +600,10 @@ async def add_conversation():
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/history/update", methods=["POST"])
+# @bp.route("/history/update", methods=["POST"])
 async def update_conversation():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
@@ -529,8 +652,10 @@ async def update_conversation():
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/history/message_feedback", methods=["POST"])
+# @bp.route("/history/message_feedback", methods=["POST"])
 async def update_message():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
@@ -575,8 +700,10 @@ async def update_message():
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/history/delete", methods=["DELETE"])
+# @bp.route("/history/delete", methods=["DELETE"])
 async def delete_conversation():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     ## get the user id from the request headers
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
@@ -618,8 +745,10 @@ async def delete_conversation():
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/history/list", methods=["GET"])
+# @bp.route("/history/list", methods=["GET"])
 async def list_conversations():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     offset = request.args.get("offset", 0)
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
@@ -641,8 +770,10 @@ async def list_conversations():
     return jsonify(conversations), 200
 
 
-@bp.route("/history/read", methods=["POST"])
+# @bp.route("/history/read", methods=["POST"])
 async def get_conversation():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
@@ -693,8 +824,10 @@ async def get_conversation():
     return jsonify({"conversation_id": conversation_id, "messages": messages}), 200
 
 
-@bp.route("/history/rename", methods=["POST"])
+# @bp.route("/history/rename", methods=["POST"])
 async def rename_conversation():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
@@ -736,8 +869,10 @@ async def rename_conversation():
     return jsonify(updated_conversation), 200
 
 
-@bp.route("/history/delete_all", methods=["DELETE"])
+# @bp.route("/history/delete_all", methods=["DELETE"])
 async def delete_all_conversations():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     ## get the user id from the request headers
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
@@ -780,8 +915,10 @@ async def delete_all_conversations():
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/history/clear", methods=["POST"])
+# @bp.route("/history/clear", methods=["POST"])
 async def clear_messages():
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     ## get the user id from the request headers
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
@@ -820,6 +957,9 @@ async def clear_messages():
 
 @bp.route("/history/ensure", methods=["GET"])
 async def ensure_cosmos():
+    return jsonify({"error": "CosmosDB is not configured"}), 404
+    if not(CheckAuthenticate(request)):
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     if not app_settings.chat_history:
         return jsonify({"error": "CosmosDB is not configured"}), 404
@@ -881,5 +1021,35 @@ async def generate_title(conversation_messages) -> str:
         logging.exception("Exception while generating title", e)
         return messages[-2]["content"]
 
+
+def get_encryption_key():
+    # Cette fonction doit retourner la clé de chiffrement en base64, comme dans la version .NET
+    # Exemple : 'your_base64_encoded_key'
+    key_base64 = '+gSxYLZWesSFOppNJg1v7K7VvK4JzbxrLGPH+C6Ettc='
+    return base64.b64decode(key_base64)
+
+
+def encrypt_string(plain_text):
+    key = get_encryption_key()
+    iv = os.urandom(16)  # Générer un IV aléatoire de 16 octets (128 bits)
+    
+    # Créer le chiffreur AES avec la clé et l'IV
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    
+    # Appliquer le padding PKCS7
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padded_data = padder.update(plain_text.encode()) + padder.finalize()
+    
+    # Chiffrer les données
+    encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
+    
+    # Combiner l'IV et les données chiffrées
+    combined_data = iv + encrypted_data
+    
+    # Convertir le résultat en base64
+    encrypted_base64 = base64.b64encode(combined_data).decode('utf-8')
+    
+    return encrypted_base64
 
 app = create_app()

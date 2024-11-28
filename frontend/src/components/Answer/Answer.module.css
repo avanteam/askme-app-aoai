@@ -9,6 +9,7 @@
     0px 1px 2px rgba(0, 0, 0, 0.14),
     0px 0px 2px rgba(0, 0, 0, 0.12);
   border-radius: 5.419px;
+  margin-bottom: 60px;
 }
 
 .answerText {
@@ -63,7 +64,7 @@
 
 .citationWrapper {
   margin-top: 8;
-  display: flex;
+  /* display: flex; */
   flex-flow: wrap column;
   max-height: 150px;
   gap: 4px;
@@ -71,6 +72,7 @@
 
 .citationContainer {
   margin-left: 10px;
+  margin-top: 5px;
   font-style: normal;
   font-weight: 600;
   font-size: 12px;
@@ -84,6 +86,15 @@
   gap: 4px;
   border: 1px solid #d1d1d1;
   border-radius: 4px;
+
+  flex-shrink: 0; /* Empêche la réduction du conteneur citation */
+  width: 300px; /* Fixez une largeur constante pour aligner les boutons */
+  max-width: 300px; /* Assurez-vous que les citations ne débordent pas */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Ajoute "..." pour les longues citations */
+  white-space: nowrap; /* Empêche les retours à la ligne */
+
+  position:relative;
 }
 
 .citationContainer:hover {
@@ -113,6 +124,7 @@
   color: #424242;
   cursor: pointer;
 }
+
 
 .citation:hover {
   text-decoration: underline;
@@ -200,4 +212,143 @@ sup {
   .answerDisclaimer {
     margin-bottom: 5px;
   }
+}
+
+
+.citationOverlapDiv {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.divDocLink {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  margin-left: 5px;
+}
+
+.divDocLink a{
+  color: #616161;
+  font-family: "Segoe UI", "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.divDocLink a > div{
+  display: flex;    
+}
+
+.divDocLink a > div span{
+  margin-left: 5px;
+}
+/* Conteneur global */
+.referencesContainer {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 15px; /* Espacement entre les références */
+}
+
+/* Conteneur pour chaque référence */
+.referenceItem {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Espacement entre icône et texte */
+  cursor: pointer;
+}
+
+/* Dropdown principal */
+.dropdown {
+  position: relative;
+}
+
+.dropdownButton {
+  display: flex;
+  align-items: center; /* Centrer les éléments verticalement */
+  justify-content: space-between; /* Séparer le texte et la flèche si nécessaire */
+  gap: 8px; /* Espacement entre l'icône et le texte */
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 4px 6px; /* Ajustez si nécessaire */
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dropdownButton:hover {
+  background-color: #e6f7ff; /* Couleur au survol */
+}
+
+/* Menu déroulant */
+.dropdownMenu {
+  display: none; /* Masqué par défaut */
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  width: 200px;
+}
+
+/* Flèche dropdown */
+.arrow {
+  font-size: 12px;
+  color: #888;
+  margin-left: auto;
+}
+
+
+.dropdown:hover .dropdownMenu {
+  display: block; /* Affiché au survol */
+}
+
+/* Liens dans le menu déroulant */
+.dropdownLink {
+  display: flex;
+  align-items: center; /* Centrer les icônes et le texte verticalement */
+  gap: 8px; /* Espacement entre l'icône et le texte */
+  padding: 4px 8px;
+  color: #333;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.dropdownLink:hover {
+  background-color: #f0f8ff;
+}
+
+/* Icônes */
+.dropdownLink img {
+  transition: transform 0.2s;
+}
+
+.dropdownLink:hover img {
+  transform: scale(1.1); /* Agrandir légèrement au survol */
+}
+
+
+.dropdownLink {
+  display: flex;
+  align-items: center; /* Centrer les icônes et le texte verticalement */
+  gap: 8px; /* Espacement entre l'icône et le texte */
+  padding: 8px 12px;
+  color: #333;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+
+.dropdownButton img,
+.dropdownLink img {
+  width: 16px; /* Taille uniforme des icônes */
+  height: 16px;
+  object-fit: contain; /* Empêche les déformations */
 }

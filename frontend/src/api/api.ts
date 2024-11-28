@@ -2,20 +2,51 @@ import { chatHistorySampleData } from '../constants/chatHistory'
 
 import { ChatMessage, Conversation, ConversationRequest, CosmosDBHealth, CosmosDBStatus, UserInfo } from './models'
 
-export async function conversationApi(options: ConversationRequest, abortSignal: AbortSignal): Promise<Response> {
+export async function conversationApi(options: ConversationRequest, abortSignal: AbortSignal, token:string, username:string): Promise<Response> {
   const response = await fetch('/conversation', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
+      , "AuthToken":token
     },
     body: JSON.stringify({
       messages: options.messages
+      , currentUser: username
     }),
     signal: abortSignal
   })
 
   return response
 }
+
+export async function authenticate(authToken:string): Promise<boolean> {
+  const response = await fetch("/authenticate", {
+      method: "POST",
+      headers: {
+          "Content-Type": "application/json"
+          , "AuthToken":authToken
+      }
+  })
+  var resJson = await response.json();
+  return ("status" in resJson && resJson.status == "ok")
+  
+}
+
+export async function getTokenStatus(): Promise<string> {
+  const response = await fetch("/check-tokens", {
+      method: "POST",
+      headers: {
+          "Content-Type": "application/json"
+      }
+  })
+  var resJson = await response.json();
+  if ("details" in resJson){
+      console.log("Erreur lors de la récupération des tokens restants : " + resJson.details);
+  }
+  return ("status" in resJson) ? resJson.status : "ERR";
+  
+}
+
 
 export async function getUserInfo(): Promise<UserInfo[]> {
   const response = await fetch('/.auth/me')

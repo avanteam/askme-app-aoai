@@ -49,6 +49,7 @@ class _UiSettings(BaseSettings):
     favicon: str = "/favicon.ico"
     show_share_button: bool = True
     show_chat_history_button: bool = True
+    
 
 
 class _ChatHistorySettings(BaseSettings):
@@ -744,7 +745,25 @@ class _MongoDbSettings(BaseSettings, DatasourcePayloadConstructor):
             "parameters": parameters
         }
         
+
+class _CustomAvanteamSettings(BaseSettings):
+    
+    model_config = SettingsConfigDict(
+        env_prefix="AVANTEAM_",
+        env_file=DOTENV_PATH,
+        extra="ignore",
+        env_ignore_empty=True
+    )
+
+    url_base: Optional[str] = None
+    auth_token: Optional[str] = None
+    licencehub_handlerurl: Optional[str] = None
+    licencehub_key: Optional[str] = None
+    threshold_remaining_alert: Optional[int] = 100000
+    url_base: Optional[str] = None
         
+
+
 class _BaseSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=DOTENV_PATH,
@@ -763,6 +782,7 @@ class _AppSettings(BaseModel):
     azure_openai: _AzureOpenAISettings = _AzureOpenAISettings()
     search: _SearchCommonSettings = _SearchCommonSettings()
     ui: Optional[_UiSettings] = _UiSettings()
+    custom_avanteam_settings: _CustomAvanteamSettings = _CustomAvanteamSettings()
     
     # Constructed properties
     chat_history: Optional[_ChatHistorySettings] = None

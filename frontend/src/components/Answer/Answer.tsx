@@ -16,13 +16,16 @@ import { parseAnswer } from './AnswerParser'
 
 import styles from './Answer.module.css'
 
+import LocalizedStrings from 'react-localization';
+
 interface Props {
   answer: AskResponse
   onCitationClicked: (citedDocument: Citation) => void
   onExectResultClicked: (answerId: string) => void
+  language: string;
 }
 
-export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Props) => {
+export const Answer = ({ answer, onCitationClicked, onExectResultClicked, language}: Props) => {
   const initializeAnswerFeedback = (answer: AskResponse) => {
     if (answer.message_id == undefined) return undefined
     if (answer.feedback == undefined) return undefined
@@ -30,6 +33,8 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
     if (Object.values(Feedback).includes(answer.feedback)) return answer.feedback
     return Feedback.Neutral
   }
+
+  localizedStrings.setLanguage(language);
 
   const [isRefAccordionOpen, { toggle: toggleIsRefAccordionOpen }] = useBoolean(false)
   const filePathTruncationLimit = 50
@@ -44,6 +49,8 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
   const FEEDBACK_ENABLED =
     appStateContext?.state.frontendSettings?.feedback_enabled && appStateContext?.state.isCosmosDBAvailable?.cosmosDB
   const SANITIZE_ANSWER = appStateContext?.state.frontendSettings?.sanitize_answer
+
+  const ui = appStateContext?.state.frontendSettings?.ui;
 
   const handleChevronClick = () => {
     setChevronIsExpanded(!chevronIsExpanded)
@@ -151,6 +158,108 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
     setNegativeFeedbackList([])
   }
 
+  const shouldDisplayCitationLink = (citation : Citation) => {
+    
+    try{
+      
+      return (
+        ui?.avanteam_url_base != null 
+        && ui?.avanteam_url_base != undefined 
+        && ui?.avanteam_url_base != ""
+        && citation.url
+        && (
+          citation.url?.includes("iddoc_") == true 
+          || citation.url?.includes("blob.core") == true 
+          || decodeBase64String(citation.url).includes("blob.core") == true
+        )
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  const shouldDisplayAttachmentLink = (citation : Citation) => {
+    
+    try{
+
+      return (
+        ui?.avanteam_url_base != null 
+        && ui?.avanteam_url_base != undefined 
+        && ui?.avanteam_url_base != ""
+        && citation.url
+        && (
+          citation.url?.includes("blob.core") == true 
+          || decodeBase64String(citation.url).includes("blob.core") == true
+        )
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+  
+
+  const decodeBase64String = (encodedString : string)  => {
+    // Supprimer le dernier caractère de la chaîne encodée
+    var encodedStringWithoutTrailingCharacter = encodedString.slice(0, -1);
+    
+    // Décoder la chaîne Base64URL
+    var encodedBytes = atob(encodedStringWithoutTrailingCharacter.replace(/-/g, '+').replace(/_/g, '/'));
+    
+    // Décoder les octets en chaîne de caractères
+    var decodedString = decodeURIComponent(escape(encodedBytes));
+    
+    return decodedString;
+}
+
+  const handleOpenDocumentById = (id : string, action : string) => {
+    const message = {
+      action: action,
+      idDoc: id,
+    };
+    
+    // Envoi du message au parent
+    window.parent.postMessage(message, "*");
+  }
+
+  const handleOpenDocument = (citation : Citation, action : string) => {
+
+    if (citation.url != null){
+
+      var idDoc = '-';
+
+      if (citation.url.startsWith("iddoc_")){
+        idDoc = citation.url.slice(6);
+      } else {
+
+        const regex = /\/([^\/]+)\/[^\/]+$/;
+        var fileUrl = citation.url.includes("http") ? citation.url : decodeBase64String(citation.url);
+  
+        const match = fileUrl.match(regex);
+  
+        if (match && match.length > 1) {
+          idDoc = match[1]; 
+        } else {
+          console.log("Aucun code trouvé dans l'URL.");
+        }
+      }
+
+      if (idDoc != '-'){
+
+        const message = {
+          action: action,
+          idDoc: idDoc,
+        };
+        
+        // Envoi du message au parent
+        window.parent.postMessage(message, "*");
+      } else {
+        console.error("Impossible de déterminer l'id du document depuis l'URL de la citation.");
+        console.error(citation);
+      }
+    }
+      
+  }
+
   const UnhelpfulFeedbackContent = () => {
     return (
       <>
@@ -239,7 +348,28 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
           {codeString}
         </SyntaxHighlighter>
       )
-    }
+    },
+    a({ href, children }: { href?: string; children: React.ReactNode }) {
+      const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+          event.preventDefault(); // Empêche l'ouverture du lien
+          if (!href){
+            console.error("Impossible d'ouvrir le document : lien invalide ou manquant");
+          }  else {
+            console.log(`Lien cliqué : ${href}`); // Action personnalisée
+            handleOpenDocumentById(href, "OpenIdDoc");
+          }
+      };
+
+      return (
+          <a
+              href={href}
+              onClick={handleClick}
+              style={{ color: "blue", cursor: "pointer" }}
+          >
+              {children}
+          </a>
+      );
+    },
   }
   return (
     <>
@@ -324,7 +454,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
             </Stack.Item>
           )}
           <Stack.Item className={styles.answerDisclaimerContainer}>
-            <span className={styles.answerDisclaimer}>AI-generated content may be incorrect</span>
+            <span className={styles.answerDisclaimer}></span>
           </Stack.Item>
           {!!answer.exec_results?.length && (
             <Stack.Item onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? toggleIsRefAccordionOpen() : null)}>
@@ -353,7 +483,12 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
         {chevronIsExpanded && (
           <div className={styles.citationWrapper}>
             {parsedAnswer?.citations.map((citation, idx) => {
+              
+              var shouldDisplayLink = shouldDisplayCitationLink(citation);
+              var shouldDisplayAttLink = shouldDisplayAttachmentLink(citation);
+
               return (
+                <div className={styles.citationOverlapDiv}>
                 <span
                   title={createCitationFilepath(citation, ++idx)}
                   tabIndex={0}
@@ -366,6 +501,47 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
                   <div className={styles.citation}>{idx}</div>
                   {createCitationFilepath(citation, idx, true)}
                 </span>
+                { (shouldDisplayLink) &&
+                  
+                  <div className={styles.referencesContainer}>
+                    {/* Exemple pour une seule référence */}
+                    <div className={styles.referenceItem}>
+                      <div className={styles.dropdown}>
+                        <button className={styles.dropdownButton}>
+                          <img src="./static/assets/logoEye.png" height="20px" width="20px" alt="Document" />
+                          <span className={styles.arrow}>▼</span>
+                        </button>
+                        <div className={styles.dropdownMenu}>
+                          <span
+                            onClick={() => handleOpenDocument(citation, "OpenIdDoc")}
+                            role="button" // Ceci améliore l'accessibilité
+                            tabIndex={0}  // Pour le rendre focusable, accessible au clavier
+                            className={styles.dropdownLink}
+                          >
+                            <img src="./static/assets/logoDocument.png" height="16px" width="16px" alt="Ouvrir" />
+                            <span>{localizedStrings.openDocument}</span>
+                          </span>
+                          {
+                            (shouldDisplayAttLink) && 
+                            <span
+                              onClick={() => handleOpenDocument(citation, "OpenAttachmentsIdDoc")}
+                              role="button" // Ceci améliore l'accessibilité
+                              tabIndex={0}  // Pour le rendre focusable, accessible au clavier
+                              className={styles.dropdownLink}
+                            >
+                              <img src="./static/assets/logoUrl.png" height="16px" width="16px" alt="Prévisualiser" />
+                              <span>{localizedStrings.openAttachment}</span>
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                
+                
+                }    
+                </div>
               )
             })}
           </div>
@@ -412,3 +588,17 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
     </>
   )
 }
+
+
+
+let localizedStrings = new LocalizedStrings({
+  FR: {
+      openDocument : "Ouvir le document",
+      openAttachment : "Ouvir la pièce-jointe",
+  },
+  EN:{
+      openDocument : "Open document", 
+      openAttachment : "Open attachment",
+  }
+    
+    });
