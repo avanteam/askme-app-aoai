@@ -163,10 +163,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
     try{
       
       return (
-        ui?.avanteam_url_base != null 
-        && ui?.avanteam_url_base != undefined 
-        && ui?.avanteam_url_base != ""
-        && citation.url
+        citation.url
         && (
           citation.url?.includes("iddoc_") == true 
           || citation.url?.includes("blob.core") == true 
@@ -183,10 +180,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
     try{
 
       return (
-        ui?.avanteam_url_base != null 
-        && ui?.avanteam_url_base != undefined 
-        && ui?.avanteam_url_base != ""
-        && citation.url
+       citation.url
         && (
           citation.url?.includes("blob.core") == true 
           || decodeBase64String(citation.url).includes("blob.core") == true

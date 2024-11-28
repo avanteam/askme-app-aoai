@@ -755,12 +755,10 @@ class _CustomAvanteamSettings(BaseSettings):
         env_ignore_empty=True
     )
 
-    url_base: Optional[str] = None
     auth_token: Optional[str] = None
     licencehub_handlerurl: Optional[str] = None
     licencehub_key: Optional[str] = None
     threshold_remaining_alert: Optional[int] = 100000
-    url_base: Optional[str] = None
         
 
 

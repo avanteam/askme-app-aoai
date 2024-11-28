@@ -131,7 +131,6 @@ export type UI = {
   chat_logo?: string
   show_share_button?: boolean
   show_chat_history_button?: boolean
-  avanteam_url_base?: string
 }
 
 export type FrontendSettings = {
