@@ -453,7 +453,6 @@ def CheckAuthenticate(request):
     
 
 def GetRemainingTokens():
-    return 150000
     if (app_settings.custom_avanteam_settings.licencehub_key is None or app_settings.custom_avanteam_settings.licencehub_key == ""):
         return False
 
