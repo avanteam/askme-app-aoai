@@ -17,6 +17,7 @@ import { parseAnswer } from './AnswerParser'
 import styles from './Answer.module.css'
 
 import LocalizedStrings from 'react-localization';
+import rehypeRaw from 'rehype-raw'
 
 interface Props {
   answer: AskResponse
@@ -206,6 +207,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
 }
 
   const handleOpenDocumentById = (id : string, action : string) => {
+
     const message = {
       action: action,
       idDoc: id,
@@ -215,6 +217,19 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
     window.parent.postMessage(message, "*");
   }
 
+
+  const postCreateRecord = (description : string) => {
+
+    const message = {
+      action: "CreateRecord",
+      description: description,
+    };
+    
+    // Envoi du message au parent
+    window.parent.postMessage(message, "*");
+  }
+
+  
   const handleOpenDocument = (citation : Citation, action : string) => {
 
     if (citation.url != null){
@@ -343,28 +358,40 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
         </SyntaxHighlighter>
       )
     },
-    a({ href, children }: { href?: string; children: React.ReactNode }) {
-      const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-          event.preventDefault(); // Empêche l'ouverture du lien
-          if (!href){
-            console.error("Impossible d'ouvrir le document : lien invalide ou manquant");
-          }  else {
-            console.log(`Lien cliqué : ${href}`); // Action personnalisée
-            handleOpenDocumentById(href, "OpenIdDoc");
-          }
-      };
-
-      return (
-          <a
-              href={href}
-              onClick={handleClick}
-              style={{ color: "blue", cursor: "pointer" }}
+    // Gestion des éléments personnalisés créés via le parser
+    span({ className, children, ...props }: { className?: string; children: React.ReactNode; [key: string]: any }) {
+      
+      if (className === 'iddoc-link') {
+        const id = props['data-id'];
+        const ref = props['data-ref'];
+        return (
+          <span
+            {...props}
+            onClick={() => handleOpenDocumentById(id, 'OpenIdDoc')}
+            style={{ color: 'blue', cursor: 'pointer', textDecoration: 'underline'  }}
           >
-              {children}
-          </a>
-      );
+            {children} {/* Affiche le texte du lien */}
+          </span>
+        );
+      }
+  
+      if (className === 'create-record-link') {
+        const description = props['data-description'];
+        return (
+          <span
+            {...props}
+            onClick={() => postCreateRecord(description)}
+            style={{ color: 'blue', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            {children} {/* Affiche le texte du lien */}
+          </span>
+        );
+      }
+  
+      return <span {...props}>{children}</span>; // Si aucune des classes ne correspond
     },
   }
+
   return (
     <>
       <Stack className={styles.answerContainer} tabIndex={0}>
@@ -374,10 +401,15 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
               {parsedAnswer && <ReactMarkdown
                 linkTarget="_blank"
                 remarkPlugins={[remarkGfm, supersub]}
+                rehypePlugins={[rehypeRaw]}
+                /* Utilisation de sanitize, comme on utilise rehypeRax pour autoriser l'exécution des balises */
                 children={
-                  SANITIZE_ANSWER
-                    ? DOMPurify.sanitize(parsedAnswer?.markdownFormatText, { ALLOWED_TAGS: XSSAllowTags, ALLOWED_ATTR: XSSAllowAttributes })
-                    : parsedAnswer?.markdownFormatText
+                    DOMPurify.sanitize(
+                      parsedAnswer?.markdownFormatText, { 
+                        ALLOWED_TAGS: XSSAllowTags
+                        , ALLOWED_ATTR: XSSAllowAttributes }
+                    )
+
                 }
                 className={styles.answerText}
                 components={components}

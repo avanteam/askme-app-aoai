@@ -25,6 +25,7 @@ export const enumerateCitations = (citations: Citation[]) => {
 export function parseAnswer(answer: AskResponse): ParsedAnswer {
   if (typeof answer.answer !== "string") return null
   let answerText = answer.answer
+
   const citationLinks = answerText.match(/\[(doc\d\d?\d?)]/g)
 
   const lengthDocN = '[doc'.length
@@ -55,7 +56,20 @@ export function parseAnswer(answer: AskResponse): ParsedAnswer {
       // Action personnalisée
       answerText = answerText.replaceAll(
           `[iddoc|${idDuDoc}|${refDuDoc}]`,
-          `[${refDuDoc}](${idDuDoc})`
+          `<span class="iddoc-link" data-id="${idDuDoc}" data-ref="${refDuDoc}">${refDuDoc}</span>`
+      );
+  }
+
+  /* Remplacement des chaînes pour créer un enregistrement */
+  const matchesCreateRecords = answerText.matchAll(/\[createRecord\|([^|]+)\|([^|]+)\]/g);
+
+  for (const matchCreateRecord of matchesCreateRecords) {
+      const titreLien = matchCreateRecord[1];
+      const description = matchCreateRecord[2];
+      // Action personnalisée
+      answerText = answerText.replaceAll(
+          `[createRecord|${titreLien}|${description}]`,
+          `<span class="create-record-link" data-title="${titreLien}" data-description="${description}">${titreLien}</span>`
       );
   }
 
