@@ -619,8 +619,8 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
 
 let localizedStrings = new LocalizedStrings({
   FR: {
-      openDocument : "Ouvir le document",
-      openAttachment : "Ouvir la pièce-jointe",
+      openDocument : "Ouvrir le document",
+      openAttachment : "Ouvrir la pièce-jointe",
   },
   EN:{
       openDocument : "Open document", 
