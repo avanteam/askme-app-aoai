@@ -19,7 +19,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Literal, Optional
 from typing_extensions import Self
 from quart import Request
-from backend.utils import parse_multi_columns, generateFilterString
+from backend.utils import parse_multi_columns, generateFilterString,generateFilterStringFromFullDef
 
 DOTENV_PATH = os.environ.get(
     "DOTENV_PATH",
@@ -277,7 +277,7 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
     authentication: Optional[dict] = None
     embedding_dependency: Optional[dict] = None
     fields_mapping: Optional[dict] = None
-    filter: Optional[str] = Field(default=None, exclude=True)
+    filter: Optional[str] = Field(default=None, exclude=False)
     
     @field_validator('content_columns', 'vector_columns', mode="before")
     @classmethod
@@ -330,16 +330,24 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
             return filter_string
         
         return None
+    
+    def _set_filter_string_from_fulldef(self, fulldef: str) -> str:
+        if self.permitted_groups_column:
+            filter_string = generateFilterStringFromFullDef(fulldef)
+            logging.debug(f"FILTER: {filter_string}")
+            return filter_string
+        
+        return None
             
     def construct_payload_configuration(
         self,
         *args,
         **kwargs
     ):
-        request = kwargs.pop('request', None)
-        if request and self.permitted_groups_column:
-            self.filter = self._set_filter_string(request)
-            
+        fullDef = kwargs.pop('fullDefinition', "*")
+        if fullDef and self.permitted_groups_column:
+            self.filter = self._set_filter_string_from_fulldef(fullDef)
+
         self.embedding_dependency = \
             self._settings.azure_openai.extract_embedding_dependency()
         parameters = self.model_dump(exclude_none=True, by_alias=True)

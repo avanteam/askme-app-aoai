@@ -270,7 +270,7 @@ def prepare_model_args(request_body, request_headers, shouldStream = True):
         model_args["extra_body"] = {
             "data_sources": [
                 app_settings.datasource.construct_payload_configuration(
-                    request=request
+                    fullDefinition=request_body.get("userFullDefinition", "*")
                 )
             ]
         }

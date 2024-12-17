@@ -81,6 +81,7 @@ const Chat = () => {
   const [shouldDisplayInput, setShouldDisplayInput] = useState(false);
   const [errAlertMsg, setErrAlertMsg] = useState<string>("");
   const [currentUser, setCurrentUser] = useState<string>("");
+  const [userFullDef, setUserFullDef] = useState<string>("");
   const [appReady, setAppReady] = useState(false); 
 
   const handleCloseAlert = (event?: React.SyntheticEvent | Event, reason?: string) => {
@@ -164,7 +165,9 @@ const Chat = () => {
         localizedStrings.setLanguage((event.data.Language) ? event.data.Language : 'FR');
         setCurrentUser((event.data.CurrentUser) ? event.data.CurrentUser : "Anonyme (WEB)");
 
-        // setToken(event.data.AuthToken);
+        /* Si la full definition n'est pas renseigné, on met *, qui montrera les doc accessible à tout le monde*/
+        setUserFullDef((event.data.FullDefinition) ? event.data.FullDefinition : "*");
+
 
         // Est-ce que le token pour accéder à l'appli est OK ?
         const resp = await authenticate(event.data.AuthToken);
@@ -303,7 +306,7 @@ const Chat = () => {
 
     let result = {} as ChatResponse
     try {
-      const response = await conversationApi(request, abortController.signal, getToken(), currentUser)
+      const response = await conversationApi(request, abortController.signal, getToken(), currentUser, userFullDef)
       if (response?.body) {
         const reader = response.body.getReader()
 

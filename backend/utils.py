@@ -75,6 +75,12 @@ def generateFilterString(userToken):
     return f"{AZURE_SEARCH_PERMITTED_GROUPS_COLUMN}/any(g:search.in(g, '{group_ids}'))"
 
 
+def generateFilterStringFromFullDef(fullDef):
+    splittedFullDef = fullDef.split('|')
+    group_ids = ", ".join(splittedFullDef)
+    return f"{AZURE_SEARCH_PERMITTED_GROUPS_COLUMN}/any(g:search.in(g, '{group_ids}'))"
+
+
 def format_non_streaming_response(chatCompletion, history_metadata, apim_request_id):
     response_obj = {
         "id": chatCompletion.id,

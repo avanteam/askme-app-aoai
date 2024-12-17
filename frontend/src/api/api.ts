@@ -2,7 +2,7 @@ import { chatHistorySampleData } from '../constants/chatHistory'
 
 import { ChatMessage, Conversation, ConversationRequest, CosmosDBHealth, CosmosDBStatus, UserInfo } from './models'
 
-export async function conversationApi(options: ConversationRequest, abortSignal: AbortSignal, token:string, username:string): Promise<Response> {
+export async function conversationApi(options: ConversationRequest, abortSignal: AbortSignal, token:string, username:string, userFullDefinition:string): Promise<Response> {
   const response = await fetch('/conversation', {
     method: 'POST',
     headers: {
@@ -12,6 +12,7 @@ export async function conversationApi(options: ConversationRequest, abortSignal:
     body: JSON.stringify({
       messages: options.messages
       , currentUser: username
+      , userFullDefinition: userFullDefinition
     }),
     signal: abortSignal
   })
