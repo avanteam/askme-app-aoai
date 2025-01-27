@@ -540,7 +540,7 @@ async def check_tokens():
     
 
 ## Conversation History API ##
-# @bp.route("/history/generate", methods=["POST"])
+@bp.route("/history/generate", methods=["POST"])
 async def add_conversation():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
@@ -598,7 +598,7 @@ async def add_conversation():
         return jsonify({"error": str(e)}), 500
 
 
-# @bp.route("/history/update", methods=["POST"])
+@bp.route("/history/update", methods=["POST"])
 async def update_conversation():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
@@ -650,7 +650,7 @@ async def update_conversation():
         return jsonify({"error": str(e)}), 500
 
 
-# @bp.route("/history/message_feedback", methods=["POST"])
+@bp.route("/history/message_feedback", methods=["POST"])
 async def update_message():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
@@ -698,7 +698,7 @@ async def update_message():
         return jsonify({"error": str(e)}), 500
 
 
-# @bp.route("/history/delete", methods=["DELETE"])
+@bp.route("/history/delete", methods=["DELETE"])
 async def delete_conversation():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
@@ -743,7 +743,7 @@ async def delete_conversation():
         return jsonify({"error": str(e)}), 500
 
 
-# @bp.route("/history/list", methods=["GET"])
+@bp.route("/history/list", methods=["GET"])
 async def list_conversations():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
@@ -768,7 +768,7 @@ async def list_conversations():
     return jsonify(conversations), 200
 
 
-# @bp.route("/history/read", methods=["POST"])
+@bp.route("/history/read", methods=["POST"])
 async def get_conversation():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
@@ -822,7 +822,7 @@ async def get_conversation():
     return jsonify({"conversation_id": conversation_id, "messages": messages}), 200
 
 
-# @bp.route("/history/rename", methods=["POST"])
+@bp.route("/history/rename", methods=["POST"])
 async def rename_conversation():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
@@ -867,7 +867,7 @@ async def rename_conversation():
     return jsonify(updated_conversation), 200
 
 
-# @bp.route("/history/delete_all", methods=["DELETE"])
+@bp.route("/history/delete_all", methods=["DELETE"])
 async def delete_all_conversations():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
@@ -913,7 +913,7 @@ async def delete_all_conversations():
         return jsonify({"error": str(e)}), 500
 
 
-# @bp.route("/history/clear", methods=["POST"])
+@bp.route("/history/clear", methods=["POST"])
 async def clear_messages():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
@@ -955,7 +955,7 @@ async def clear_messages():
 
 @bp.route("/history/ensure", methods=["GET"])
 async def ensure_cosmos():
-    return jsonify({"error": "CosmosDB is not configured"}), 404
+    # return jsonify({"error": "CosmosDB is not configured"}), 404
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()

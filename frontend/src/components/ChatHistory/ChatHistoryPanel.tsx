@@ -1,4 +1,4 @@
-import { useContext } from 'react'
+import { useContext, useEffect } from 'react'
 import React from 'react'
 import {
   CommandBarButton,
@@ -26,6 +26,8 @@ import ChatHistoryList from './ChatHistoryList'
 
 import styles from './ChatHistoryPanel.module.css'
 
+import LocalizedStrings from 'react-localization';
+
 interface ChatHistoryPanelProps {}
 
 export enum ChatHistoryPanelTabs {
@@ -43,6 +45,40 @@ const commandBarStyle: ICommandBarStyles = {
 
 const commandBarButtonStyle: Partial<IStackStyles> = { root: { height: '50px' } }
 
+const localizedStrings = new LocalizedStrings({
+  FR: {
+    clearAllConfirmation : "Etes-vous sûr de vouloir effacer tout l'historique ?",
+    cleaningAllError : "Erreur lors de la suppression de l'historique",
+    close: 'Fermer',
+    historyWillBeRemoved: "Tout l'historique sera effacé définitivement.",
+    pleaseTryAgain: 'Veuillez réessayer. Si le problème persiste, merci de contacter un administrateur.',
+    clearAllChatLabel: "Supprimer tout l'historique",
+    chathistoryLabel: 'Historique du chat',
+    hide: 'Masquer',
+    loadError: "Erreur de chargement de l'historique",
+    loadingHistory: "Chargement de l'historique",
+    clearAll: 'Tout nettoyer',
+    cancel: 'Annuler'
+
+  },
+  EN: {
+    clearAllConfirmation : 'Are you sure you want to clear all chat history?',
+    cleaningAllError : 'Error deleting all of chat history',
+    close: 'Close',
+    historyWillBeRemoved: 'All chat history will be permanently removed.',
+    pleaseTryAgain: 'Please try again. If the problem persists, please contact the site administrator.',
+    clearAllChatLabel: 'Clear all chat history',
+    chathistoryLabel: 'Chat history',
+    hide: 'Hide',
+    loadError: 'Error loading chat history',
+    loadingHistory: 'Loading chat history',
+    clearAll: 'Clear all',
+    cancel: 'Cancel'
+
+},
+  
+ });
+
 export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
   const appStateContext = useContext(AppStateContext)
   const [showContextualMenu, setShowContextualMenu] = React.useState(false)
@@ -52,12 +88,18 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
 
   const clearAllDialogContentProps = {
     type: DialogType.close,
-    title: !clearingError ? 'Are you sure you want to clear all chat history?' : 'Error deleting all of chat history',
-    closeButtonAriaLabel: 'Close',
+    title: !clearingError ? localizedStrings.clearAllConfirmation : localizedStrings.cleaningAllError,
+    closeButtonAriaLabel: localizedStrings.close,
     subText: !clearingError
-      ? 'All chat history will be permanently removed.'
-      : 'Please try again. If the problem persists, please contact the site administrator.'
+      ? localizedStrings.historyWillBeRemoved
+      : localizedStrings.pleaseTryAgain
   }
+
+  useEffect(() => {
+    localizedStrings.setLanguage((appStateContext?.state.userLanguage) ? appStateContext?.state.userLanguage : 'FR');
+
+  }, [appStateContext?.state.userLanguage])
+
 
   const modalProps = {
     titleAriaId: 'labelId',
@@ -67,7 +109,7 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
   }
 
   const menuItems: IContextualMenuItem[] = [
-    { key: 'clearAll', text: 'Clear all chat history', iconProps: { iconName: 'Delete' } }
+    { key: 'clearAll', text: localizedStrings.clearAllChatLabel, iconProps: { iconName: 'Delete' } }
   ]
 
   const handleHistoryClick = () => {
@@ -83,12 +125,15 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
 
   const onClearAllChatHistory = async () => {
     setClearing(true)
-    const response = await historyDeleteAll()
-    if (!response.ok) {
-      setClearingError(true)
-    } else {
-      appStateContext?.dispatch({ type: 'DELETE_CHAT_HISTORY' })
-      toggleClearAllDialog()
+    if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != "" ){
+
+      const response = await historyDeleteAll(appStateContext?.state.authToken)
+      if (!response.ok) {
+        setClearingError(true)
+      } else {
+        appStateContext?.dispatch({ type: 'DELETE_CHAT_HISTORY' })
+        toggleClearAllDialog()
+      }
     }
     setClearing(false)
   }
@@ -116,14 +161,14 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
               marginRight: 'auto',
               paddingLeft: '20px'
             }}>
-            Chat history
+            {localizedStrings.chathistoryLabel}
           </Text>
         </StackItem>
         <Stack verticalAlign="start">
           <Stack horizontal styles={commandBarButtonStyle}>
             <CommandBarButton
               iconProps={{ iconName: 'More' }}
-              title={'Clear all chat history'}
+              title={localizedStrings.clearAllChatLabel}
               onClick={onShowContextualMenu}
               aria-label={'clear all chat history'}
               styles={commandBarStyle}
@@ -139,7 +184,7 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
             />
             <CommandBarButton
               iconProps={{ iconName: 'Cancel' }}
-              title={'Hide'}
+              title={localizedStrings.hide}
               onClick={handleHistoryClick}
               aria-label={'hide button'}
               styles={commandBarStyle}
@@ -179,7 +224,7 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
                         {appStateContext?.state.isCosmosDBAvailable?.status && (
                           <span>{appStateContext?.state.isCosmosDBAvailable?.status}</span>
                         )}
-                        {!appStateContext?.state.isCosmosDBAvailable?.status && <span>Error loading chat history</span>}
+                        {!appStateContext?.state.isCosmosDBAvailable?.status && <span>{localizedStrings.loadError}</span>}
                       </Text>
                     </StackItem>
                     <StackItem>
@@ -207,7 +252,7 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
                   </StackItem>
                   <StackItem>
                     <Text style={{ alignSelf: 'center', fontWeight: '400', fontSize: 14 }}>
-                      <span style={{ whiteSpace: 'pre-wrap' }}>Loading chat history</span>
+                      <span style={{ whiteSpace: 'pre-wrap' }}>{localizedStrings.loadingHistory}</span>
                     </Text>
                   </StackItem>
                 </Stack>
@@ -222,11 +267,11 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
         dialogContentProps={clearAllDialogContentProps}
         modalProps={modalProps}>
         <DialogFooter>
-          {!clearingError && <PrimaryButton onClick={onClearAllChatHistory} disabled={clearing} text="Clear All" />}
+          {!clearingError && <PrimaryButton onClick={onClearAllChatHistory} disabled={clearing} text={localizedStrings.clearAll} />}
           <DefaultButton
             onClick={onHideClearAllDialog}
             disabled={clearing}
-            text={!clearingError ? 'Cancel' : 'Close'}
+            text={!clearingError ? localizedStrings.cancel : localizedStrings.close}
           />
         </DialogFooter>
       </Dialog>

@@ -26,6 +26,8 @@ import { GroupedChatHistory } from './ChatHistoryList'
 
 import styles from './ChatHistoryPanel.module.css'
 
+import LocalizedStrings from 'react-localization';
+
 interface ChatHistoryListItemCellProps {
   item?: Conversation
   onSelect: (item: Conversation | null) => void
@@ -64,9 +66,9 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
   const isSelected = item?.id === appStateContext?.state.currentChat?.id
   const dialogContentProps = {
     type: DialogType.close,
-    title: 'Are you sure you want to delete this item?',
-    closeButtonAriaLabel: 'Close',
-    subText: 'The history of this chat session will permanently removed.'
+    title: localizedStrings.deleteConfirmation,
+    closeButtonAriaLabel: localizedStrings.close,
+    subText: localizedStrings.warningDeletion
   }
 
   const modalProps = {
@@ -79,6 +81,11 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
   if (!item) {
     return null
   }
+
+  useEffect(() => {
+    localizedStrings.setLanguage((appStateContext?.state.userLanguage) ? appStateContext?.state.userLanguage : 'FR');
+
+  }, [appStateContext?.state.userLanguage])
 
   useEffect(() => {
     if (textFieldFocused && textFieldRef.current) {
@@ -95,16 +102,19 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
   }, [appStateContext?.state.currentChat?.id, item?.id])
 
   const onDelete = async () => {
-    const response = await historyDelete(item.id)
-    if (!response.ok) {
-      setErrorDelete(true)
-      setTimeout(() => {
-        setErrorDelete(false)
-      }, 5000)
-    } else {
-      appStateContext?.dispatch({ type: 'DELETE_CHAT_ENTRY', payload: item.id })
+    if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != ""){
+
+      const response = await historyDelete(item.id, appStateContext?.state.authToken)
+      if (!response.ok) {
+        setErrorDelete(true)
+        setTimeout(() => {
+          setErrorDelete(false)
+        }, 5000)
+      } else {
+        appStateContext?.dispatch({ type: 'DELETE_CHAT_ENTRY', payload: item.id })
+      }
+      toggleDeleteDialog()
     }
-    toggleDeleteDialog()
   }
 
   const onEdit = () => {
@@ -121,37 +131,39 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
   const truncatedTitle = item?.title?.length > 28 ? `${item.title.substring(0, 28)} ...` : item.title
 
   const handleSaveEdit = async (e: any) => {
-    e.preventDefault()
-    if (errorRename || renameLoading) {
-      return
-    }
-    if (editTitle == item.title) {
-      setErrorRename('Error: Enter a new title to proceed.')
-      setTimeout(() => {
-        setErrorRename(undefined)
-        setTextFieldFocused(true)
-        if (textFieldRef.current) {
-          textFieldRef.current.focus()
-        }
-      }, 5000)
-      return
-    }
-    setRenameLoading(true)
-    const response = await historyRename(item.id, editTitle)
-    if (!response.ok) {
-      setErrorRename('Error: could not rename item')
-      setTimeout(() => {
-        setTextFieldFocused(true)
-        setErrorRename(undefined)
-        if (textFieldRef.current) {
-          textFieldRef.current.focus()
-        }
-      }, 5000)
-    } else {
-      setRenameLoading(false)
-      setEdit(false)
-      appStateContext?.dispatch({ type: 'UPDATE_CHAT_TITLE', payload: { ...item, title: editTitle } as Conversation })
-      setEditTitle('')
+    if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != ""){
+      e.preventDefault()
+      if (errorRename || renameLoading) {
+        return
+      }
+      if (editTitle == item.title) {
+        setErrorRename(localizedStrings.enterNewTitle)
+        setTimeout(() => {
+          setErrorRename(undefined)
+          setTextFieldFocused(true)
+          if (textFieldRef.current) {
+            textFieldRef.current.focus()
+          }
+        }, 5000)
+        return
+      }
+      setRenameLoading(true)
+      const response = await historyRename(item.id, editTitle, appStateContext?.state.authToken)
+      if (!response.ok) {
+        setErrorRename(localizedStrings.errorRename)
+        setTimeout(() => {
+          setTextFieldFocused(true)
+          setErrorRename(undefined)
+          if (textFieldRef.current) {
+            textFieldRef.current.focus()
+          }
+        }, 5000)
+      } else {
+        setRenameLoading(false)
+        setEdit(false)
+        appStateContext?.dispatch({ type: 'UPDATE_CHAT_TITLE', payload: { ...item, title: editTitle } as Conversation })
+        setEditTitle('')
+      }
     }
   }
 
@@ -253,14 +265,14 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
                 <IconButton
                   className={styles.itemButton}
                   iconProps={{ iconName: 'Delete' }}
-                  title="Delete"
+                  title={localizedStrings.delete}
                   onClick={toggleDeleteDialog}
                   onKeyDown={e => (e.key === ' ' ? toggleDeleteDialog() : null)}
                 />
                 <IconButton
                   className={styles.itemButton}
                   iconProps={{ iconName: 'Edit' }}
-                  title="Edit"
+                  title={localizedStrings.rename}
                   onClick={onEdit}
                   onKeyDown={e => (e.key === ' ' ? onEdit() : null)}
                 />
@@ -274,7 +286,7 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
           styles={{
             root: { color: 'red', marginTop: 5, fontSize: 14 }
           }}>
-          Error: could not delete item
+          {localizedStrings.errorDeletion}
         </Text>
       )}
       <Dialog
@@ -283,13 +295,41 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
         dialogContentProps={dialogContentProps}
         modalProps={modalProps}>
         <DialogFooter>
-          <PrimaryButton onClick={onDelete} text="Delete" />
-          <DefaultButton onClick={toggleDeleteDialog} text="Cancel" />
+          <PrimaryButton onClick={onDelete} text={localizedStrings.delete} />
+          <DefaultButton onClick={toggleDeleteDialog} text={localizedStrings.cancel} />
         </DialogFooter>
       </Dialog>
     </Stack>
   )
 }
+
+let localizedStrings = new LocalizedStrings({
+  FR: {
+    deleteConfirmation : 'Etes vous sûr de vouloir supprimer cet élément ?',
+    close: 'Fermer',
+    warningDeletion: "Cet historique de chat sera supprimé définitivement",
+    enterNewTitle: "Erreur : Merci d'entrer un nouveau titre.",
+    errorRename: "Erreur : impossible de renommer l'élément",
+    delete: "Supprimer",
+    rename: "Renommer",
+    errorDeletion: "Erreur : impossible de supprimer l'élément",
+    cancel: 'Annuler'
+
+  },
+  EN: {
+    deleteConfirmation : 'Are you sure you want to delete this item?',
+    close: 'Close',
+    warningDeletion: 'The history of this chat session will permanently removed.',
+    enterNewTitle: 'Error: Enter a new title to proceed.',
+    errorRename: 'Error: could not rename item',
+    delete: 'Delete',
+    rename: 'Rename',
+    errorDeletion: "Error: could not delete item",
+    cancel: 'Cancel'
+},
+  
+ });
+
 
 export const ChatHistoryListItemGroups: React.FC<ChatHistoryListItemGroupsProps> = ({ groupedChatHistory }) => {
   const appStateContext = useContext(AppStateContext)
@@ -322,17 +362,19 @@ export const ChatHistoryListItemGroups: React.FC<ChatHistoryListItemGroupsProps>
   const handleFetchHistory = async () => {
     const currentChatHistory = appStateContext?.state.chatHistory
     setShowSpinner(true)
+    if (appStateContext?.state.authToken != undefined && appStateContext?.state?.authToken != ""){
 
-    await historyList(offset).then(response => {
-      const concatenatedChatHistory = currentChatHistory && response && currentChatHistory.concat(...response)
-      if (response) {
-        appStateContext?.dispatch({ type: 'FETCH_CHAT_HISTORY', payload: concatenatedChatHistory || response })
-      } else {
-        appStateContext?.dispatch({ type: 'FETCH_CHAT_HISTORY', payload: null })
-      }
-      setShowSpinner(false)
-      return response
-    })
+      await historyList(offset, appStateContext?.state?.authToken).then(response => {
+        const concatenatedChatHistory = currentChatHistory && response && currentChatHistory.concat(...response)
+        if (response) {
+          appStateContext?.dispatch({ type: 'FETCH_CHAT_HISTORY', payload: concatenatedChatHistory || response })
+        } else {
+          appStateContext?.dispatch({ type: 'FETCH_CHAT_HISTORY', payload: null })
+        }
+        setShowSpinner(false)
+        return response
+      })
+    }
   }
 
   useEffect(() => {

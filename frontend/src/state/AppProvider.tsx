@@ -30,6 +30,8 @@ export interface AppState {
   feedbackState: { [answerId: string]: Feedback.Neutral | Feedback.Positive | Feedback.Negative }
   isLoading: boolean;
   answerExecResult: { [answerId: string]: [] }
+  authToken: string;
+  userLanguage: string;
 }
 
 export type Action =
@@ -51,6 +53,8 @@ export type Action =
   }
   | { type: 'GET_FEEDBACK_STATE'; payload: string }
   | { type: 'SET_ANSWER_EXEC_RESULT'; payload: { answerId: string, exec_result: [] } }
+  | { type: 'SET_AUTH_TOKEN'; payload: string }
+  | { type: 'SET_USER_LANGUAGE'; payload: string }
 
 const initialState: AppState = {
   isChatHistoryOpen: false,
@@ -66,6 +70,8 @@ const initialState: AppState = {
   feedbackState: {},
   isLoading: true,
   answerExecResult: {},
+  authToken: "",
+  userLanguage: "FR"
 }
 
 export const AppStateContext = createContext<
@@ -86,7 +92,7 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
   useEffect(() => {
     // Check for cosmosdb config and fetch initial data here
     const fetchChatHistory = async (offset = 0): Promise<Conversation[] | null> => {
-      const result = await historyList(offset)
+      const result = await historyList(offset, state.authToken)
         .then(response => {
           if (response) {
             dispatch({ type: 'FETCH_CHAT_HISTORY', payload: response })
@@ -104,43 +110,47 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
       return result
     }
 
-    const getHistoryEnsure = async () => {
+    const getHistoryEnsure = async (token:string) => {
+      if (!state.authToken) return; // Ne rien faire si le token n'est pas défini
+
       dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Loading })
-      historyEnsure()
-        .then(response => {
-          if (response?.cosmosDB) {
-            fetchChatHistory()
-              .then(res => {
-                if (res) {
-                  dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Success })
-                  dispatch({ type: 'SET_COSMOSDB_STATUS', payload: response })
-                } else {
-                  dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
-                  dispatch({
-                    type: 'SET_COSMOSDB_STATUS',
-                    payload: { cosmosDB: false, status: CosmosDBStatus.NotWorking }
-                  })
-                }
-              })
-              .catch(_err => {
+      historyEnsure(token)
+      .then(response => {
+        if (response?.cosmosDB) {
+          fetchChatHistory()
+            .then(res => {
+              if (res) {
+                dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Success })
+                dispatch({ type: 'SET_COSMOSDB_STATUS', payload: response })
+              } else {
                 dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
                 dispatch({
                   type: 'SET_COSMOSDB_STATUS',
                   payload: { cosmosDB: false, status: CosmosDBStatus.NotWorking }
                 })
+              }
+            })
+            .catch(_err => {
+              dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
+              dispatch({
+                type: 'SET_COSMOSDB_STATUS',
+                payload: { cosmosDB: false, status: CosmosDBStatus.NotWorking }
               })
-          } else {
-            dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
-            dispatch({ type: 'SET_COSMOSDB_STATUS', payload: response })
-          }
-        })
-        .catch(_err => {
+            })
+        } else {
           dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
-          dispatch({ type: 'SET_COSMOSDB_STATUS', payload: { cosmosDB: false, status: CosmosDBStatus.NotConfigured } })
-        })
+          dispatch({ type: 'SET_COSMOSDB_STATUS', payload: response })
+        }
+      })
+      .catch(_err => {
+        dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
+        dispatch({ type: 'SET_COSMOSDB_STATUS', payload: { cosmosDB: false, status: CosmosDBStatus.NotConfigured } })
+      })
     }
-    getHistoryEnsure()
-  }, [])
+
+    getHistoryEnsure(state.authToken)
+    
+  }, [state.authToken])
 
   useEffect(() => {
     const getFrontendSettings = async () => {

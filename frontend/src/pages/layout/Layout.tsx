@@ -10,13 +10,15 @@ import { AppStateContext } from '../../state/AppProvider'
 
 import styles from './Layout.module.css'
 
+import LocalizedStrings from 'react-localization';
+
 const Layout = () => {
   const [isSharePanelOpen, setIsSharePanelOpen] = useState<boolean>(false)
   const [copyClicked, setCopyClicked] = useState<boolean>(false)
-  const [copyText, setCopyText] = useState<string>('Copy URL')
-  const [shareLabel, setShareLabel] = useState<string | undefined>('Share')
-  const [hideHistoryLabel, setHideHistoryLabel] = useState<string>('Masquer historique')
-  const [showHistoryLabel, setShowHistoryLabel] = useState<string>('Afficher historique')
+  const [copyText, setCopyText] = useState<string>(localizedStrings.copyUrl)
+  const [shareLabel, setShareLabel] = useState<string | undefined>(localizedStrings.share)
+  const [hideHistoryLabel, setHideHistoryLabel] = useState<string>(localizedStrings.hideHistory)
+  const [showHistoryLabel, setShowHistoryLabel] = useState<string>(localizedStrings.showHistory)
   const [logo, setLogo] = useState('')
   const appStateContext = useContext(AppStateContext)
   const ui = appStateContext?.state.frontendSettings?.ui
@@ -28,7 +30,7 @@ const Layout = () => {
   const handleSharePanelDismiss = () => {
     setIsSharePanelOpen(false)
     setCopyClicked(false)
-    setCopyText('Copy URL')
+    setCopyText(localizedStrings.copyUrl)
   }
 
   const handleCopyClick = () => {
@@ -48,9 +50,16 @@ const Layout = () => {
 
   useEffect(() => {
     if (copyClicked) {
-      setCopyText('Copied URL')
+      setCopyText(localizedStrings.copiedUrl)
     }
   }, [copyClicked])
+
+  useEffect(() => {
+    localizedStrings.setLanguage((appStateContext?.state.userLanguage) ? appStateContext?.state.userLanguage : 'FR');
+    setShareLabel(localizedStrings.share)
+    setHideHistoryLabel(localizedStrings.hideHistory)
+    setShowHistoryLabel(localizedStrings.showHistory)
+   }, [appStateContext?.state.userLanguage])
 
   useEffect(() => { }, [appStateContext?.state.isCosmosDBAvailable.status])
 
@@ -58,12 +67,12 @@ const Layout = () => {
     const handleResize = () => {
       if (window.innerWidth < 480) {
         setShareLabel(undefined)
-        setHideHistoryLabel('Masquer historique')
-        setShowHistoryLabel('Afficher historique')
+        setHideHistoryLabel(localizedStrings.hideHistory)
+        setShowHistoryLabel(localizedStrings.showHistory)
       } else {
-        setShareLabel('Share')
-        setHideHistoryLabel('Masquer historique')
-        setShowHistoryLabel('Afficher historique')
+        setShareLabel(localizedStrings.share)
+        setHideHistoryLabel(localizedStrings.hideHistory)
+        setShowHistoryLabel(localizedStrings.showHistory)
       }
     }
 
@@ -115,7 +124,7 @@ const Layout = () => {
           ]
         }}
         dialogContentProps={{
-          title: 'Share the web app',
+          title: localizedStrings.shareWebApp,
           showCloseButton: true
         }}>
         <Stack horizontal verticalAlign="center" style={{ gap: '8px' }}>
@@ -135,5 +144,25 @@ const Layout = () => {
     </div>
   )
 }
+
+let localizedStrings = new LocalizedStrings({
+  FR: {
+      hideHistory : "Masquer historique",
+      showHistory : "Afficher historique",
+      copyUrl : "Copier l'URL",
+      copiedUrl : "URL copiée",
+      share : "Partager",
+      shareWebApp: "Partager l'app web"
+  },
+  EN: {
+    hideHistory : "Hide history",
+    showHistory : "Show history",
+    copyUrl : "Copy URL",
+    copiedUrl : "Copied URL",
+    share: "Share",
+    shareWebApp: "Share the web app"
+},
+  
+ });
 
 export default Layout

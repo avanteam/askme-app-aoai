@@ -94,8 +94,8 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
   }
 
   const onLikeResponseClicked = async () => {
-    if (answer.message_id == undefined) return
-
+    if (answer.message_id == undefined) return;
+    if (appStateContext?.state.authToken == undefined || appStateContext?.state.authToken == "") return;
     let newFeedbackState = feedbackState
     // Set or unset the thumbs up state
     if (feedbackState == Feedback.Positive) {
@@ -110,11 +110,12 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
     setFeedbackState(newFeedbackState)
 
     // Update message feedback in db
-    await historyMessageFeedback(answer.message_id, newFeedbackState)
+    await historyMessageFeedback(answer.message_id, newFeedbackState, appStateContext?.state.authToken)
   }
 
   const onDislikeResponseClicked = async () => {
-    if (answer.message_id == undefined) return
+    if (answer.message_id == undefined) return;
+    if (appStateContext?.state.authToken == undefined || appStateContext?.state.authToken == "") return;
 
     let newFeedbackState = feedbackState
     if (feedbackState === undefined || feedbackState === Feedback.Neutral || feedbackState === Feedback.Positive) {
@@ -125,7 +126,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
       // Reset negative feedback to neutral
       newFeedbackState = Feedback.Neutral
       setFeedbackState(newFeedbackState)
-      await historyMessageFeedback(answer.message_id, Feedback.Neutral)
+      await historyMessageFeedback(answer.message_id, Feedback.Neutral, appStateContext?.state.authToken)
     }
     appStateContext?.dispatch({
       type: 'SET_FEEDBACK_STATE',
@@ -148,8 +149,10 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
   }
 
   const onSubmitNegativeFeedback = async () => {
-    if (answer.message_id == undefined) return
-    await historyMessageFeedback(answer.message_id, negativeFeedbackList.join(','))
+    if (answer.message_id == undefined) return;
+    if (appStateContext?.state.authToken == undefined || appStateContext?.state.authToken == "") return;
+    
+    await historyMessageFeedback(answer.message_id, negativeFeedbackList.join(','), appStateContext?.state.authToken)
     resetFeedbackDialog()
   }
 
@@ -272,36 +275,36 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
   const UnhelpfulFeedbackContent = () => {
     return (
       <>
-        <div>Why wasn't this response helpful?</div>
+        <div>{localizedStrings.labelWhy}</div>
         <Stack tokens={{ childrenGap: 4 }}>
           <Checkbox
-            label="Citations are missing"
+            label={localizedStrings.feedbackMissingCitations}
             id={Feedback.MissingCitation}
             defaultChecked={negativeFeedbackList.includes(Feedback.MissingCitation)}
             onChange={updateFeedbackList}></Checkbox>
           <Checkbox
-            label="Citations are wrong"
+            label={localizedStrings.feedbackWrongCitation}
             id={Feedback.WrongCitation}
             defaultChecked={negativeFeedbackList.includes(Feedback.WrongCitation)}
             onChange={updateFeedbackList}></Checkbox>
           <Checkbox
-            label="The response is not from my data"
+            label={localizedStrings.feedbackOutOfScope}
             id={Feedback.OutOfScope}
             defaultChecked={negativeFeedbackList.includes(Feedback.OutOfScope)}
             onChange={updateFeedbackList}></Checkbox>
           <Checkbox
-            label="Inaccurate or irrelevant"
+            label={localizedStrings.feedbackInaccurateOrIrrelevant}
             id={Feedback.InaccurateOrIrrelevant}
             defaultChecked={negativeFeedbackList.includes(Feedback.InaccurateOrIrrelevant)}
             onChange={updateFeedbackList}></Checkbox>
           <Checkbox
-            label="Other"
+            label={localizedStrings.feedbackOtherUnhelpful}
             id={Feedback.OtherUnhelpful}
             defaultChecked={negativeFeedbackList.includes(Feedback.OtherUnhelpful)}
             onChange={updateFeedbackList}></Checkbox>
         </Stack>
         <div onClick={() => setShowReportInappropriateFeedback(true)} style={{ color: '#115EA3', cursor: 'pointer' }}>
-          Report inappropriate content
+          {localizedStrings.reportInappropriateContent}
         </div>
       </>
     )
@@ -311,31 +314,31 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
     return (
       <>
         <div>
-          The content is <span style={{ color: 'red' }}>*</span>
+          {localizedStrings.feedbackInappropriateLabel}
         </div>
         <Stack tokens={{ childrenGap: 4 }}>
           <Checkbox
-            label="Hate speech, stereotyping, demeaning"
+            label={localizedStrings.feedbackInappropriateHate}
             id={Feedback.HateSpeech}
             defaultChecked={negativeFeedbackList.includes(Feedback.HateSpeech)}
             onChange={updateFeedbackList}></Checkbox>
           <Checkbox
-            label="Violent: glorification of violence, self-harm"
+            label={localizedStrings.feedbackInappropriateViolent}
             id={Feedback.Violent}
             defaultChecked={negativeFeedbackList.includes(Feedback.Violent)}
             onChange={updateFeedbackList}></Checkbox>
           <Checkbox
-            label="Sexual: explicit content, grooming"
+            label={localizedStrings.feedbackInappropriateSexual}
             id={Feedback.Sexual}
             defaultChecked={negativeFeedbackList.includes(Feedback.Sexual)}
             onChange={updateFeedbackList}></Checkbox>
           <Checkbox
-            label="Manipulative: devious, emotional, pushy, bullying"
+            label={localizedStrings.feedbackInappropriateManipulative}
             defaultChecked={negativeFeedbackList.includes(Feedback.Manipulative)}
             id={Feedback.Manipulative}
             onChange={updateFeedbackList}></Checkbox>
           <Checkbox
-            label="Other"
+            label={localizedStrings.feedbackInappropriateOther}
             id={Feedback.OtherHarmful}
             defaultChecked={negativeFeedbackList.includes(Feedback.OtherHarmful)}
             onChange={updateFeedbackList}></Checkbox>
@@ -596,18 +599,18 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
           ]
         }}
         dialogContentProps={{
-          title: 'Submit Feedback',
+          title: localizedStrings.submitFeedbakc,
           showCloseButton: true
         }}>
         <Stack tokens={{ childrenGap: 4 }}>
-          <div>Your feedback will improve this experience.</div>
+          <div>{localizedStrings.feedbackHelps}</div>
 
           {!showReportInappropriateFeedback ? <UnhelpfulFeedbackContent /> : <ReportInappropriateFeedbackContent />}
 
-          <div>By pressing submit, your feedback will be visible to the application owner.</div>
+          <div>{localizedStrings.feedbackWillBVisible}</div>
 
           <DefaultButton disabled={negativeFeedbackList.length < 1} onClick={onSubmitNegativeFeedback}>
-            Submit
+            {localizedStrings.submit}
           </DefaultButton>
         </Stack>
       </Dialog>
@@ -621,10 +624,50 @@ let localizedStrings = new LocalizedStrings({
   FR: {
       openDocument : "Ouvrir le document",
       openAttachment : "Ouvrir la pièce-jointe",
+      submitFeedbakc: "Soumette un avis",
+      feedbackHelps: "Votre feedback nous permet d'améliorer votre expérience.",
+      feedbackWillBVisible: "En validant, votre retour sera rendu visible pour les administrateurs de l'application.",
+      submit: "Soumettre",
+      // Unhelpful
+      labelWhy: "Pourquoi cette réponse n'était pas adaptée ?",
+      feedbackMissingCitations: "Manque de citations",
+      feedbackWrongCitation: "Les citations ne sont pas bonnes",
+      feedbackOutOfScope: "La réponse ne s'appuie pas sur mes données",
+      feedbackInaccurateOrIrrelevant: "Imprécis ou non pertinent",
+      feedbackOtherUnhelpful: "Autres",
+      reportInappropriateContent:"Signaler un contenu inaproprié",
+      // inapropriate
+      feedbackInappropriateLabel:"Le contenu est :",
+      feedbackInappropriateHate:"Discours de haine, stéréotypes, humiliations",
+      feedbackInappropriateViolent:"Violent : glorification de la violence ou automutilation",
+      feedbackInappropriateSexual:"Sexuel : contenu explicite, déplacé",
+      feedbackInappropriateManipulative:"Manipulateur : sournois, émotif, autoritaire, intimidant",
+      feedbackInappropriateOther:"Autres"
   },
   EN:{
       openDocument : "Open document", 
       openAttachment : "Open attachment",
+      submitFeedbakc: "Submit Feedback",
+      feedbackHelps: "Your feedback will improve this experience.",
+      feedbackWillBVisible: "By pressing submit, your feedback will be visible to the application owner.",
+      submit: "Submit",
+      // Unhelpful
+      labelWhy: "Why wasn't this response helpful ?",
+      feedbackMissingCitations: "Citations are missing",
+      feedbackWrongCitation: "Citations are wrong",
+      feedbackOutOfScope: "The response is not from my data",
+      feedbackInaccurateOrIrrelevant: "Inaccurate or irrelevant",
+      feedbackOtherUnhelpful: "Other",
+      reportInappropriateContent:"Report inappropriate content",
+      // inapropriate
+      feedbackInappropriateLabel:"The content is :",
+      feedbackInappropriateHate:"Hate speech, stereotyping, demeaning",
+      feedbackInappropriateViolent:"Violent: glorification of violence, self-harm",
+      feedbackInappropriateSexual:"Sexual: explicit content, grooming",
+      feedbackInappropriateManipulative:"Manipulative: devious, emotional, pushy, bullying",
+      feedbackInappropriateOther:"Other"
+
+
   }
     
     });

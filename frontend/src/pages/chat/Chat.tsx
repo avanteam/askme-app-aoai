@@ -163,6 +163,10 @@ const Chat = () => {
       if (event.data.AuthToken) {
         // Définition de la langue de l'appli
         localizedStrings.setLanguage((event.data.Language) ? event.data.Language : 'FR');
+        
+        // Set du language dans le contexte pour le réutiliser dans d'autres composants
+        appStateContext?.dispatch({ type: 'SET_USER_LANGUAGE', payload: (event.data.Language) ? event.data.Language : 'FR' });
+
         setCurrentUser((event.data.CurrentUser) ? event.data.CurrentUser : "Anonyme (WEB)");
 
         /* Si la full definition n'est pas renseigné, on met *, qui montrera les doc accessible à tout le monde*/
@@ -174,6 +178,8 @@ const Chat = () => {
         if (resp){
           setShowAuthMessage(false);
           setToken(event.data.AuthToken);
+          // Set le token au niveau du context (utile pour l'utiliser sur l'historique par ex)
+          appStateContext?.dispatch({ type: 'SET_AUTH_TOKEN', payload: event.data.AuthToken });
 
           // vérifier le nombre de crédits restants au client
           const tokenStatus = await getTokenStatus();
@@ -203,7 +209,7 @@ const Chat = () => {
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, []);
+  }, [appStateContext]);
 
 
   let assistantMessage = {} as ChatMessage
@@ -428,8 +434,8 @@ const Chat = () => {
     var errorResponseMessage = 'Please try again. If the problem persists, please contact the site administrator.'
     try {
       const response = conversationId
-        ? await historyGenerate(request, abortController.signal, conversationId)
-        : await historyGenerate(request, abortController.signal)
+        ? await historyGenerate(token, request, abortController.signal, conversationId)
+        : await historyGenerate(token, request, abortController.signal)
       if (!response?.ok) {
         const responseJson = await response.json()
         errorResponseMessage =
@@ -618,7 +624,7 @@ const Chat = () => {
   const clearChat = async () => {
     setClearingChat(true)
     if (appStateContext?.state.currentChat?.id && appStateContext?.state.isCosmosDBAvailable.cosmosDB) {
-      let response = await historyClear(appStateContext?.state.currentChat.id)
+      let response = await historyClear(appStateContext?.state.currentChat.id, token)
       if (!response.ok) {
         setErrorMsg({
           title: 'Error clearing current chat',
@@ -721,7 +727,7 @@ const Chat = () => {
 
   useLayoutEffect(() => {
     const saveToDB = async (messages: ChatMessage[], id: string) => {
-      const response = await historyUpdate(messages, id)
+      const response = await historyUpdate(messages, id, token)
       return response
     }
 

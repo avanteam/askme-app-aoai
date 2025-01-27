@@ -82,6 +82,16 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
           [action.payload.answerId]: action.payload.exec_result
         }
       }
+    case 'SET_AUTH_TOKEN':
+      return {
+        ...state,
+        authToken: action.payload, 
+      };
+    case 'SET_USER_LANGUAGE':
+      return {
+        ...state,
+        userLanguage: action.payload, 
+      };
     default:
       return state
   }
