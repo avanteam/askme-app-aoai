@@ -127,7 +127,7 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
     setClearing(true)
     if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != "" ){
 
-      const response = await historyDeleteAll(appStateContext?.state.authToken)
+      const response = await historyDeleteAll(appStateContext?.state.authToken, appStateContext?.state.encryptedUsername)
       if (!response.ok) {
         setClearingError(true)
       } else {

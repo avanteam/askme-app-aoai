@@ -92,6 +92,16 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
         ...state,
         userLanguage: action.payload, 
       };
+    case 'SET_USERNAME':
+      return {
+        ...state,
+        username: action.payload, 
+      };
+    case 'SET_ENCRYPTED_USERNAME':
+      return {
+        ...state,
+        encryptedUsername: action.payload, 
+      };
     default:
       return state
   }

@@ -67,11 +67,12 @@ export const fetchChatHistoryInit = (): Conversation[] | null => {
   return chatHistorySampleData
 }
 
-export const historyList = async (offset = 0, authToken:string): Promise<Conversation[] | null> => {
+export const historyList = async (offset = 0, authToken:string, encryptedUsername:string): Promise<Conversation[] | null> => {
   const response = await fetch(`/history/list?offset=${offset}`, {
     method: 'GET'
     , headers: {
-      "AuthToken":authToken
+      "AuthToken":authToken,
+      "EncodedUsername":encryptedUsername
     },
   })
     .then(async res => {
@@ -83,7 +84,7 @@ export const historyList = async (offset = 0, authToken:string): Promise<Convers
       const conversations: Conversation[] = await Promise.all(
         payload.map(async (conv: any) => {
           let convMessages: ChatMessage[] = []
-          convMessages = await historyRead(conv.id, authToken)
+          convMessages = await historyRead(conv.id, authToken, encryptedUsername)
             .then(res => {
               return res
             })
@@ -110,7 +111,7 @@ export const historyList = async (offset = 0, authToken:string): Promise<Convers
   return response
 }
 
-export const historyRead = async (convId: string, authToken: string): Promise<ChatMessage[]> => {
+export const historyRead = async (convId: string, authToken: string, encryptedUsername:string): Promise<ChatMessage[]> => {
   const response = await fetch('/history/read', {
     method: 'POST',
     body: JSON.stringify({
@@ -118,7 +119,8 @@ export const historyRead = async (convId: string, authToken: string): Promise<Ch
     }),
     headers: {
       'Content-Type': 'application/json'
-      , "AuthToken":authToken
+      , "AuthToken":authToken,
+      "EncodedUsername":encryptedUsername
     }
   })
     .then(async res => {
@@ -150,6 +152,7 @@ export const historyRead = async (convId: string, authToken: string): Promise<Ch
 
 export const historyGenerate = async (
   authToken:string,
+  encryptedUsername: string,
   options: ConversationRequest,
   abortSignal: AbortSignal,
   convId?: string,
@@ -169,7 +172,8 @@ export const historyGenerate = async (
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      "AuthToken":authToken
+      "AuthToken":authToken,
+      "EncodedUsername":encryptedUsername
     },
     body: body,
     signal: abortSignal
@@ -184,7 +188,7 @@ export const historyGenerate = async (
   return response
 }
 
-export const historyUpdate = async (messages: ChatMessage[], convId: string, authToken:string): Promise<Response> => {
+export const historyUpdate = async (messages: ChatMessage[], convId: string, authToken:string, encryptedUsername:string): Promise<Response> => {
   const response = await fetch('/history/update', {
     method: 'POST',
     body: JSON.stringify({
@@ -194,6 +198,7 @@ export const historyUpdate = async (messages: ChatMessage[], convId: string, aut
     headers: {
       'Content-Type': 'application/json'
       , "AuthToken": authToken
+      , "EncodedUsername":encryptedUsername
     }
   })
     .then(async res => {
@@ -211,7 +216,7 @@ export const historyUpdate = async (messages: ChatMessage[], convId: string, aut
   return response
 }
 
-export const historyDelete = async (convId: string, authToken :string): Promise<Response> => {
+export const historyDelete = async (convId: string, authToken :string, encryptedUsername:string): Promise<Response> => {
   const response = await fetch('/history/delete', {
     method: 'DELETE',
     body: JSON.stringify({
@@ -220,6 +225,7 @@ export const historyDelete = async (convId: string, authToken :string): Promise<
     headers: {
       'Content-Type': 'application/json'
       , "AuthToken": authToken
+      , "EncodedUsername":encryptedUsername
     }
   })
     .then(res => {
@@ -237,13 +243,14 @@ export const historyDelete = async (convId: string, authToken :string): Promise<
   return response
 }
 
-export const historyDeleteAll = async (authToken: string): Promise<Response> => {
+export const historyDeleteAll = async (authToken: string, encryptedUsername:string): Promise<Response> => {
   const response = await fetch('/history/delete_all', {
     method: 'DELETE',
     body: JSON.stringify({}),
     headers: {
       'Content-Type': 'application/json'
       , "AuthToken": authToken
+      , "EncodedUsername":encryptedUsername
     }
   })
     .then(res => {
@@ -261,7 +268,7 @@ export const historyDeleteAll = async (authToken: string): Promise<Response> => 
   return response
 }
 
-export const historyClear = async (convId: string, authToken: string): Promise<Response> => {
+export const historyClear = async (convId: string, authToken: string, encryptedUsername:string): Promise<Response> => {
   const response = await fetch('/history/clear', {
     method: 'POST',
     body: JSON.stringify({
@@ -270,6 +277,7 @@ export const historyClear = async (convId: string, authToken: string): Promise<R
     headers: {
       'Content-Type': 'application/json'
       , "AuthToken": authToken
+      , "EncodedUsername":encryptedUsername
     }
   })
     .then(res => {
@@ -287,7 +295,7 @@ export const historyClear = async (convId: string, authToken: string): Promise<R
   return response
 }
 
-export const historyRename = async (convId: string, title: string, authToken: string): Promise<Response> => {
+export const historyRename = async (convId: string, title: string, authToken: string, encryptedUsername:string): Promise<Response> => {
   const response = await fetch('/history/rename', {
     method: 'POST',
     body: JSON.stringify({
@@ -297,6 +305,7 @@ export const historyRename = async (convId: string, title: string, authToken: st
     headers: {
       'Content-Type': 'application/json'
       , "AuthToken": authToken
+      , "EncodedUsername":encryptedUsername
     }
   })
     .then(res => {
@@ -373,7 +382,7 @@ export const frontendSettings = async (): Promise<Response | null> => {
 
   return response
 }
-export const historyMessageFeedback = async (messageId: string, feedback: string, authToken: string): Promise<Response> => {
+export const historyMessageFeedback = async (messageId: string, feedback: string, authToken: string, encryptedUsername:string): Promise<Response> => {
   const response = await fetch('/history/message_feedback', {
     method: 'POST',
     body: JSON.stringify({
@@ -383,6 +392,7 @@ export const historyMessageFeedback = async (messageId: string, feedback: string
     headers: {
       'Content-Type': 'application/json'
       , "AuthToken":authToken
+      , "EncodedUsername":encryptedUsername
     }
   })
     .then(res => {

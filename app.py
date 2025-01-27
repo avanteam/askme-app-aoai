@@ -451,6 +451,13 @@ def CheckAuthenticate(request):
     else:
         return False
     
+def GetDecryptedUsername(request):
+    
+    if "EncodedUsername" in request.headers:
+        return decrypt_string(request.headers["EncodedUsername"])
+    else:
+        return None
+    
 
 def GetRemainingTokens():
     if (app_settings.custom_avanteam_settings.licencehub_key is None or app_settings.custom_avanteam_settings.licencehub_key == ""):
@@ -543,10 +550,16 @@ async def check_tokens():
 @bp.route("/history/generate", methods=["POST"])
 async def add_conversation():
     if not(CheckAuthenticate(request)):
-        return jsonify({"error": "Unauthorized"}), 401
+        return jsonify({"error": "Unauthorized"}), 40
     await cosmos_db_ready.wait()
-    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-    user_id = authenticated_user["user_principal_id"]
+
+    # authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    # user_id = authenticated_user["user_principal_id"]
+
+    user_id = GetDecryptedUsername(request)
+    if (user_id is None):
+        return jsonify({"error": "User not found"}), 400
+    
 
     ## check request for conversation_id
     request_json = await request.get_json()
@@ -603,8 +616,12 @@ async def update_conversation():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
-    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-    user_id = authenticated_user["user_principal_id"]
+    # authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    # user_id = authenticated_user["user_principal_id"]
+
+    user_id = GetDecryptedUsername(request)
+    if (user_id is None):
+        return jsonify({"error": "User not found"}), 400
 
     ## check request for conversation_id
     request_json = await request.get_json()
@@ -655,8 +672,12 @@ async def update_message():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
-    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-    user_id = authenticated_user["user_principal_id"]
+    # authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    # user_id = authenticated_user["user_principal_id"]
+
+    user_id = GetDecryptedUsername(request)
+    if (user_id is None):
+        return jsonify({"error": "User not found"}), 400
 
     ## check request for message_id
     request_json = await request.get_json()
@@ -704,8 +725,12 @@ async def delete_conversation():
         return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     ## get the user id from the request headers
-    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-    user_id = authenticated_user["user_principal_id"]
+    # authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    # user_id = authenticated_user["user_principal_id"]
+
+    user_id = GetDecryptedUsername(request)
+    if (user_id is None):
+        return jsonify({"error": "User not found"}), 400
 
     ## check request for conversation_id
     request_json = await request.get_json()
@@ -749,8 +774,12 @@ async def list_conversations():
         return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     offset = request.args.get("offset", 0)
-    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-    user_id = authenticated_user["user_principal_id"]
+    # authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    # user_id = authenticated_user["user_principal_id"]
+
+    user_id = GetDecryptedUsername(request)
+    if (user_id is None):
+        return jsonify({"error": "User not found"}), 400
 
     ## make sure cosmos is configured
     if not current_app.cosmos_conversation_client:
@@ -773,8 +802,12 @@ async def get_conversation():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
-    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-    user_id = authenticated_user["user_principal_id"]
+    # authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    # user_id = authenticated_user["user_principal_id"]
+
+    user_id = GetDecryptedUsername(request)
+    if (user_id is None):
+        return jsonify({"error": "User not found"}), 400
 
     ## check request for conversation_id
     request_json = await request.get_json()
@@ -827,8 +860,12 @@ async def rename_conversation():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
-    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-    user_id = authenticated_user["user_principal_id"]
+    # authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    # user_id = authenticated_user["user_principal_id"]
+
+    user_id = GetDecryptedUsername(request)
+    if (user_id is None):
+        return jsonify({"error": "User not found"}), 400
 
     ## check request for conversation_id
     request_json = await request.get_json()
@@ -873,8 +910,13 @@ async def delete_all_conversations():
         return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     ## get the user id from the request headers
-    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-    user_id = authenticated_user["user_principal_id"]
+    # authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    # user_id = authenticated_user["user_principal_id"]
+
+    user_id = GetDecryptedUsername(request)
+    if (user_id is None):
+        return jsonify({"error": "User not found"}), 400
+    
 
     # get conversations for user
     try:
@@ -919,9 +961,12 @@ async def clear_messages():
         return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
     ## get the user id from the request headers
-    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-    user_id = authenticated_user["user_principal_id"]
+    # authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    # user_id = authenticated_user["user_principal_id"]
 
+    user_id = GetDecryptedUsername(request)
+    if (user_id is None):
+        return jsonify({"error": "User not found"}), 400
     ## check request for conversation_id
     request_json = await request.get_json()
     conversation_id = request_json.get("conversation_id", None)
@@ -1049,5 +1094,29 @@ def encrypt_string(plain_text):
     encrypted_base64 = base64.b64encode(combined_data).decode('utf-8')
     
     return encrypted_base64
+
+def decrypt_string(encrypted_base64):
+    key = get_encryption_key()
+    
+    # Décoder les données en base64
+    combined_data = base64.b64decode(encrypted_base64)
+    
+    # Extraire l'IV (les 16 premiers octets)
+    iv = combined_data[:16]
+    encrypted_data = combined_data[16:]
+    
+    # Créer le déchiffreur AES avec la clé et l'IV
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    
+    # Déchiffrer les données
+    padded_data = decryptor.update(encrypted_data) + decryptor.finalize()
+    
+    # Retirer le padding PKCS7
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    plain_text = unpadder.update(padded_data) + unpadder.finalize()
+    
+    # Convertir les données en chaîne de caractères
+    return plain_text.decode('utf-8')
 
 app = create_app()

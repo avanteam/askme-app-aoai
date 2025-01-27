@@ -32,6 +32,8 @@ export interface AppState {
   answerExecResult: { [answerId: string]: [] }
   authToken: string;
   userLanguage: string;
+  username: string;
+  encryptedUsername: string;
 }
 
 export type Action =
@@ -55,6 +57,8 @@ export type Action =
   | { type: 'SET_ANSWER_EXEC_RESULT'; payload: { answerId: string, exec_result: [] } }
   | { type: 'SET_AUTH_TOKEN'; payload: string }
   | { type: 'SET_USER_LANGUAGE'; payload: string }
+  | { type: 'SET_USERNAME'; payload: string }
+  | { type: 'SET_ENCRYPTED_USERNAME'; payload: string }
 
 const initialState: AppState = {
   isChatHistoryOpen: false,
@@ -71,7 +75,9 @@ const initialState: AppState = {
   isLoading: true,
   answerExecResult: {},
   authToken: "",
-  userLanguage: "FR"
+  userLanguage: "FR",
+  username: "",
+  encryptedUsername: ""
 }
 
 export const AppStateContext = createContext<
@@ -92,7 +98,7 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
   useEffect(() => {
     // Check for cosmosdb config and fetch initial data here
     const fetchChatHistory = async (offset = 0): Promise<Conversation[] | null> => {
-      const result = await historyList(offset, state.authToken)
+      const result = await historyList(offset, state.authToken, state.encryptedUsername)
         .then(response => {
           if (response) {
             dispatch({ type: 'FETCH_CHAT_HISTORY', payload: response })

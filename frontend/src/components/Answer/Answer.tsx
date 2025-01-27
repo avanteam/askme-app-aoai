@@ -110,7 +110,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
     setFeedbackState(newFeedbackState)
 
     // Update message feedback in db
-    await historyMessageFeedback(answer.message_id, newFeedbackState, appStateContext?.state.authToken)
+    await historyMessageFeedback(answer.message_id, newFeedbackState, appStateContext?.state.authToken, appStateContext?.state.encryptedUsername)
   }
 
   const onDislikeResponseClicked = async () => {
@@ -126,7 +126,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
       // Reset negative feedback to neutral
       newFeedbackState = Feedback.Neutral
       setFeedbackState(newFeedbackState)
-      await historyMessageFeedback(answer.message_id, Feedback.Neutral, appStateContext?.state.authToken)
+      await historyMessageFeedback(answer.message_id, Feedback.Neutral, appStateContext?.state.authToken, appStateContext?.state.encryptedUsername)
     }
     appStateContext?.dispatch({
       type: 'SET_FEEDBACK_STATE',
@@ -152,7 +152,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
     if (answer.message_id == undefined) return;
     if (appStateContext?.state.authToken == undefined || appStateContext?.state.authToken == "") return;
     
-    await historyMessageFeedback(answer.message_id, negativeFeedbackList.join(','), appStateContext?.state.authToken)
+    await historyMessageFeedback(answer.message_id, negativeFeedbackList.join(','), appStateContext?.state.authToken, appStateContext?.state.encryptedUsername)
     resetFeedbackDialog()
   }
 

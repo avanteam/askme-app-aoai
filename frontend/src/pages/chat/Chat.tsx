@@ -15,6 +15,8 @@ import styles from './Chat.module.css'
 import Contoso from '../../assets/Contoso.svg'
 import { XSSAllowTags } from '../../constants/sanatizeAllowables'
 
+import {encryptString} from '../../utils/encryptAES'
+
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 
@@ -81,6 +83,7 @@ const Chat = () => {
   const [shouldDisplayInput, setShouldDisplayInput] = useState(false);
   const [errAlertMsg, setErrAlertMsg] = useState<string>("");
   const [currentUser, setCurrentUser] = useState<string>("");
+  const [encryptedCurrentUser, setEncryptedCurrentUser] = useState<string>("");
   const [userFullDef, setUserFullDef] = useState<string>("");
   const [appReady, setAppReady] = useState(false); 
 
@@ -160,6 +163,7 @@ const Chat = () => {
   /* Gestion de l'auth */
   useEffect(() => {
     const handleMessage = async (event: any) => {
+      
       if (event.data.AuthToken) {
         // Définition de la langue de l'appli
         localizedStrings.setLanguage((event.data.Language) ? event.data.Language : 'FR');
@@ -167,9 +171,17 @@ const Chat = () => {
         // Set du language dans le contexte pour le réutiliser dans d'autres composants
         appStateContext?.dispatch({ type: 'SET_USER_LANGUAGE', payload: (event.data.Language) ? event.data.Language : 'FR' });
 
-        setCurrentUser((event.data.CurrentUser) ? event.data.CurrentUser : "Anonyme (WEB)");
+        setCurrentUser((event.data.UserNameDN) ? event.data.UserNameDN : "Anonyme (WEB)");
+        appStateContext?.dispatch({ type: 'SET_USERNAME', payload: (event.data.UserNameDN) ? event.data.UserNameDN : '' });
+        setEncryptedCurrentUser((event.data.UserNameDN) ? encryptString(event.data.UserNameDN) : '');
+        appStateContext?.dispatch({ type: 'SET_ENCRYPTED_USERNAME', payload: (event.data.UserNameDN) ? encryptString(event.data.UserNameDN) : '' });
+        
 
-        /* Si la full definition n'est pas renseigné, on met *, qui montrera les doc accessible à tout le monde*/
+
+
+
+
+        /* Si la full definition n'est pas renseigné, on met *, qui montrera les docs accessibles à tout le monde*/
         setUserFullDef((event.data.FullDefinition) ? event.data.FullDefinition : "*");
 
 
@@ -434,8 +446,8 @@ const Chat = () => {
     var errorResponseMessage = 'Please try again. If the problem persists, please contact the site administrator.'
     try {
       const response = conversationId
-        ? await historyGenerate(token, request, abortController.signal, conversationId)
-        : await historyGenerate(token, request, abortController.signal)
+        ? await historyGenerate(token, encryptedCurrentUser, request, abortController.signal, conversationId)
+        : await historyGenerate(token, encryptedCurrentUser, request, abortController.signal)
       if (!response?.ok) {
         const responseJson = await response.json()
         errorResponseMessage =
@@ -624,7 +636,7 @@ const Chat = () => {
   const clearChat = async () => {
     setClearingChat(true)
     if (appStateContext?.state.currentChat?.id && appStateContext?.state.isCosmosDBAvailable.cosmosDB) {
-      let response = await historyClear(appStateContext?.state.currentChat.id, token)
+      let response = await historyClear(appStateContext?.state.currentChat.id, token, encryptedCurrentUser)
       if (!response.ok) {
         setErrorMsg({
           title: 'Error clearing current chat',
@@ -727,7 +739,7 @@ const Chat = () => {
 
   useLayoutEffect(() => {
     const saveToDB = async (messages: ChatMessage[], id: string) => {
-      const response = await historyUpdate(messages, id, token)
+      const response = await historyUpdate(messages, id, token, encryptedCurrentUser)
       return response
     }
 

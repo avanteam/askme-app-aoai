@@ -104,7 +104,7 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
   const onDelete = async () => {
     if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != ""){
 
-      const response = await historyDelete(item.id, appStateContext?.state.authToken)
+      const response = await historyDelete(item.id, appStateContext?.state.authToken, appStateContext?.state.encryptedUsername)
       if (!response.ok) {
         setErrorDelete(true)
         setTimeout(() => {
@@ -148,7 +148,7 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
         return
       }
       setRenameLoading(true)
-      const response = await historyRename(item.id, editTitle, appStateContext?.state.authToken)
+      const response = await historyRename(item.id, editTitle, appStateContext?.state.authToken, appStateContext?.state.encryptedUsername)
       if (!response.ok) {
         setErrorRename(localizedStrings.errorRename)
         setTimeout(() => {
@@ -364,7 +364,7 @@ export const ChatHistoryListItemGroups: React.FC<ChatHistoryListItemGroupsProps>
     setShowSpinner(true)
     if (appStateContext?.state.authToken != undefined && appStateContext?.state?.authToken != ""){
 
-      await historyList(offset, appStateContext?.state?.authToken).then(response => {
+      await historyList(offset, appStateContext?.state?.authToken, appStateContext?.state?.encryptedUsername).then(response => {
         const concatenatedChatHistory = currentChatHistory && response && currentChatHistory.concat(...response)
         if (response) {
           appStateContext?.dispatch({ type: 'FETCH_CHAT_HISTORY', payload: concatenatedChatHistory || response })
