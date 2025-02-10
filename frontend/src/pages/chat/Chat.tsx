@@ -163,7 +163,7 @@ const Chat = () => {
   /* Gestion de l'auth */
   useEffect(() => {
     const handleMessage = async (event: any) => {
-      
+
       if (event.data.AuthToken) {
         // Définition de la langue de l'appli
         localizedStrings.setLanguage((event.data.Language) ? event.data.Language : 'FR');
@@ -446,8 +446,8 @@ const Chat = () => {
     var errorResponseMessage = 'Please try again. If the problem persists, please contact the site administrator.'
     try {
       const response = conversationId
-        ? await historyGenerate(token, encryptedCurrentUser, request, abortController.signal, conversationId)
-        : await historyGenerate(token, encryptedCurrentUser, request, abortController.signal)
+        ? await historyGenerate(token, encryptedCurrentUser, request, abortController.signal, userFullDef, conversationId)
+        : await historyGenerate(token, encryptedCurrentUser, request, abortController.signal, userFullDef)
       if (!response?.ok) {
         const responseJson = await response.json()
         errorResponseMessage =

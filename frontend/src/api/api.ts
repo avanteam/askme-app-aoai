@@ -155,17 +155,20 @@ export const historyGenerate = async (
   encryptedUsername: string,
   options: ConversationRequest,
   abortSignal: AbortSignal,
+  userFullDefinition: string,
   convId?: string,
 ): Promise<Response> => {
   let body
   if (convId) {
     body = JSON.stringify({
       conversation_id: convId,
-      messages: options.messages
+      messages: options.messages,
+      userFullDefinition: userFullDefinition
     })
   } else {
     body = JSON.stringify({
-      messages: options.messages
+      messages: options.messages,
+      userFullDefinition: userFullDefinition
     })
   }
   const response = await fetch('/history/generate', {
