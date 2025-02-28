@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react'
+import { useContext, useState, useEffect } from 'react'
 import { FontIcon, Stack, TextField } from '@fluentui/react'
 import { SendRegular } from '@fluentui/react-icons'
 
@@ -20,6 +20,8 @@ interface Props {
 export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conversationId }: Props) => {
   const [question, setQuestion] = useState<string>('')
   const [base64Image, setBase64Image] = useState<string | null>(null);
+
+  const [isInitialQuestionSet, setIsInitialQuestionSet] = useState(false);
 
   const appStateContext = useContext(AppStateContext)
   const OYD_ENABLED = appStateContext?.state.frontendSettings?.oyd_enabled || false;
@@ -72,7 +74,21 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
     setQuestion(newValue || '')
   }
 
-  const sendQuestionDisabled = disabled || !question.trim()
+  var sendQuestionDisabled = disabled || !question.trim()
+
+  useEffect(() => {
+    if (isInitialQuestionSet && question.trim() && !disabled) {
+      sendQuestion();
+      setIsInitialQuestionSet(false);
+    }
+  }, [question, disabled, isInitialQuestionSet]);
+
+  useEffect(() => {
+    if (appStateContext?.state.initialQuestion) {
+      setQuestion(appStateContext.state.initialQuestion);
+      setIsInitialQuestionSet(true);
+    }
+  }, [appStateContext?.state.initialQuestion]);
 
   return (
     <Stack horizontal className={styles.questionInputContainer}>

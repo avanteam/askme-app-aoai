@@ -352,3 +352,15 @@ sup {
   height: 16px;
   object-fit: contain; /* Empêche les déformations */
 }
+
+
+@media (max-width: 600px) {
+  .hideOnSmall {
+    display: none !important;
+  }
+
+  .dropdownMenu {
+
+    width: auto;
+  }
+}

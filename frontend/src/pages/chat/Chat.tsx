@@ -163,6 +163,10 @@ const Chat = () => {
   /* Gestion de l'auth */
   useEffect(() => {
     const handleMessage = async (event: any) => {
+      
+      if (event.data.InitialQuestion){
+        appStateContext?.dispatch({ type: 'SET_INITIAL_QUESTION', payload: event.data.InitialQuestion });
+      }
 
       if (event.data.AuthToken) {
         // Définition de la langue de l'appli

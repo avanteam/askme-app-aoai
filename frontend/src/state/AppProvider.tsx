@@ -34,6 +34,7 @@ export interface AppState {
   userLanguage: string;
   username: string;
   encryptedUsername: string;
+  initialQuestion: string;
 }
 
 export type Action =
@@ -59,6 +60,7 @@ export type Action =
   | { type: 'SET_USER_LANGUAGE'; payload: string }
   | { type: 'SET_USERNAME'; payload: string }
   | { type: 'SET_ENCRYPTED_USERNAME'; payload: string }
+  | { type: 'SET_INITIAL_QUESTION'; payload: string }
 
 const initialState: AppState = {
   isChatHistoryOpen: false,
@@ -77,7 +79,8 @@ const initialState: AppState = {
   authToken: "",
   userLanguage: "FR",
   username: "",
-  encryptedUsername: ""
+  encryptedUsername: "",
+  initialQuestion: ""
 }
 
 export const AppStateContext = createContext<

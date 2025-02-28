@@ -102,6 +102,11 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
         ...state,
         encryptedUsername: action.payload, 
       };
+    case 'SET_INITIAL_QUESTION':
+      return {
+        ...state,
+        initialQuestion: action.payload, 
+      };
     default:
       return state
   }

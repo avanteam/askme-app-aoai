@@ -19,6 +19,9 @@ import styles from './Answer.module.css'
 import LocalizedStrings from 'react-localization';
 import rehypeRaw from 'rehype-raw'
 
+import logoDocument from '../../assets/logoDocument.png'
+import logoUrl from '../../assets/logoUrl.png'
+import logoEye from '../../assets/logoEye.png'
 interface Props {
   answer: AskResponse
   onCitationClicked: (citedDocument: Citation) => void
@@ -537,7 +540,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
                     <div className={styles.referenceItem}>
                       <div className={styles.dropdown}>
                         <button className={styles.dropdownButton}>
-                          <img src="./static/assets/logoEye.png" height="20px" width="20px" alt="Document" />
+                          <img src={logoEye} height="20px" width="20px" alt="Document" />
                           <span className={styles.arrow}>▼</span>
                         </button>
                         <div className={styles.dropdownMenu}>
@@ -547,8 +550,8 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
                             tabIndex={0}  // Pour le rendre focusable, accessible au clavier
                             className={styles.dropdownLink}
                           >
-                            <img src="./static/assets/logoDocument.png" height="16px" width="16px" alt="Ouvrir" />
-                            <span>{localizedStrings.openDocument}</span>
+                            <img src={logoDocument} height="16px" width="16px" alt="Ouvrir" />
+                            <span className={styles.hideOnSmall}>{localizedStrings.openDocument}</span>
                           </span>
                           {
                             (shouldDisplayAttLink) && 
@@ -558,8 +561,8 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
                               tabIndex={0}  // Pour le rendre focusable, accessible au clavier
                               className={styles.dropdownLink}
                             >
-                              <img src="./static/assets/logoUrl.png" height="16px" width="16px" alt="Prévisualiser" />
-                              <span>{localizedStrings.openAttachment}</span>
+                              <img src={logoUrl} height="16px" width="16px" alt="Prévisualiser" />
+                              <span className={styles.hideOnSmall}>{localizedStrings.openAttachment}</span>
                             </span>
                           }
                         </div>
