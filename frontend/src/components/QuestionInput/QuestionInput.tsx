@@ -80,6 +80,8 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
     if (isInitialQuestionSet && question.trim() && !disabled) {
       sendQuestion();
       setIsInitialQuestionSet(false);
+      /* remise à vide de la question initiale */
+      appStateContext?.dispatch({ type: 'SET_INITIAL_QUESTION', payload: "" });
     }
   }, [question, disabled, isInitialQuestionSet]);
 
