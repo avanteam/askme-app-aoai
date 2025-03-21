@@ -80,18 +80,32 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
   const createCitationFilepath = (citation: Citation, index: number, truncate: boolean = false) => {
     let citationFilename = ''
 
-    if (citation.filepath) {
+    // Does the citation have a title ?
+    if (citation.title) {
       const part_i = citation.part_index ?? (citation.chunk_id ? parseInt(citation.chunk_id) + 1 : '')
-      if (truncate && citation.filepath.length > filePathTruncationLimit) {
-        const citationLength = citation.filepath.length
-        citationFilename = `${citation.filepath.substring(0, 20)}...${citation.filepath.substring(citationLength - 20)} - Part ${part_i}`
+      if (truncate && citation.title.length > filePathTruncationLimit) {
+        const citationLength = citation.title.length
+        citationFilename = `${citation.title.substring(0, 20)}...${citation.title.substring(citationLength - 20)} - Part ${part_i}`
       } else {
-        citationFilename = `${citation.filepath} - Part ${part_i}`
+        citationFilename = `${citation.title} - Part ${part_i}`
       }
-    } else if (citation.filepath && citation.reindex_id) {
-      citationFilename = `${citation.filepath} - Part ${citation.reindex_id}`
+    } else if (citation.title && citation.reindex_id) {
+      citationFilename = `${citation.title} - Part ${citation.reindex_id}`
     } else {
-      citationFilename = `Citation ${index}`
+      // else, use filepath
+      if (citation.filepath) {
+        const part_i = citation.part_index ?? (citation.chunk_id ? parseInt(citation.chunk_id) + 1 : '')
+        if (truncate && citation.filepath.length > filePathTruncationLimit) {
+          const citationLength = citation.filepath.length
+          citationFilename = `${citation.filepath.substring(0, 20)}...${citation.filepath.substring(citationLength - 20)} - Part ${part_i}`
+        } else {
+          citationFilename = `${citation.filepath} - Part ${part_i}`
+        }
+      } else if (citation.filepath && citation.reindex_id) {
+        citationFilename = `${citation.filepath} - Part ${citation.reindex_id}`
+      } else {
+        citationFilename = `Citation ${index}`
+      }
     }
     return citationFilename
   }
