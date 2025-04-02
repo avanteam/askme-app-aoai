@@ -22,6 +22,42 @@
   color: #ffffff !important;
 }
 
+.exportButtonRoot {
+  width: 86px;
+  height: 32px;
+  border-radius: 4px;
+  background: radial-gradient(109.81% 107.82% at 100.1% 90.19%, #0f6cbd 33.63%, #2d87c3 70.31%, #8dddd8 100%);
+  padding: 5px 12px;
+  opacity: 0.9;
+}
+
+.exportButtonRoot:hover {
+  background: linear-gradient(135deg, #0f6cbd 0%, #2d87c3 51.04%, #8dddd8 100%);
+  opacity: 1;
+}
+
+.exportButtonRoot span {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  color: #ffffff;
+}
+
+.exportButtonRoot i,
+.exportButtonRoot:hover i {
+  color: #ffffff !important;
+}
+
+.exportButtonRoot:disabled {
+  background: #f0f0f0;
+  cursor: not-allowed;
+}
+
+.exportButtonRoot:disabled span,
+.exportButtonRoot:disabled i {
+  color: #bdbdbd !important;
+}
+
 .historyButtonRoot {
   width: 180px;
   border: 1px solid #d1d1d1;
@@ -36,7 +72,8 @@
 }
 
 @media (max-width: 480px) {
-  .shareButtonRoot {
+  .shareButtonRoot,
+  .exportButtonRoot {
     width: auto;
     padding: 5px 8px;
   }

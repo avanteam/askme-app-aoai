@@ -5,8 +5,9 @@ import { CopyRegular } from '@fluentui/react-icons'
 
 import { CosmosDBStatus } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
-import { HistoryButton, ShareButton } from '../../components/common/Button'
+import { HistoryButton, ShareButton, ExportButton } from '../../components/common/Button'
 import { AppStateContext } from '../../state/AppProvider'
+import { exportToPdf } from '../../utils/exportToPdf'
 
 import styles from './Layout.module.css'
 
@@ -17,6 +18,7 @@ const Layout = () => {
   const [copyClicked, setCopyClicked] = useState<boolean>(false)
   const [copyText, setCopyText] = useState<string>(localizedStrings.copyUrl)
   const [shareLabel, setShareLabel] = useState<string | undefined>(localizedStrings.share)
+  const [exportLabel, setExportLabel] = useState<string | undefined>(localizedStrings.export)
   const [hideHistoryLabel, setHideHistoryLabel] = useState<string>(localizedStrings.hideHistory)
   const [showHistoryLabel, setShowHistoryLabel] = useState<string>(localizedStrings.showHistory)
   const [logo, setLogo] = useState('')
@@ -25,6 +27,35 @@ const Layout = () => {
 
   const handleShareClick = () => {
     setIsSharePanelOpen(true)
+  }
+
+  const handleExportClick = () => {
+    if (appStateContext?.state.currentChat?.messages) {
+      try {
+        // Filter out non-user and non-assistant messages
+        const filteredMessages = appStateContext.state.currentChat.messages.filter(
+          msg => msg.role === 'user' || msg.role === 'assistant'
+        );
+        
+        if (filteredMessages.length === 0) {
+          console.error("No valid messages to export");
+          return;
+        }
+        
+        const title = appStateContext.state.currentChat.title || localizedStrings.conversationExport
+        const date = new Date().toISOString().split('T')[0]
+        const filename = `${title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${date}.pdf`
+        
+        exportToPdf(filteredMessages, {
+          filename,
+          title,
+          locale: appStateContext?.state.userLanguage?.toLowerCase() || 'fr-fr',
+          singlePage: true 
+        })
+      } catch (error) {
+        console.error("Error generating PDF:", error);
+      }
+    }
   }
 
   const handleSharePanelDismiss = () => {
@@ -57,6 +88,7 @@ const Layout = () => {
   useEffect(() => {
     localizedStrings.setLanguage((appStateContext?.state.userLanguage) ? appStateContext?.state.userLanguage : 'FR');
     setShareLabel(localizedStrings.share)
+    setExportLabel(localizedStrings.export)
     setHideHistoryLabel(localizedStrings.hideHistory)
     setShowHistoryLabel(localizedStrings.showHistory)
    }, [appStateContext?.state.userLanguage])
@@ -67,10 +99,12 @@ const Layout = () => {
     const handleResize = () => {
       if (window.innerWidth < 480) {
         setShareLabel(undefined)
+        setExportLabel(undefined)
         setHideHistoryLabel(localizedStrings.hideHistory)
         setShowHistoryLabel(localizedStrings.showHistory)
       } else {
         setShareLabel(localizedStrings.share)
+        setExportLabel(localizedStrings.export)
         setHideHistoryLabel(localizedStrings.hideHistory)
         setShowHistoryLabel(localizedStrings.showHistory)
       }
@@ -81,6 +115,8 @@ const Layout = () => {
 
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  const isExportDisabled = !appStateContext?.state.currentChat?.messages || appStateContext.state.currentChat.messages.length === 0
 
   return (
     <div className={styles.layout}>
@@ -97,6 +133,12 @@ const Layout = () => {
               <HistoryButton
                 onClick={handleHistoryClick}
                 text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
+              />
+            )}
+            {appStateContext?.state.currentChat?.messages && appStateContext.state.currentChat.messages.length > 0 && (
+              <ExportButton 
+                onClick={handleExportClick}
+                text={exportLabel}
               />
             )}
             {ui?.show_share_button && <ShareButton onClick={handleShareClick} text={shareLabel} />}
@@ -152,7 +194,9 @@ let localizedStrings = new LocalizedStrings({
       copyUrl : "Copier l'URL",
       copiedUrl : "URL copiée",
       share : "Partager",
-      shareWebApp: "Partager l'app web"
+      export : "Exporter",
+      shareWebApp: "Partager l'app web",
+      conversationExport: "Export de conversation"
   },
   EN: {
     hideHistory : "Hide history",
@@ -160,7 +204,9 @@ let localizedStrings = new LocalizedStrings({
     copyUrl : "Copy URL",
     copiedUrl : "Copied URL",
     share: "Share",
-    shareWebApp: "Share the web app"
+    export: "Export",
+    shareWebApp: "Share the web app",
+    conversationExport: "Conversation Export"
 },
   
  });

@@ -1,4 +1,4 @@
-import { CommandBarButton, DefaultButton, IButtonProps } from '@fluentui/react'
+import { CommandBarButton, DefaultButton, IButtonProps, TooltipHost  } from '@fluentui/react'
 
 import styles from './Button.module.css'
 
@@ -26,5 +26,18 @@ export const HistoryButton: React.FC<ButtonProps> = ({ onClick, text }) => {
       iconProps={{ iconName: 'History' }}
       onClick={onClick}
     />
+  )
+}
+
+export const ExportButton: React.FC<ButtonProps> = ({ onClick, text }) => {
+  return (
+    <TooltipHost content="Exporter la conversation au format PDF">
+      <CommandBarButton
+        className={styles.exportButtonRoot}
+        iconProps={{ iconName: 'PDF' }}
+        onClick={onClick}
+        text={text}
+      />
+    </TooltipHost>
   )
 }
