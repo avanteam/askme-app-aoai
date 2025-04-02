@@ -304,8 +304,11 @@ export const exportToPdf = async (
       pdf.setDrawColor(230, 230, 230);
     }
     
-    // Bulle principale (première page)
-    pdf.roundedRect(bubbleX, textY - bubblePadding, bubbleWidth, firstPageBubbleHeight, radius, radius, 'FD');
+    // Augmenter le radius pour des coins plus arrondis
+    const bubbleRadius = 5;
+    
+    // Bulle principale (première page) avec padding supplémentaire
+    pdf.roundedRect(bubbleX, textY - bubblePadding, bubbleWidth, firstPageBubbleHeight + 10, bubbleRadius, bubbleRadius, 'FD');
     
     // Dessiner le texte pour la première page
     pdf.setFont('helvetica', 'normal');
@@ -320,8 +323,8 @@ export const exportToPdf = async (
     pdf.addPage();
     const newY = margin + 15;
     
-    // Position pour le texte sur la nouvelle page
-    const newTextY = newY + bubblePadding + lineHeight * 0.7;
+    // Position pour le texte sur la nouvelle page avec padding adéquat
+    const newTextY = newY + bubblePadding;
     
     // Dessiner la deuxième partie de la bulle
     if (isUser) {
@@ -336,8 +339,8 @@ export const exportToPdf = async (
     const remainingTextHeight = nextPageLines.length * lineHeight;
     const remainingBubbleHeight = remainingTextHeight + 2 * bubblePadding;
     
-    // Bulle principale (deuxième page)
-    pdf.roundedRect(bubbleX, newY, bubbleWidth, remainingBubbleHeight, radius, radius, 'FD');
+    // Bulle principale (deuxième page) avec padding supplémentaire
+    pdf.roundedRect(bubbleX, newY, bubbleWidth, remainingBubbleHeight + 10, bubbleRadius, bubbleRadius, 'FD');
     
     // Dessiner le texte pour la deuxième page
     for (let i = 0; i < nextPageLines.length; i++) {
@@ -375,51 +378,65 @@ export const exportToPdf = async (
     const fontSize = 10;
     pdf.setFontSize(fontSize);
     
-    // Calcul de la largeur maximum du message (60% de la largeur disponible)
-    // Réduction de la largeur maximale pour éviter les débordements
-    const maxWidth = contentWidth * 0.60;
+    // Calcul de la largeur maximum du message (75% de la largeur disponible - augmenté pour plus d'espace)
+    const maxWidth = contentWidth * 0.75;
+    
+    // Dimensions de la bulle avec padding important
+    const bubblePadding = 15; // Padding général important
     
     // Découpage du texte pour l'adapter à la largeur avec traitement des sauts de ligne
     cleanText = cleanText.replace(/\\n/g, '\n');
-    const lines = pdf.splitTextToSize(cleanText, maxWidth);
     
     // Calcul de la hauteur du texte
-    const lineHeight = fontSize * 0.35 * 1.6; // Augmentation légère de l'espacement des lignes
+    const lineHeight = fontSize * 0.35 * 1.6; // Espacement des lignes
+    
+    // Marge supplémentaire pour le texte (padding interne)
+    const textPadding = 10; // Augmenté pour plus d'espace autour du texte
+    
+    // Réduire la largeur disponible pour le texte tout en laissant plus d'espace
+    const adjustedMaxWidth = maxWidth - (textPadding * 2);
+    
+    // Diviser le texte en lignes avec la largeur ajustée
+    const lines = pdf.splitTextToSize(cleanText, adjustedMaxWidth);
+    
     const textHeight = lines.length * lineHeight;
     
-    // Dimensions de la bulle
-    const bubblePadding = 10; // Augmentation légère du padding
-    const bubbleHeight = textHeight + 2 * bubblePadding;
+    // Hauteur totale de la bulle
+    const bubbleHeight = textHeight + (bubblePadding * 2);
     
-    // Calcul de la largeur de la bulle basée sur la ligne la plus longue
+    // Calcul de la largeur réelle nécessaire pour chaque ligne
     let maxLineWidth = 0;
     if (lines && lines.length > 0) {
       for (let i = 0; i < lines.length; i++) {
-        // Ajout d'une petite marge pour éviter les textes trop près des bords
-        const lineWidth = (pdf.getStringUnitWidth(lines[i]) * fontSize / pdf.internal.scaleFactor) + 5;
+        // Mesurer la largeur exacte de la ligne
+        const lineWidth = pdf.getStringUnitWidth(lines[i]) * fontSize / pdf.internal.scaleFactor;
         if (lineWidth > maxLineWidth) {
           maxLineWidth = lineWidth;
         }
       }
     }
     
-    const bubbleWidth = Math.min(maxWidth, maxLineWidth + 2 * bubblePadding);
+    // Ajouter un padding significatif à la largeur calculée
+    const contentBubbleWidth = maxLineWidth + (textPadding * 2);
     
-    // Position X de la bulle selon l'expéditeur
+    // S'assurer d'une largeur minimale plus grande et d'une largeur maximale étendue
+    const minBubbleWidth = Math.max(maxWidth * 0.3, 70); // Largeur minimale plus grande
+    const bubbleWidth = Math.min(maxWidth, Math.max(contentBubbleWidth, minBubbleWidth));
+    
+    // Position X de la bulle selon l'expéditeur, ajustée pour les bulles plus larges
     const bubbleX = isUser ? pageWidth - margin - bubbleWidth : margin;
     
     // Vérification s'il faut gérer les sauts de page
     // En mode page unique, on ne fait pas de vérification
     if (!singlePage && y + bubbleHeight + 10 > pageHeight - margin) {
       // La bulle est trop grande pour tenir sur cette page
-      // Option 1: Ajouter une nouvelle page si la bulle est petite
       if (bubbleHeight < pageHeight - 2 * margin) {
         pdf.addPage();
         y = margin + 15; // Position Y sur la nouvelle page
       } else {
-        // Option 2: Pour les très grandes bulles, les diviser sur plusieurs pages
-        const textX = bubbleX + bubblePadding;
-        const textY = y + bubblePadding + lineHeight * 0.7;
+        // Pour les très grandes bulles, les diviser sur plusieurs pages
+        const textX = bubbleX + textPadding;
+        const textY = y + bubblePadding;
         return splitBubbleAcrossPages(
           lines, textX, textY, lineHeight, 
           bubbleX, bubbleWidth, bubblePadding, isUser, 4
@@ -439,7 +456,7 @@ export const exportToPdf = async (
     }
     
     // Dessin de la bulle arrondie avec ombre légère
-    const radius = 4;
+    const radius = 5; // Augmenté pour une esthétique plus moderne
     
     // Ombre légère (optionnel)
     pdf.setDrawColor(240, 240, 240);
@@ -456,9 +473,9 @@ export const exportToPdf = async (
     }
     pdf.roundedRect(bubbleX, y, bubbleWidth, bubbleHeight, radius, radius, 'FD');
     
-    // Positionnement du texte dans la bulle
-    const textX = bubbleX + bubblePadding;
-    const textY = y + bubblePadding + lineHeight * 0.7;
+    // Positionnement du texte dans la bulle avec un décalage suffisant pour éviter les bords
+    const textX = bubbleX + textPadding;
+    const textY = y + bubblePadding;
     
     // Ajout du texte ligne par ligne
     if (lines && lines.length > 0) {

@@ -42,16 +42,33 @@ const Layout = () => {
           return;
         }
         
-        const title = appStateContext.state.currentChat.title || localizedStrings.conversationExport
-        const date = new Date().toISOString().split('T')[0]
-        const filename = `${title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${date}.pdf`
+        // Générer un titre intelligent basé sur la date de la conversation
+        const isUserLangFrench = appStateContext?.state.userLanguage?.toLowerCase().startsWith('fr');
+        
+        // Formater la date selon la locale
+        const chatDate = new Date(appStateContext.state.currentChat.date).toLocaleDateString(
+          appStateContext?.state.userLanguage?.toLowerCase() || 'fr-fr',
+          { year: 'numeric', month: 'long', day: 'numeric' }
+        );
+        
+        // Créer un titre approprié selon la langue
+        let title;
+        if (isUserLangFrench) {
+          title = `Conversation du ${chatDate}`;
+        } else {
+          title = `Conversation - ${chatDate}`;
+        }
+        
+        // Générer un nom de fichier propre
+        const date = new Date().toISOString().split('T')[0];
+        const filename = `conversation-${date}.pdf`;
         
         exportToPdf(filteredMessages, {
           filename,
           title,
           locale: appStateContext?.state.userLanguage?.toLowerCase() || 'fr-fr',
           singlePage: true 
-        })
+        });
       } catch (error) {
         console.error("Error generating PDF:", error);
       }
