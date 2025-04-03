@@ -152,7 +152,7 @@ const Layout = () => {
                 text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
               />
             )}
-            {appStateContext?.state.currentChat?.messages && appStateContext.state.currentChat.messages.length > 0 && (
+            {appStateContext?.state.currentChat?.messages && appStateContext.state.currentChat.messages.length > 0 && ui?.show_export_button && (
               <ExportButton 
                 onClick={handleExportClick}
                 text={exportLabel}
