@@ -247,13 +247,13 @@ export const exportToPdf = async (
   
   // Localisation du texte d'introduction
   if (actualLocale.startsWith('fr')) {
-    introText = 'Cette conversation contient les échanges avec l\'assistant.';
+    introText = 'Cette conversation contient l\'échange avec AskMe.';
   } else if (actualLocale.startsWith('es')) {
-    introText = 'Esta conversación contiene intercambios con el asistente.';
+    introText = 'Esta conversación contiene intercambios con AskMe.';
   } else if (actualLocale.startsWith('de')) {
-    introText = 'Dieses Gespräch enthält den Austausch mit dem Assistenten.';
+    introText = 'Dieses Gespräch enthält den Austausch mit AskMe.';
   } else if (actualLocale.startsWith('it')) {
-    introText = 'Questa conversazione contiene scambi con l\'assistente.';
+    introText = 'Questa conversazione contiene scambi con AskMe.';
   }
   
   pdf.text(introText, margin, yPosition)
