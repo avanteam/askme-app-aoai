@@ -250,33 +250,37 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
   }
 
   
-  const handleOpenDocument = (citation : Citation, action : string) => {
-
-    if (citation.url != null){
-
+  const handleOpenDocument = (citation: Citation, action: string) => {
+    if (citation.url != null) {
       var idDoc = '-';
-
-      if (citation.url.startsWith("iddoc_")){
+  
+      if (citation.url.startsWith("iddoc_")) {
         idDoc = citation.url.slice(6);
       } else {
-
         const regex = /\/([^\/]+)\/[^\/]+$/;
         var fileUrl = citation.url.includes("http") ? citation.url : decodeBase64String(citation.url);
   
         const match = fileUrl.match(regex);
-  
         if (match && match.length > 1) {
           idDoc = match[1]; 
         } else {
           console.log("Aucun code trouvé dans l'URL.");
         }
       }
-
-      if (idDoc != '-'){
-
+  
+      if (idDoc != '-') {
+        // Préparer un extrait de texte significatif pour la recherche
+        // Prendre 40-50 caractères maximum pour éviter les problèmes de formatage
+        let searchText = '';
+        if (citation.content) {
+          searchText = citation.content.replace(/\s+/g, ' ').trim();
+          //searchText = searchText.substring(0, Math.min(50, searchText.length));
+        }
+  
         const message = {
           action: action,
           idDoc: idDoc,
+          citationText: searchText
         };
         
         // Envoi du message au parent
@@ -286,7 +290,6 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
         console.error(citation);
       }
     }
-      
   }
 
   const UnhelpfulFeedbackContent = () => {
