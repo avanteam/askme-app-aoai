@@ -1,0 +1,51 @@
+.helpButton {
+    width: 80px;
+    border: 1px solid #d1d1d1;
+    background: radial-gradient(109.81% 107.82% at 100.1% 90.19%, #0f6cbd 33.63%, #2d87c3 70.31%, #8dddd8 100%);
+    color: #ffffff;
+    border-radius: 4px;
+  }
+  
+  .helpButton:hover {
+    background: linear-gradient(135deg, #0f6cbd 0%, #2d87c3 51.04%, #8dddd8 100%);
+    color: #ffffff;
+  }
+  
+  .helpButton span {
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 20px;
+    color: #ffffff;
+  }
+  
+  .helpButtonIcon {
+    color: #ffffff !important;
+  }
+  
+  @media (max-width: 480px) {
+    .helpButton {
+      width: auto;
+      padding: 0 8px;
+    }
+  }
+
+
+  .buttonContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.helpInlineIcon {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+
+.buttonText {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  color: #ffffff;
+}

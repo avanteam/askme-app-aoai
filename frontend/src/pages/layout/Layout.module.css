@@ -100,6 +100,17 @@
   color: #242424;
 }
 
+/* Ajout d'un conteneur principal pour organiser la disposition des éléments */
+.contentRoot {
+  flex: 1;
+  display: flex;
+  margin-top: 0px;
+  margin-bottom: 20px;
+  margin-left: 20px;
+  margin-right: 20px;
+  gap: 5px;
+}
+
 @media (max-width: 480px) {
   .headerTitleContainer {
     margin-left: 4px;
@@ -107,5 +118,9 @@
 
   .headerIcon {
     margin-left: 26px;
+  }
+  
+  .contentRoot {
+    flex-direction: column;
   }
 }

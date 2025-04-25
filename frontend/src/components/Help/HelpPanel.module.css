@@ -1,0 +1,123 @@
+.container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100vh;
+  background-color: #fff;
+  box-shadow: -5px 0 15px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  overflow-y: auto;
+  padding: 20px;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.visible {
+  transform: translateX(0);
+}
+
+/* Overlay de fond semi-transparent */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+.overlayVisible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.helpHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 15px;
+}
+
+.helpTitle {
+  font-size: 24px;
+  font-weight: 600;
+  color: #323130;
+  margin: 0;
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.closeButton:hover {
+  background-color: #f3f3f3;
+}
+
+.helpContent {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+/* Styles pour les sections de contenu */
+.helpSection {
+  margin-bottom: 30px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f6cbd;
+  margin-bottom: 15px;
+}
+
+.sectionContent {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #323130;
+}
+
+.promptExample {
+  background-color: #f9f9f9;
+  border-left: 3px solid #0f6cbd;
+  padding: 12px 15px;
+  margin: 15px 0;
+  border-radius: 0 4px 4px 0;
+  font-family: monospace;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.promptExample:hover {
+  background-color: #f0f0f0;
+}
+
+@media (max-width: 768px) {
+  .container {
+    width: 80%;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    width: 100%;
+  }
+  
+}

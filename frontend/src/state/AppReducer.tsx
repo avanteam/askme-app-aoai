@@ -4,7 +4,21 @@ import { Action, AppState } from './AppProvider'
 export const appStateReducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
     case 'TOGGLE_CHAT_HISTORY':
-      return { ...state, isChatHistoryOpen: !state.isChatHistoryOpen }
+      // Si le panneau d'aide est ouvert, le fermer quand l'historique des chats est ouvert
+      return { 
+        ...state, 
+        isChatHistoryOpen: !state.isChatHistoryOpen,
+        // Fermer le panneau d'aide si on ouvre l'historique
+        isHelpPanelOpen: !state.isChatHistoryOpen ? false : state.isHelpPanelOpen 
+      }
+    case 'TOGGLE_HELP_PANEL':
+      // Si l'historique des chats est ouvert, le fermer quand le panneau d'aide est ouvert
+      return { 
+        ...state, 
+        isHelpPanelOpen: !state.isHelpPanelOpen,
+        // Fermer l'historique si on ouvre le panneau d'aide
+        isChatHistoryOpen: !state.isHelpPanelOpen ? false : state.isChatHistoryOpen 
+      }
     case 'UPDATE_CURRENT_CHAT':
       return { ...state, currentChat: action.payload }
     case 'UPDATE_CHAT_HISTORY_LOADING_STATE':

@@ -5,7 +5,9 @@ import { CopyRegular } from '@fluentui/react-icons'
 
 import { CosmosDBStatus } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
-import { HistoryButton, ShareButton, ExportButton } from '../../components/common/Button'
+import { ExportButton, HistoryButton, ShareButton } from '../../components/common/Button'
+import { HelpButton } from '../../components/Help/HelpButton' // Importer le composant HelpButton
+import { HelpPanel } from '../../components/Help/HelpPanel' // Importer le composant HelpPanel
 import { AppStateContext } from '../../state/AppProvider'
 import { exportToPdf } from '../../utils/exportToPdf'
 
@@ -21,6 +23,7 @@ const Layout = () => {
   const [exportLabel, setExportLabel] = useState<string | undefined>(localizedStrings.export)
   const [hideHistoryLabel, setHideHistoryLabel] = useState<string>(localizedStrings.hideHistory)
   const [showHistoryLabel, setShowHistoryLabel] = useState<string>(localizedStrings.showHistory)
+  const [helpLabel, setHelpLabel] = useState<string | undefined>(localizedStrings.help) // Nouveau état pour le libellé d'aide
   const [logo, setLogo] = useState('')
   const appStateContext = useContext(AppStateContext)
   const ui = appStateContext?.state.frontendSettings?.ui
@@ -90,6 +93,11 @@ const Layout = () => {
     appStateContext?.dispatch({ type: 'TOGGLE_CHAT_HISTORY' })
   }
 
+  // Nouvel handler pour le clic sur le bouton d'aide
+  const handleHelpClick = () => {
+    appStateContext?.dispatch({ type: 'TOGGLE_HELP_PANEL' })
+  }
+
   useEffect(() => {
     if (!appStateContext?.state.isLoading) {
       setLogo(ui?.logo || Contoso)
@@ -108,6 +116,7 @@ const Layout = () => {
     setExportLabel(localizedStrings.export)
     setHideHistoryLabel(localizedStrings.hideHistory)
     setShowHistoryLabel(localizedStrings.showHistory)
+    setHelpLabel(localizedStrings.help) // Mise à jour du libellé d'aide
    }, [appStateContext?.state.userLanguage])
 
   useEffect(() => { }, [appStateContext?.state.isCosmosDBAvailable.status])
@@ -119,11 +128,13 @@ const Layout = () => {
         setExportLabel(undefined)
         setHideHistoryLabel(localizedStrings.hideHistory)
         setShowHistoryLabel(localizedStrings.showHistory)
+        setHelpLabel(undefined) // Masquer le texte du bouton d'aide sur mobile
       } else {
         setShareLabel(localizedStrings.share)
         setExportLabel(localizedStrings.export)
         setHideHistoryLabel(localizedStrings.hideHistory)
         setShowHistoryLabel(localizedStrings.showHistory)
+        setHelpLabel(localizedStrings.help) // Afficher le texte du bouton d'aide sur desktop
       }
     }
 
@@ -146,6 +157,11 @@ const Layout = () => {
             </Link>
           </Stack>
           <Stack horizontal tokens={{ childrenGap: 4 }} className={styles.shareButtonContainer}>
+            {/* Bouton d'aide */}
+            <HelpButton
+              onClick={handleHelpClick}
+              text={helpLabel}
+            />
             {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && ui?.show_chat_history_button !== false && (
               <HistoryButton
                 onClick={handleHistoryClick}
@@ -162,7 +178,11 @@ const Layout = () => {
           </Stack>
         </Stack>
       </header>
-      <Outlet />
+      <div className={styles.contentRoot}>
+        <Outlet />
+        {/* Le panneau d'aide est maintenant en superposition et n'affecte pas la mise en page */}
+        {appStateContext?.state.isHelpPanelOpen && <HelpPanel />}
+      </div>
       <Dialog
         onDismiss={handleSharePanelDismiss}
         hidden={!isSharePanelOpen}
@@ -212,6 +232,7 @@ let localizedStrings = new LocalizedStrings({
       copiedUrl : "URL copiée",
       share : "Partager",
       export : "Exporter",
+      help : "Aide", // Nouveau texte pour le bouton d'aide
       shareWebApp: "Partager l'app web",
       conversationExport: "Export de conversation"
   },
@@ -222,6 +243,7 @@ let localizedStrings = new LocalizedStrings({
     copiedUrl : "Copied URL",
     share: "Share",
     export: "Export",
+    help : "Help", // Nouveau texte pour le bouton d'aide
     shareWebApp: "Share the web app",
     conversationExport: "Conversation Export"
 },
