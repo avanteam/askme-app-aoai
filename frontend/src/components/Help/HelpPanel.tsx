@@ -1,8 +1,14 @@
 import React, { useContext, useEffect, useState, useRef } from 'react'
 import {
   Icon,
-  Stack,
-  Text
+  Text,
+  MessageBar,
+  MessageBarType,
+  SearchBox,
+  Pivot,
+  PivotItem,
+  FocusZone,
+  List
 } from '@fluentui/react'
 import { AppStateContext } from '../../state/AppProvider'
 
@@ -10,11 +16,182 @@ import styles from './HelpPanel.module.css'
 
 import LocalizedStrings from 'react-localization';
 
+// Définition des types pour les prompts prédéfinis
+interface PromptTranslation {
+  FR: string;
+  EN: string;
+  [key: string]: string; // Permet l'indexation avec une chaîne
+}
+
+interface PredefinedPrompt {
+  id: number;
+  category: string;
+  title: PromptTranslation;
+  description: PromptTranslation;
+  prompt: PromptTranslation;
+}
+
+// Liste des prompts prédéfinis
+const predefinedPrompts: PredefinedPrompt[] = [
+  // Catégorie Général
+  {
+    id: 1,
+    category: 'general',
+    title: {
+      FR: 'Trouver des informations sur un sujet',
+      EN: 'Find information on a topic'
+    },
+    description: {
+      FR: 'Recherche d\'informations générales sur un sujet précis',
+      EN: 'Search for general information on a specific topic'
+    },
+    prompt: {
+      FR: 'Quelles informations avons-nous sur [sujet spécifique] ? Présente un résumé des points clés.',
+      EN: 'What information do we have about [specific topic]? Present a summary of key points.'
+    }
+  },
+  {
+    id: 2,
+    category: 'general',
+    title: {
+      FR: 'Dernières mises à jour',
+      EN: 'Latest updates'
+    },
+    description: {
+      FR: 'Recherche des informations récentes sur un sujet',
+      EN: 'Search for recent information on a topic'
+    },
+    prompt: {
+      FR: 'Quelles sont les dernières informations ou mises à jour concernant [sujet] ? Y a-t-il eu des changements récents ?',
+      EN: 'What are the latest information or updates regarding [topic]? Have there been any recent changes?'
+    }
+  },
+  // Catégorie Documents
+  {
+    id: 3,
+    category: 'documents',
+    title: {
+      FR: 'Résumé de document',
+      EN: 'Document summary'
+    },
+    description: {
+      FR: 'Obtenir un résumé concis d\'un document spécifique',
+      EN: 'Get a concise summary of a specific document'
+    },
+    prompt: {
+      FR: 'Peux-tu me faire un résumé du document concernant [sujet ou nom du document] ? Inclus les points principaux et les conclusions.',
+      EN: 'Can you summarize the document about [topic or document name]? Include the main points and conclusions.'
+    }
+  },
+  {
+    id: 4,
+    category: 'documents',
+    title: {
+      FR: 'Recherche de procédure',
+      EN: 'Procedure search'
+    },
+    description: {
+      FR: 'Trouver une procédure ou un processus spécifique',
+      EN: 'Find a specific procedure or process'
+    },
+    prompt: {
+      FR: 'Quelle est la procédure pour [action spécifique] ? Peux-tu me donner les étapes à suivre ?',
+      EN: 'What is the procedure for [specific action]? Can you give me the steps to follow?'
+    }
+  },
+  // Catégorie Analyse
+  {
+    id: 5,
+    category: 'analysis',
+    title: {
+      FR: 'Comparaison d\'informations',
+      EN: 'Information comparison'
+    },
+    description: {
+      FR: 'Comparer différentes informations ou approches',
+      EN: 'Compare different information or approaches'
+    },
+    prompt: {
+      FR: 'Peux-tu comparer les différentes approches concernant [sujet] ? Quels sont les avantages et inconvénients de chaque méthode ?',
+      EN: 'Can you compare the different approaches regarding [topic]? What are the advantages and disadvantages of each method?'
+    }
+  },
+  {
+    id: 6,
+    category: 'analysis',
+    title: {
+      FR: 'Analyse des tendances',
+      EN: 'Trend analysis'
+    },
+    description: {
+      FR: 'Analyser les tendances sur un sujet spécifique',
+      EN: 'Analyze trends on a specific topic'
+    },
+    prompt: {
+      FR: 'Quelles sont les tendances principales concernant [sujet] dans nos documents ? Y a-t-il une évolution notable ?',
+      EN: 'What are the main trends regarding [topic] in our documents? Is there a notable evolution?'
+    }
+  },
+  // Catégorie Rédaction
+  {
+    id: 7,
+    category: 'writing',
+    title: {
+      FR: 'Rédaction d\'un message',
+      EN: 'Draft a message'
+    },
+    description: {
+      FR: 'Aide à la rédaction d\'un message professionnel',
+      EN: 'Help drafting a professional message'
+    },
+    prompt: {
+      FR: 'Aide-moi à rédiger un message professionnel pour [contexte] qui inclut les informations suivantes : [points clés]. Le ton doit être [formel/informel].',
+      EN: 'Help me draft a professional message for [context] that includes the following information: [key points]. The tone should be [formal/informal].'
+    }
+  },
+  {
+    id: 8,
+    category: 'writing',
+    title: {
+      FR: 'Simplification d\'un texte',
+      EN: 'Text simplification'
+    },
+    description: {
+      FR: 'Simplifier un texte technique ou complexe',
+      EN: 'Simplify a technical or complex text'
+    },
+    prompt: {
+      FR: 'Peux-tu m\'aider à simplifier cette information technique : [texte complexe] ? Je voudrais l\'expliquer à quelqu\'un qui n\'est pas spécialiste du domaine.',
+      EN: 'Can you help me simplify this technical information: [complex text]? I would like to explain it to someone who is not a specialist in the field.'
+    }
+  }
+];
+
+interface CategoryTranslation {
+  FR: string;
+  EN: string;
+  [key: string]: string; // Permet l'indexation avec une chaîne
+}
+
+// Définition des catégories pour l'organisation des prompts
+const categories = [
+  { key: 'general', name: { FR: 'Général', EN: 'General' } as CategoryTranslation, icon: 'Info' },
+  { key: 'documents', name: { FR: 'Documents', EN: 'Documents' } as CategoryTranslation, icon: 'Document' },
+  { key: 'analysis', name: { FR: 'Analyse', EN: 'Analysis' } as CategoryTranslation, icon: 'AnalyticsReport' },
+  { key: 'writing', name: { FR: 'Rédaction', EN: 'Writing' } as CategoryTranslation, icon: 'Edit' }
+];
+
 interface HelpPanelProps {}
 
 export function HelpPanel(_props: HelpPanelProps) {
   const appStateContext = useContext(AppStateContext)
   const [isVisible, setIsVisible] = useState(false)
+  const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filteredPrompts, setFilteredPrompts] = useState<PredefinedPrompt[]>(predefinedPrompts)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [currentLanguage, setCurrentLanguage] = useState('FR')
   const panelRef = useRef<HTMLDivElement>(null)
   
   // Fermeture du panneau d'aide
@@ -38,13 +215,58 @@ export function HelpPanel(_props: HelpPanelProps) {
   const copyPromptExample = (text: string) => {
     navigator.clipboard.writeText(text)
       .then(() => {
-        // Optionnellement, afficher une notification de succès
-        console.log('Exemple copié dans le presse-papiers')
+        // Afficher la notification toast
+        setToastMessage(localizedStrings.promptCopied)
+        setShowToast(true)
+        
+        // Masquer après 3 secondes
+        setTimeout(() => {
+          setShowToast(false)
+        }, 3000)
       })
       .catch(err => {
         console.error('Erreur lors de la copie: ', err)
+        // Notification d'erreur
+        setToastMessage(localizedStrings.copyError)
+        setShowToast(true)
+        setTimeout(() => {
+          setShowToast(false)
+        }, 3000)
       })
   }
+
+  // Fonction pour filtrer les prompts en fonction de la recherche et de la catégorie
+  const filterPrompts = () => {
+    let filtered = predefinedPrompts;
+    
+    // Filtrer par catégorie si une catégorie est sélectionnée
+    if (selectedCategory) {
+      filtered = filtered.filter(prompt => prompt.category === selectedCategory);
+    }
+    
+    // Filtrer par recherche si une recherche est effectuée
+    if (searchQuery.trim() !== '') {
+      const lowerCaseQuery = searchQuery.toLowerCase();
+      filtered = filtered.filter(prompt => {
+        const title = prompt.title[currentLanguage].toLowerCase();
+        const description = prompt.description[currentLanguage].toLowerCase();
+        const promptText = prompt.prompt[currentLanguage].toLowerCase();
+        
+        return (
+          title.includes(lowerCaseQuery) || 
+          description.includes(lowerCaseQuery) || 
+          promptText.includes(lowerCaseQuery)
+        );
+      });
+    }
+    
+    setFilteredPrompts(filtered);
+  }
+
+  // Mettre à jour les filtres lorsque la recherche ou la catégorie change
+  useEffect(() => {
+    filterPrompts();
+  }, [searchQuery, selectedCategory, currentLanguage]);
 
   useEffect(() => {
     // Définir l'animation d'apparition après montage du composant
@@ -52,7 +274,11 @@ export function HelpPanel(_props: HelpPanelProps) {
       setIsVisible(true)
     }, 50)
     
-    localizedStrings.setLanguage((appStateContext?.state.userLanguage) ? appStateContext?.state.userLanguage : 'FR');
+    // Déterminer la langue en fonction du contexte de l'application
+    const userLang = appStateContext?.state.userLanguage || 'FR';
+    setCurrentLanguage(userLang);
+    
+    localizedStrings.setLanguage(userLang);
     
     // Ajouter l'écouteur pour la touche Escape
     const handleEscapeKey = (e: KeyboardEvent) => {
@@ -69,6 +295,42 @@ export function HelpPanel(_props: HelpPanelProps) {
     }
   }, [appStateContext?.state.userLanguage])
 
+  // Rendu d'un élément de prompt
+  const renderPromptItem = (item?: PredefinedPrompt) => {
+    if (!item) return null;
+    
+    const getCategoryIcon = (categoryKey: string) => {
+      const category = categories.find(cat => cat.key === categoryKey);
+      return category ? category.icon : 'Tag';
+    };
+    
+    const getCategoryName = (categoryKey: string) => {
+      const category = categories.find(cat => cat.key === categoryKey);
+      return category ? category.name[currentLanguage] : categoryKey;
+    };
+    
+    return (
+      <div className={styles.promptCard} onClick={() => copyPromptExample(item.prompt[currentLanguage])}>
+        <div className={styles.promptCardHeader}>
+          <Icon iconName={getCategoryIcon(item.category)} className={styles.promptCardIcon} />
+          <div className={styles.promptCardTitle}>{item.title[currentLanguage]}</div>
+        </div>
+        <div className={styles.promptCardDescription}>{item.description[currentLanguage]}</div>
+        <div className={styles.promptCardPrompt}>
+          <div className={styles.promptLabel}>{localizedStrings.promptLabel}</div>
+          <div className={styles.promptText}>
+            <Icon iconName="Copy" className={styles.copyIcon} />
+            {item.prompt[currentLanguage]}
+          </div>
+        </div>
+        <div className={styles.promptCardCategory}>
+          <Icon iconName="Tag" className={styles.promptCardCategoryIcon} />
+          {getCategoryName(item.category)}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       {/* Overlay semi-transparent */}
@@ -84,8 +346,26 @@ export function HelpPanel(_props: HelpPanelProps) {
         className={`${styles.container} ${isVisible ? styles.visible : ''}`} 
         aria-label="panneau d'aide"
       >
+        {/* Toast de notification */}
+        {showToast && (
+          <div className={styles.toastContainer}>
+            <MessageBar
+              className={styles.toast}
+              messageBarType={MessageBarType.success}
+              isMultiline={false}
+              onDismiss={() => setShowToast(false)}
+              dismissButtonAriaLabel={localizedStrings.dismiss}
+            >
+              {toastMessage}
+            </MessageBar>
+          </div>
+        )}
+        
         <div className={styles.helpHeader}>
-          <h2 className={styles.helpTitle}>{localizedStrings.helpPanelTitle}</h2>
+          <h2 className={styles.helpTitle}>
+            <Icon iconName="Help" className={styles.titleIcon} />
+            {localizedStrings.helpPanelTitle}
+          </h2>
           <button 
             className={styles.closeButton} 
             onClick={handleCloseHelp}
@@ -96,74 +376,106 @@ export function HelpPanel(_props: HelpPanelProps) {
         </div>
         
         <div className={styles.helpContent}>
-          {/* Section d'introduction */}
-          <div className={styles.helpSection}>
-            <h3 className={styles.sectionTitle}>{localizedStrings.introTitle}</h3>
-            <div className={styles.sectionContent}>
-              {localizedStrings.introContent}
-            </div>
-          </div>
-          
-          {/* Section des exemples de prompts */}
-          <div className={styles.helpSection}>
-            <h3 className={styles.sectionTitle}>{localizedStrings.promptExamplesTitle}</h3>
-            <div className={styles.sectionContent}>
-              <p>{localizedStrings.promptExamplesIntro}</p>
-              
-              {/* Exemples de prompts */}
-              <div 
-                className={styles.promptExample}
-                onClick={() => copyPromptExample(localizedStrings.promptExample1)}
-                title={localizedStrings.clickToCopy}
-              >
-                {localizedStrings.promptExample1}
+          {/* Système d'onglets */}
+          <Pivot aria-label="Options d'aide">
+            <PivotItem 
+              headerText={localizedStrings.promptsTab} 
+              headerButtonProps={{
+                'data-order': 1,
+                'data-title': 'Prompts'
+              }}
+              itemIcon="BulletedList"
+            >
+              <div className={styles.tabContent}>
+                <div className={styles.promptsHeader}>
+                  <h3 className={styles.promptsTitle}>{localizedStrings.promptsTabTitle}</h3>
+                  
+                  {/* Barre de recherche */}
+                  <div className={styles.searchContainer}>
+                    <SearchBox 
+                      placeholder={localizedStrings.searchPrompts} 
+                      onChange={(_, newValue) => setSearchQuery(newValue || '')}
+                      className={styles.searchBox}
+                      iconProps={{ iconName: 'Search' }}
+                    />
+                  </div>
+                </div>
+                
+                {/* Filtres par catégorie */}
+                <div className={styles.categoryFilters}>
+                  <button 
+                    className={`${styles.categoryButton} ${selectedCategory === null ? styles.categoryButtonActive : ''}`}
+                    onClick={() => setSelectedCategory(null)}
+                  >
+                    <Icon iconName="AllApps" className={styles.categoryButtonIcon} />
+                    {localizedStrings.allCategories}
+                  </button>
+                  
+                  {categories.map(category => (
+                    <button 
+                      key={category.key}
+                      className={`${styles.categoryButton} ${selectedCategory === category.key ? styles.categoryButtonActive : ''}`}
+                      onClick={() => setSelectedCategory(category.key)}
+                    >
+                      <Icon iconName={category.icon} className={styles.categoryButtonIcon} />
+                      {category.name[currentLanguage]}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Liste des prompts */}
+                <div className={styles.promptsList}>
+                  {filteredPrompts.length === 0 ? (
+                    <div className={styles.noResults}>
+                      <Icon iconName="SearchIssue" className={styles.noResultsIcon} />
+                      <div className={styles.noResultsText}>
+                        {localizedStrings.noPromptResults}
+                      </div>
+                    </div>
+                  ) : (
+                    <FocusZone>
+                      <List
+                        items={filteredPrompts}
+                        onRenderCell={renderPromptItem}
+                      />
+                    </FocusZone>
+                  )}
+                </div>
               </div>
-              
-              <div 
-                className={styles.promptExample}
-                onClick={() => copyPromptExample(localizedStrings.promptExample2)}
-                title={localizedStrings.clickToCopy}
-              >
-                {localizedStrings.promptExample2}
+            </PivotItem>
+            
+            <PivotItem 
+              headerText={localizedStrings.guideTab} 
+              headerButtonProps={{
+                'data-order': 2,
+                'data-title': 'Guide'
+              }}
+              itemIcon="ReadingMode"
+            >
+              <div className={styles.tabContent}>
+                <div className={styles.comingSoon}>
+                  <Icon iconName="BuildDefinition" className={styles.comingSoonIcon} />
+                  {localizedStrings.comingSoon}
+                </div>
               </div>
-              
-              <div 
-                className={styles.promptExample}
-                onClick={() => copyPromptExample(localizedStrings.promptExample3)}
-                title={localizedStrings.clickToCopy}
-              >
-                {localizedStrings.promptExample3}
+            </PivotItem>
+            
+            <PivotItem 
+              headerText={localizedStrings.tipsTab} 
+              headerButtonProps={{
+                'data-order': 3,
+                'data-title': 'Tips'
+              }}
+              itemIcon="Lightbulb"
+            >
+              <div className={styles.tabContent}>
+                <div className={styles.comingSoon}>
+                  <Icon iconName="BuildDefinition" className={styles.comingSoonIcon} />
+                  {localizedStrings.comingSoon}
+                </div>
               </div>
-            </div>
-          </div>
-          
-          {/* Section des conseils d'utilisation */}
-          <div className={styles.helpSection}>
-            <h3 className={styles.sectionTitle}>{localizedStrings.tipsTitle}</h3>
-            <div className={styles.sectionContent}>
-              <p>{localizedStrings.tipsContent}</p>
-              <ul>
-                <li>{localizedStrings.tip1}</li>
-                <li>{localizedStrings.tip2}</li>
-                <li>{localizedStrings.tip3}</li>
-                <li>{localizedStrings.tip4}</li>
-                <li>{localizedStrings.tip5}</li>
-              </ul>
-            </div>
-          </div>
-          
-          {/* Section des limitations */}
-          <div className={styles.helpSection}>
-            <h3 className={styles.sectionTitle}>{localizedStrings.limitationsTitle}</h3>
-            <div className={styles.sectionContent}>
-              <p>{localizedStrings.limitationsContent}</p>
-              <ul>
-                <li>{localizedStrings.limitation1}</li>
-                <li>{localizedStrings.limitation2}</li>
-                <li>{localizedStrings.limitation3}</li>
-              </ul>
-            </div>
-          </div>
+            </PivotItem>
+          </Pivot>
         </div>
       </div>
     </>
@@ -172,67 +484,47 @@ export function HelpPanel(_props: HelpPanelProps) {
 
 let localizedStrings = new LocalizedStrings({
   FR: {
-    helpPanelTitle: 'Guide d\'utilisation de l\'assistant',
+    helpPanelTitle: 'Centre d\'aide',
     hide: 'Fermer',
-    clickToCopy: 'Cliquer pour copier cet exemple',
+    dismiss: 'Fermer',
+    promptCopied: 'Exemple copié dans le presse-papiers!',
+    copyError: 'Erreur lors de la copie',
     
-    // Section d'introduction
-    introTitle: 'Bienvenue dans l\'aide de l\'assistant',
-    introContent: 'Cet assistant utilise l\'intelligence artificielle pour vous aider à trouver des informations pertinentes dans vos documents. Voici quelques conseils pour tirer le meilleur parti de votre expérience.',
+    // Onglets
+    promptsTab: 'Exemples de prompts',
+    guideTab: 'Guide d\'utilisation',
+    tipsTab: 'Astuces',
     
-    // Section des exemples de prompts
-    promptExamplesTitle: 'Exemples de questions efficaces',
-    promptExamplesIntro: 'Cliquez sur un exemple pour le copier dans votre presse-papiers :',
-    promptExample1: 'Quelles sont les principales fonctionnalités du produit X ?',
-    promptExample2: 'Résume les points clés du document sur la stratégie commerciale 2025.',
-    promptExample3: 'Compare les avantages et inconvénients des options A et B mentionnées dans le rapport.',
+    // Contenu de l'onglet Prompts
+    promptsTabTitle: 'Exemples de prompts par catégorie',
+    searchPrompts: 'Rechercher un prompt...',
+    allCategories: 'Toutes les catégories',
+    promptLabel: 'Prompt à copier:',
+    noPromptResults: 'Aucun prompt ne correspond à votre recherche',
     
-    // Section des conseils
-    tipsTitle: 'Conseils pour de meilleurs résultats',
-    tipsContent: 'Pour obtenir les réponses les plus précises et pertinentes :',
-    tip1: 'Soyez spécifique dans vos questions.',
-    tip2: 'Incluez des mots-clés pertinents qui se trouvent dans vos documents.',
-    tip3: 'Pour des analyses complexes, décomposez votre demande en plusieurs questions plus simples.',
-    tip4: 'Si la réponse n\'est pas satisfaisante, essayez de reformuler votre question.',
-    tip5: 'Utilisez les sources citées pour vérifier les informations fournies.',
-    
-    // Section des limitations
-    limitationsTitle: 'Limitations à connaître',
-    limitationsContent: 'L\'assistant a certaines limitations :',
-    limitation1: 'Il ne peut accéder qu\'aux documents qui ont été indexés dans la base de connaissances.',
-    limitation2: 'Il peut parfois mal interpréter certaines demandes complexes ou ambiguës.',
-    limitation3: 'L\'assistant n\'a pas connaissance des événements ou informations postérieurs à sa dernière mise à jour.'
+    // Message "à venir"
+    comingSoon: 'Contenu à venir prochainement...'
   },
   EN: {
-    helpPanelTitle: 'Assistant User Guide',
+    helpPanelTitle: 'Help Center',
     hide: 'Close',
-    clickToCopy: 'Click to copy this example',
+    dismiss: 'Dismiss',
+    promptCopied: 'Example copied to clipboard!',
+    copyError: 'Error copying to clipboard',
     
-    // Introduction section
-    introTitle: 'Welcome to the Assistant Help',
-    introContent: 'This assistant uses artificial intelligence to help you find relevant information from your documents. Here are some tips to make the most of your experience.',
+    // Tabs
+    promptsTab: 'Prompt examples',
+    guideTab: 'User guide',
+    tipsTab: 'Tips & tricks',
     
-    // Prompt examples section
-    promptExamplesTitle: 'Examples of Effective Questions',
-    promptExamplesIntro: 'Click on an example to copy it to your clipboard:',
-    promptExample1: 'What are the main features of product X?',
-    promptExample2: 'Summarize the key points from the 2025 business strategy document.',
-    promptExample3: 'Compare the advantages and disadvantages of options A and B mentioned in the report.',
+    // Prompts tab content
+    promptsTabTitle: 'Prompt examples by category',
+    searchPrompts: 'Search for a prompt...',
+    allCategories: 'All categories',
+    promptLabel: 'Prompt to copy:',
+    noPromptResults: 'No prompts match your search',
     
-    // Tips section
-    tipsTitle: 'Tips for Better Results',
-    tipsContent: 'To get the most accurate and relevant answers:',
-    tip1: 'Be specific in your questions.',
-    tip2: 'Include relevant keywords that are found in your documents.',
-    tip3: 'For complex analyses, break down your request into multiple simpler questions.',
-    tip4: 'If the answer is not satisfactory, try rephrasing your question.',
-    tip5: 'Use the cited sources to verify the information provided.',
-    
-    // Limitations section
-    limitationsTitle: 'Limitations to Be Aware Of',
-    limitationsContent: 'The assistant has certain limitations:',
-    limitation1: 'It can only access documents that have been indexed in the knowledge base.',
-    limitation2: 'It may sometimes misinterpret certain complex or ambiguous requests.',
-    limitation3: 'The assistant is not aware of events or information after its last update.'
+    // Coming soon message
+    comingSoon: 'Content coming soon...'
   },
 });
