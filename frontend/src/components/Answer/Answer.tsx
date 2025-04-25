@@ -503,7 +503,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked, langua
             </Stack.Item>
           )}
           <Stack.Item className={styles.answerDisclaimerContainer}>
-            <span className={styles.answerDisclaimer}></span>
+            <span className={styles.answerDisclaimer}>{localizedStrings.aiDisclaimer}</span>
           </Stack.Item>
           {!!answer.exec_results?.length && (
             <Stack.Item onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? toggleIsRefAccordionOpen() : null)}>
@@ -648,6 +648,7 @@ let localizedStrings = new LocalizedStrings({
       feedbackHelps: "Votre feedback nous permet d'améliorer votre expérience.",
       feedbackWillBVisible: "En validant, votre retour sera rendu visible pour les administrateurs de l'application.",
       submit: "Soumettre",
+      aiDisclaimer: "Les réponses générées par l'IA peuvent être incorrectes",
       // Unhelpful
       labelWhy: "Pourquoi cette réponse n'était pas adaptée ?",
       feedbackMissingCitations: "Manque de citations",
@@ -671,6 +672,7 @@ let localizedStrings = new LocalizedStrings({
       feedbackHelps: "Your feedback will improve this experience.",
       feedbackWillBVisible: "By pressing submit, your feedback will be visible to the application owner.",
       submit: "Submit",
+      aiDisclaimer: "AI-generated content may be incorrect",
       // Unhelpful
       labelWhy: "Why wasn't this response helpful ?",
       feedbackMissingCitations: "Citations are missing",
