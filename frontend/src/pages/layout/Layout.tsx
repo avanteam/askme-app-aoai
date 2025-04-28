@@ -157,7 +157,7 @@ const Layout = () => {
           </Stack>
           <Stack horizontal tokens={{ childrenGap: 4 }} className={styles.shareButtonContainer}>
             {/* Bouton d'aide */}
-            {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && !showAuthMessage && (
+            {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && appStateContext?.state.isAuthenticated && (
               <HelpButton
                 onClick={handleHelpClick}
                 text={helpLabel}

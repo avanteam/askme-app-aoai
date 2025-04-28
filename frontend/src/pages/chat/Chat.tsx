@@ -193,6 +193,7 @@ const Chat = () => {
         const resp = await authenticate(event.data.AuthToken);
         if (resp){
           setShowAuthMessage(false);
+          appStateContext?.dispatch({ type: 'SET_AUTHENTICATION_STATUS', payload: true }); // Mise à jour du contexte global
           setToken(event.data.AuthToken);
           // Set le token au niveau du context (utile pour l'utiliser sur l'historique par ex)
           appStateContext?.dispatch({ type: 'SET_AUTH_TOKEN', payload: event.data.AuthToken });

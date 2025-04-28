@@ -21,7 +21,7 @@ import { appStateReducer } from './AppReducer'
 
 export interface AppState {
   isChatHistoryOpen: boolean
-  isHelpPanelOpen: boolean // Nouvelle propriété
+  isHelpPanelOpen: boolean
   chatHistoryLoadingState: ChatHistoryLoadingState
   isCosmosDBAvailable: CosmosDBHealth
   chatHistory: Conversation[] | null
@@ -36,6 +36,7 @@ export interface AppState {
   username: string;
   encryptedUsername: string;
   initialQuestion: string;
+  isAuthenticated: boolean;
 }
 
 export type Action =
@@ -63,6 +64,7 @@ export type Action =
   | { type: 'SET_USERNAME'; payload: string }
   | { type: 'SET_ENCRYPTED_USERNAME'; payload: string }
   | { type: 'SET_INITIAL_QUESTION'; payload: string }
+  | { type: 'SET_AUTHENTICATION_STATUS'; payload: boolean }
 
 const initialState: AppState = {
   isChatHistoryOpen: false,
@@ -83,7 +85,8 @@ const initialState: AppState = {
   userLanguage: "FR",
   username: "",
   encryptedUsername: "",
-  initialQuestion: ""
+  initialQuestion: "",
+  isAuthenticated: false,
 }
 
 export const AppStateContext = createContext<

@@ -121,6 +121,8 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
         ...state,
         initialQuestion: action.payload, 
       };
+    case 'SET_AUTHENTICATION_STATUS':
+      return { ...state, isAuthenticated: action.payload }
     default:
       return state
   }
