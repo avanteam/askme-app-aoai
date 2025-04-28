@@ -71,9 +71,55 @@
   border: 1px solid #d1d1d1;
 }
 
+/* Ajout des styles du bouton d'aide */
+.helpButtonRoot {
+  width: 80px;
+  height: 32px;
+  border-radius: 4px;
+  background: radial-gradient(109.81% 107.82% at 100.1% 90.19%, #0f6cbd 33.63%, #2d87c3 70.31%, #8dddd8 100%);
+  padding: 5px 12px;
+}
+
+.helpButtonRoot:hover {
+  background: linear-gradient(135deg, #0f6cbd 0%, #2d87c3 51.04%, #8dddd8 100%);
+}
+
+.helpButtonRoot span {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  color: #ffffff;
+}
+
+.helpButtonRoot i,
+.helpButtonRoot:hover i {
+  color: #ffffff !important;
+}
+
+.buttonContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.helpInlineIcon {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+
+.buttonText {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  color: #ffffff;
+}
+
 @media (max-width: 480px) {
   .shareButtonRoot,
-  .exportButtonRoot {
+  .exportButtonRoot,
+  .helpButtonRoot {
     width: auto;
     padding: 5px 8px;
   }

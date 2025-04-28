@@ -5,8 +5,7 @@ import { CopyRegular } from '@fluentui/react-icons'
 
 import { CosmosDBStatus } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
-import { ExportButton, HistoryButton, ShareButton } from '../../components/common/Button'
-import { HelpButton } from '../../components/Help/HelpButton' // Importer le composant HelpButton
+import { ExportButton, HistoryButton, ShareButton, HelpButton } from '../../components/common/Button'
 import { HelpPanel } from '../../components/Help/HelpPanel' // Importer le composant HelpPanel
 import { AppStateContext } from '../../state/AppProvider'
 import { exportToPdf } from '../../utils/exportToPdf'
@@ -158,10 +157,12 @@ const Layout = () => {
           </Stack>
           <Stack horizontal tokens={{ childrenGap: 4 }} className={styles.shareButtonContainer}>
             {/* Bouton d'aide */}
-            <HelpButton
-              onClick={handleHelpClick}
-              text={helpLabel}
-            />
+            {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && !showAuthMessage && (
+              <HelpButton
+                onClick={handleHelpClick}
+                text={helpLabel}
+              />
+            )}
             {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && ui?.show_chat_history_button !== false && (
               <HistoryButton
                 onClick={handleHistoryClick}

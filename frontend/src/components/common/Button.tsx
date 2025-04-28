@@ -41,3 +41,14 @@ export const ExportButton: React.FC<ButtonProps> = ({ onClick, text }) => {
     </TooltipHost>
   )
 }
+
+export const HelpButton: React.FC<ButtonProps> = ({ onClick, text }) => {
+  return (
+    <DefaultButton
+      className={styles.helpButtonRoot}
+      text={text}
+      iconProps={{ iconName: 'Lifesaver' }}
+      onClick={onClick}
+    />
+  )
+}
