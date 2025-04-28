@@ -1218,6 +1218,34 @@ async def ensure_cosmos():
             return jsonify({"error": "CosmosDB is not working"}), 500
 
 
+@bp.route("/help_content", methods=["GET"])
+async def get_help_content():
+    """
+    Endpoint qui retourne le contenu d'aide à partir d'un fichier JSON.
+    Supporte un paramètre de requête 'lang' pour la localisation.
+    """
+    try:
+        language = request.args.get("lang", "FR")
+        
+        # Chemin vers le fichier de contenu d'aide
+        help_content_path = os.path.join(os.path.dirname(__file__), "data", "help_content.json")
+        
+        # Vérifier si le fichier existe
+        if not os.path.exists(help_content_path):
+            return jsonify({"error": "Help content file not found"}), 404
+            
+        # Lire le fichier JSON
+        with open(help_content_path, 'r', encoding='utf-8') as file:
+            content = json.load(file)
+            
+        return jsonify(content), 200
+        
+    except Exception as e:
+        logging.exception("Exception in /help_content")
+        return jsonify({"error": str(e)}), 500
+    
+
+
 async def generate_title(conversation_messages) -> str:
     ## make sure the messages are sorted by _ts descending
     title_prompt = "Résume la conversation précédente en un titre de 4 mots ou moins DANS LA LANGUE de cette même conversation. N'utilise pas de guillemets ni de ponctuation. N'inclus aucun autre commentaire ou description."

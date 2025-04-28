@@ -8,7 +8,9 @@ import {
   Pivot,
   PivotItem,
   FocusZone,
-  List
+  List,
+  Spinner,
+  SpinnerSize
 } from '@fluentui/react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -17,42 +19,106 @@ import { AppStateContext } from '../../state/AppProvider'
 // Importation des fichiers de style
 import styles from './HelpPanel.module.css'
 
-// Importation du contenu d'aide
-import {
-  guideContent,
-  predefinedPrompts,
-  categories,
-  translations,
-  GuideSection,
-  PredefinedPrompt
-} from './helpContent'
+// Types pour le contenu d'aide
+interface Translation {
+  [key: string]: string;
+}
 
-import LocalizedStrings from 'react-localization';
+interface Translations {
+  [lang: string]: Translation;
+}
 
-interface HelpPanelProps {}
+interface Category {
+  key: string;
+  name: { [lang: string]: string };
+  icon: string;
+}
 
-export function HelpPanel(_props: HelpPanelProps) {
+interface GuideSection {
+  id: string;
+  title: { [lang: string]: string };
+  content: { [lang: string]: string };
+  icon: string;
+}
+
+interface PredefinedPrompt {
+  id: number;
+  category: string;
+  title: { [lang: string]: string };
+  description: { [lang: string]: string };
+  prompt: { [lang: string]: string };
+}
+
+interface HelpContent {
+  translations: Translations;
+  categories: Category[];
+  guideContent: GuideSection[];
+  predefinedPrompts: PredefinedPrompt[];
+}
+
+export function HelpPanel() {
   const appStateContext = useContext(AppStateContext)
   const [isVisible, setIsVisible] = useState(false)
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [filteredPrompts, setFilteredPrompts] = useState<PredefinedPrompt[]>(predefinedPrompts)
+  const [filteredPrompts, setFilteredPrompts] = useState<PredefinedPrompt[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [currentLanguage, setCurrentLanguage] = useState('FR')
   const [selectedGuideSection, setSelectedGuideSection] = useState<string>('getting-started')
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [helpContent, setHelpContent] = useState<HelpContent | null>(null)
+  
   const panelRef = useRef<HTMLDivElement>(null)
   const guideSectionRefs = useRef<{[key: string]: React.RefObject<HTMLDivElement>}>({})
   
-  // Initialisation des références localisées
-  const localizedStrings = new LocalizedStrings(translations);
+  // Fonction pour récupérer une traduction
+  const getTranslation = (key: string): string => {
+    if (!helpContent) return key;
+    const translations = helpContent.translations[currentLanguage] || {};
+    return translations[key] || key;
+  };
   
-  // Initialisation des refs pour chaque section du guide
+  // Charger le contenu d'aide depuis l'API
   useEffect(() => {
-    guideContent.forEach(section => {
-      guideSectionRefs.current[section.id] = React.createRef<HTMLDivElement>();
-    });
-  }, []);
+    const fetchHelpContent = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const language = appStateContext?.state.userLanguage || 'FR';
+        const response = await fetch(`/help_content?lang=${language}`);
+        
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        setHelpContent(data);
+        
+        // Initialiser les références pour chaque section du guide
+        if (data.guideContent) {
+          data.guideContent.forEach((section: GuideSection) => {
+            guideSectionRefs.current[section.id] = React.createRef<HTMLDivElement>();
+          });
+        }
+        
+        // Initialiser les prompts filtrés
+        if (data.predefinedPrompts) {
+          setFilteredPrompts(data.predefinedPrompts);
+        }
+        
+      } catch (err) {
+        console.error('Error fetching help content:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchHelpContent();
+  }, [appStateContext?.state.userLanguage]);
   
   // Fermeture du panneau d'aide
   const handleCloseHelp = () => {
@@ -76,7 +142,7 @@ export function HelpPanel(_props: HelpPanelProps) {
     navigator.clipboard.writeText(text)
       .then(() => {
         // Afficher la notification toast
-        setToastMessage(localizedStrings.promptCopied)
+        setToastMessage(getTranslation('promptCopied'))
         setShowToast(true)
         
         // Masquer après 3 secondes
@@ -87,7 +153,7 @@ export function HelpPanel(_props: HelpPanelProps) {
       .catch(err => {
         console.error('Erreur lors de la copie: ', err)
         // Notification d'erreur
-        setToastMessage(localizedStrings.copyError)
+        setToastMessage(getTranslation('copyError'))
         setShowToast(true)
         setTimeout(() => {
           setShowToast(false)
@@ -97,7 +163,9 @@ export function HelpPanel(_props: HelpPanelProps) {
 
   // Fonction pour filtrer les prompts en fonction de la recherche et de la catégorie
   const filterPrompts = () => {
-    let filtered = predefinedPrompts;
+    if (!helpContent?.predefinedPrompts) return;
+    
+    let filtered = helpContent.predefinedPrompts;
     
     // Filtrer par catégorie si une catégorie est sélectionnée
     if (selectedCategory) {
@@ -136,7 +204,7 @@ export function HelpPanel(_props: HelpPanelProps) {
   // Mettre à jour les filtres lorsque la recherche ou la catégorie change
   useEffect(() => {
     filterPrompts();
-  }, [searchQuery, selectedCategory, currentLanguage]);
+  }, [searchQuery, selectedCategory, helpContent]);
 
   useEffect(() => {
     // Définir l'animation d'apparition après montage du composant
@@ -147,8 +215,6 @@ export function HelpPanel(_props: HelpPanelProps) {
     // Déterminer la langue en fonction du contexte de l'application
     const userLang = appStateContext?.state.userLanguage || 'FR';
     setCurrentLanguage(userLang);
-    
-    localizedStrings.setLanguage(userLang);
     
     // Ajouter l'écouteur pour la touche Escape
     const handleEscapeKey = (e: KeyboardEvent) => {
@@ -167,15 +233,15 @@ export function HelpPanel(_props: HelpPanelProps) {
 
   // Rendu d'un élément de prompt
   const renderPromptItem = (item?: PredefinedPrompt) => {
-    if (!item) return null;
+    if (!item || !helpContent) return null;
     
     const getCategoryIcon = (categoryKey: string) => {
-      const category = categories.find(cat => cat.key === categoryKey);
+      const category = helpContent.categories.find(cat => cat.key === categoryKey);
       return category ? category.icon : 'Tag';
     };
     
     const getCategoryName = (categoryKey: string) => {
-      const category = categories.find(cat => cat.key === categoryKey);
+      const category = helpContent.categories.find(cat => cat.key === categoryKey);
       return category ? category.name[currentLanguage] : categoryKey;
     };
     
@@ -187,7 +253,7 @@ export function HelpPanel(_props: HelpPanelProps) {
         </div>
         <div className={styles.promptCardDescription}>{item.description[currentLanguage]}</div>
         <div className={styles.promptCardPrompt}>
-          <div className={styles.promptLabel}>{localizedStrings.promptLabel}</div>
+          <div className={styles.promptLabel}>{getTranslation('promptLabel')}</div>
           <div className={styles.promptText}>
             <Icon iconName="Copy" className={styles.copyIcon} />
             {item.prompt[currentLanguage]}
@@ -232,6 +298,90 @@ export function HelpPanel(_props: HelpPanelProps) {
     );
   };
 
+  // Afficher un spinner pendant le chargement
+  if (isLoading) {
+    return (
+      <div className={`${styles.container} ${isVisible ? styles.visible : ''}`}>
+        <div className={styles.helpHeader}>
+          <h2 className={styles.helpTitle}>
+            <Icon iconName="Lifesaver" className={styles.titleIcon} />
+            Chargement...
+          </h2>
+          <button 
+            className={styles.closeButton} 
+            onClick={handleCloseHelp}
+            aria-label="Fermer"
+          >
+            <Icon iconName="Cancel" />
+          </button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
+          <Spinner size={SpinnerSize.large} label="Chargement du contenu d'aide..." />
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message d'erreur si le chargement a échoué
+  if (error) {
+    return (
+      <div className={`${styles.container} ${isVisible ? styles.visible : ''}`}>
+        <div className={styles.helpHeader}>
+          <h2 className={styles.helpTitle}>
+            <Icon iconName="Error" className={styles.titleIcon} style={{ color: '#d13438' }} />
+            Erreur
+          </h2>
+          <button 
+            className={styles.closeButton} 
+            onClick={handleCloseHelp}
+            aria-label="Fermer"
+          >
+            <Icon iconName="Cancel" />
+          </button>
+        </div>
+        <div style={{ padding: '20px' }}>
+          <MessageBar
+            messageBarType={MessageBarType.error}
+            isMultiline={true}
+          >
+            Une erreur s'est produite lors du chargement du contenu d'aide: {error}
+            <br/>
+            Veuillez réessayer plus tard ou contacter votre administrateur.
+          </MessageBar>
+        </div>
+      </div>
+    );
+  }
+
+  // Si aucun contenu d'aide n'est disponible
+  if (!helpContent) {
+    return (
+      <div className={`${styles.container} ${isVisible ? styles.visible : ''}`}>
+        <div className={styles.helpHeader}>
+          <h2 className={styles.helpTitle}>
+            <Icon iconName="Lifesaver" className={styles.titleIcon} />
+            Centre d'aide
+          </h2>
+          <button 
+            className={styles.closeButton} 
+            onClick={handleCloseHelp}
+            aria-label="Fermer"
+          >
+            <Icon iconName="Cancel" />
+          </button>
+        </div>
+        <div style={{ padding: '20px' }}>
+          <MessageBar
+            messageBarType={MessageBarType.warning}
+            isMultiline={true}
+          >
+            Aucun contenu d'aide n'est disponible pour le moment.
+          </MessageBar>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Overlay semi-transparent */}
@@ -255,7 +405,7 @@ export function HelpPanel(_props: HelpPanelProps) {
               messageBarType={MessageBarType.success}
               isMultiline={false}
               onDismiss={() => setShowToast(false)}
-              dismissButtonAriaLabel={localizedStrings.dismiss}
+              dismissButtonAriaLabel={getTranslation('dismiss')}
             >
               {toastMessage}
             </MessageBar>
@@ -265,12 +415,12 @@ export function HelpPanel(_props: HelpPanelProps) {
         <div className={styles.helpHeader}>
           <h2 className={styles.helpTitle}>
             <Icon iconName="Lifesaver" className={styles.titleIcon} />
-            {localizedStrings.helpPanelTitle}
+            {getTranslation('helpPanelTitle')}
           </h2>
           <button 
             className={styles.closeButton} 
             onClick={handleCloseHelp}
-            aria-label={localizedStrings.hide}
+            aria-label={getTranslation('hide')}
           >
             <Icon iconName="Cancel" />
           </button>
@@ -281,7 +431,7 @@ export function HelpPanel(_props: HelpPanelProps) {
           <Pivot aria-label="Options d'aide">
 
             <PivotItem 
-              headerText={localizedStrings.guideTab} 
+              headerText={getTranslation('guideTab')} 
               headerButtonProps={{
                 'data-order': 1,
                 'data-title': 'Guide'
@@ -291,7 +441,7 @@ export function HelpPanel(_props: HelpPanelProps) {
               <div className={styles.tabContent}>
                 {/* Navigation du guide */}
                 <div className={styles.guideNavigation}>
-                  {guideContent.map(section => (
+                  {helpContent.guideContent.map(section => (
                     <button
                       key={section.id}
                       className={`${styles.guideNavButton} ${selectedGuideSection === section.id ? styles.guideNavButtonActive : ''}`}
@@ -305,13 +455,13 @@ export function HelpPanel(_props: HelpPanelProps) {
                 
                 {/* Contenu du guide */}
                 <div style={{ overflow: 'auto' }}>
-                  {guideContent.map(section => renderGuideSection(section))}
+                  {helpContent.guideContent.map(section => renderGuideSection(section))}
                 </div>
               </div>
             </PivotItem>
             
             <PivotItem 
-              headerText={localizedStrings.promptsTab} 
+              headerText={getTranslation('promptsTab')} 
               headerButtonProps={{
                 'data-order': 2,
                 'data-title': 'Prompts'
@@ -320,12 +470,12 @@ export function HelpPanel(_props: HelpPanelProps) {
             >
               <div className={styles.tabContent}>
                 <div className={styles.promptsHeader}>
-                  <h3 className={styles.promptsTitle}>{localizedStrings.promptsTabTitle}</h3>
+                  <h3 className={styles.promptsTitle}>{getTranslation('promptsTabTitle')}</h3>
                   
                   {/* Barre de recherche */}
                   <div className={styles.searchContainer}>
                     <SearchBox 
-                      placeholder={localizedStrings.searchPrompts} 
+                      placeholder={getTranslation('searchPrompts')} 
                       onChange={(_, newValue) => setSearchQuery(newValue || '')}
                       className={styles.searchBox}
                       iconProps={{ iconName: 'Search' }}
@@ -340,10 +490,10 @@ export function HelpPanel(_props: HelpPanelProps) {
                     onClick={() => setSelectedCategory(null)}
                   >
                     <Icon iconName="AllApps" className={styles.categoryButtonIcon} />
-                    {localizedStrings.allCategories}
+                    {getTranslation('allCategories')}
                   </button>
                   
-                  {categories.map(category => (
+                  {helpContent.categories.map(category => (
                     <button 
                       key={category.key}
                       className={`${styles.categoryButton} ${selectedCategory === category.key ? styles.categoryButtonActive : ''}`}
@@ -361,7 +511,7 @@ export function HelpPanel(_props: HelpPanelProps) {
                     <div className={styles.noResults}>
                       <Icon iconName="SearchIssue" className={styles.noResultsIcon} />
                       <div className={styles.noResultsText}>
-                        {localizedStrings.noPromptResults}
+                        {getTranslation('noPromptResults')}
                       </div>
                     </div>
                   ) : (
