@@ -156,17 +156,17 @@ const Layout = () => {
             </Link>
           </Stack>
           <Stack horizontal tokens={{ childrenGap: 4 }} className={styles.shareButtonContainer}>
-            {/* Bouton d'aide */}
+            
+            {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && ui?.show_chat_history_button !== false && (
+              <HistoryButton
+              onClick={handleHistoryClick}
+              text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
+              />
+            )}
             {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && appStateContext?.state.isAuthenticated && (
               <HelpButton
                 onClick={handleHelpClick}
                 text={helpLabel}
-              />
-            )}
-            {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && ui?.show_chat_history_button !== false && (
-              <HistoryButton
-                onClick={handleHistoryClick}
-                text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
               />
             )}
             {appStateContext?.state.currentChat?.messages && appStateContext.state.currentChat.messages.length > 0 && ui?.show_export_button && (
