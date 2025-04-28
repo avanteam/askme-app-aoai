@@ -376,21 +376,6 @@ export function HelpPanel(_props: HelpPanelProps) {
               </div>
             </PivotItem>
             
-            <PivotItem 
-              headerText={localizedStrings.tipsTab} 
-              headerButtonProps={{
-                'data-order': 3,
-                'data-title': 'Tips'
-              }}
-              itemIcon="Lightbulb"
-            >
-              <div className={styles.tabContent}>
-                <div className={styles.comingSoon}>
-                  <Icon iconName="BuildDefinition" className={styles.comingSoonIcon} />
-                  {localizedStrings.comingSoon}
-                </div>
-              </div>
-            </PivotItem>
           </Pivot>
         </div>
       </div>

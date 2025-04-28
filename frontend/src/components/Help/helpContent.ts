@@ -83,8 +83,8 @@ export interface Translation {
   - Questions d'opinion pure : "Quelle est la meilleure approche ?"
   
   **Exemple de question efficace :**
-  ❌ "Parle-moi des congés"
-  ✅ "Quelle est la procédure pour demander un congé parental et quels documents dois-je fournir ?"`,
+  - ❌ "Parle-moi des congés"
+  - ✅ "Quelle est la procédure pour demander un congé parental et quels documents dois-je fournir ?"`,
         EN: `To get the best answers, here are some tips for formulating your questions:
   
   **Types of questions that work well:**
@@ -98,8 +98,8 @@ export interface Translation {
   - Pure opinion questions: "What is the best approach?"
   
   **Example of an effective question:**
-  ❌ "Tell me about leave"
-  ✅ "What is the procedure for requesting parental leave and what documents do I need to provide?"`
+  - ❌ "Tell me about leave"
+  - ✅ "What is the procedure for requesting parental leave and what documents do I need to provide?"`
       },
       icon: 'QueryList'
     },
