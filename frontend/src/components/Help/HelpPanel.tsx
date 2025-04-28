@@ -264,7 +264,7 @@ export function HelpPanel(_props: HelpPanelProps) {
         
         <div className={styles.helpHeader}>
           <h2 className={styles.helpTitle}>
-            <Icon iconName="Help" className={styles.titleIcon} />
+            <Icon iconName="Lifesaver" className={styles.titleIcon} />
             {localizedStrings.helpPanelTitle}
           </h2>
           <button 
