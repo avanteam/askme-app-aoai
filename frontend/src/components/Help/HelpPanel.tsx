@@ -378,6 +378,23 @@ export function HelpPanel(_props: HelpPanelProps) {
         <div className={styles.helpContent}>
           {/* Système d'onglets */}
           <Pivot aria-label="Options d'aide">
+
+          <PivotItem 
+              headerText={localizedStrings.guideTab} 
+              headerButtonProps={{
+                'data-order': 2,
+                'data-title': 'Guide'
+              }}
+              itemIcon="ReadingMode"
+            >
+              <div className={styles.tabContent}>
+                <div className={styles.comingSoon}>
+                  <Icon iconName="BuildDefinition" className={styles.comingSoonIcon} />
+                  {localizedStrings.comingSoon}
+                </div>
+              </div>
+            </PivotItem>
+            
             <PivotItem 
               headerText={localizedStrings.promptsTab} 
               headerButtonProps={{
@@ -440,22 +457,6 @@ export function HelpPanel(_props: HelpPanelProps) {
                       />
                     </FocusZone>
                   )}
-                </div>
-              </div>
-            </PivotItem>
-            
-            <PivotItem 
-              headerText={localizedStrings.guideTab} 
-              headerButtonProps={{
-                'data-order': 2,
-                'data-title': 'Guide'
-              }}
-              itemIcon="ReadingMode"
-            >
-              <div className={styles.tabContent}>
-                <div className={styles.comingSoon}>
-                  <Icon iconName="BuildDefinition" className={styles.comingSoonIcon} />
-                  {localizedStrings.comingSoon}
                 </div>
               </div>
             </PivotItem>
