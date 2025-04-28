@@ -363,3 +363,122 @@
     flex-shrink: 0;
   }
 }
+
+/* Styles spécifiques pour le Guide d'utilisation */
+
+.guideNavigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.guideNavButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f3f3f3;
+  border: 1px solid #e0e0e0;
+  border-radius: 16px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.guideNavButton:hover {
+  background-color: #e6e6e6;
+}
+
+.guideNavButtonActive {
+  background-color: #0f6cbd;
+  color: white;
+  border-color: #0f6cbd;
+}
+
+.guideNavButtonActive .guideNavButtonIcon {
+  color: white;
+}
+
+.guideNavButtonIcon {
+  font-size: 14px;
+  color: #555;
+}
+
+.sectionContainer {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f6cbd;
+  margin-bottom: 12px;
+}
+
+.sectionContent {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+}
+
+.markdownParagraph {
+  margin-bottom: 12px;
+}
+
+.markdownBold {
+  font-weight: 600;
+}
+
+.markdownList {
+  padding-left: 16px;
+  margin-bottom: 12px;
+}
+
+.markdownListItem {
+  margin-bottom: 4px;
+}
+
+/* Styles pour le rendu Markdown */
+.markdownContent p {
+  margin-bottom: 12px;
+}
+
+.markdownContent ul,
+.markdownContent ol {
+  padding-left: 20px;
+  margin-bottom: 12px;
+}
+
+.markdownContent li {
+  margin-bottom: 4px;
+}
+
+.markdownContent strong {
+  font-weight: 600;
+}
+
+.markdownContent h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+  .guideNavigation {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .sectionContainer {
+    padding: 12px;
+  }
+}

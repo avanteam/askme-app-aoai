@@ -1,0 +1,412 @@
+// Types pour les traductions multilingues
+export interface Translation {
+    FR: string;
+    EN: string;
+    [key: string]: string; // Permet l'indexation avec une chaîne
+  }
+  
+  // Types pour les sections du guide
+  export interface GuideSection {
+    id: string;
+    title: Translation;
+    content: Translation;
+    icon: string;
+  }
+  
+  // Types pour les exemples de prompts
+  export interface PredefinedPrompt {
+    id: number;
+    category: string;
+    title: Translation;
+    description: Translation;
+    prompt: Translation;
+  }
+  
+  // Types pour les catégories
+  export interface Category {
+    key: string;
+    name: Translation;
+    icon: string;
+  }
+  
+  // Contenu du guide d'utilisation
+  export const guideContent: GuideSection[] = [
+    {
+      id: 'getting-started',
+      title: {
+        FR: 'Premiers pas avec l\'assistant',
+        EN: 'Getting started with the assistant'
+      },
+      content: {
+        FR: `AskMe est un assistant intelligent basé sur l'intelligence artificielle qui vous permet de poser des questions sur vos documents et d'obtenir des réponses précises.
+  
+  **Comment commencer :**
+  1. Posez simplement votre question dans la zone de texte en bas de l'écran
+  2. L'assistant analysera vos documents pour trouver les informations pertinentes
+  3. Vous recevrez une réponse structurée avec des références aux sources utilisées
+  
+  **Conseils pour de meilleurs résultats :**
+  - Soyez précis dans vos questions
+  - Utilisez des termes spécifiques à votre domaine
+  - Posez une seule question à la fois pour des réponses plus ciblées`,
+        EN: `AskMe is an intelligent AI-based assistant that allows you to ask questions about your documents and get accurate answers.
+  
+  **How to get started:**
+  1. Simply ask your question in the text box at the bottom of the screen
+  2. The assistant will analyze your documents to find relevant information
+  3. You'll receive a structured response with references to the sources used
+  
+  **Tips for better results:**
+  - Be specific in your questions
+  - Use terms specific to your domain
+  - Ask one question at a time for more focused answers`
+      },
+      icon: 'Rocket'
+    },
+    {
+      id: 'asking-questions',
+      title: {
+        FR: 'Poser des questions efficaces',
+        EN: 'Asking effective questions'
+      },
+      content: {
+        FR: `Pour obtenir les meilleures réponses, voici quelques conseils pour formuler vos questions :
+  
+  **Types de questions qui fonctionnent bien :**
+  - Questions factuelles : "Quelle est la politique de congés parentaux ?"
+  - Questions sur des processus : "Comment puis-je soumettre une note de frais ?"
+  - Questions d'analyse : "Quels sont les avantages et inconvénients de la méthode X ?"
+  
+  **Évitez :**
+  - Questions trop vagues : "Parle-moi des rapports"
+  - Questions hypothétiques sans contexte : "Que se passerait-il si...?"
+  - Questions d'opinion pure : "Quelle est la meilleure approche ?"
+  
+  **Exemple de question efficace :**
+  ❌ "Parle-moi des congés"
+  ✅ "Quelle est la procédure pour demander un congé parental et quels documents dois-je fournir ?"`,
+        EN: `To get the best answers, here are some tips for formulating your questions:
+  
+  **Types of questions that work well:**
+  - Factual questions: "What is the parental leave policy?"
+  - Process questions: "How do I submit an expense report?"
+  - Analysis questions: "What are the advantages and disadvantages of method X?"
+  
+  **Avoid:**
+  - Vague questions: "Tell me about reports"
+  - Hypothetical questions without context: "What would happen if...?"
+  - Pure opinion questions: "What is the best approach?"
+  
+  **Example of an effective question:**
+  ❌ "Tell me about leave"
+  ✅ "What is the procedure for requesting parental leave and what documents do I need to provide?"`
+      },
+      icon: 'QueryList'
+    },
+    {
+      id: 'understanding-responses',
+      title: {
+        FR: 'Comprendre les réponses',
+        EN: 'Understanding responses'
+      },
+      content: {
+        FR: `Les réponses de l'assistant sont structurées pour vous fournir l'information la plus pertinente :
+  
+  **Éléments des réponses :**
+  1. **Réponse principale** - L'information directe qui répond à votre question
+  2. **Citations** - Références aux documents sources utilisés pour la réponse
+  3. **Feedback** - Possibilité d'indiquer si la réponse vous a été utile
+  
+  **Consulter les sources :**
+  - Cliquez sur les numéros de citation pour voir le passage exact du document
+  - Utilisez les boutons à côté des citations pour ouvrir le document complet ou une pièce jointe
+  
+  **Important :**
+  L'assistant ne peut répondre qu'en fonction des documents auxquels il a accès. Si l'information n'est pas dans vos documents, il vous l'indiquera.`,
+        EN: `The assistant's responses are structured to provide you with the most relevant information:
+  
+  **Response elements:**
+  1. **Main answer** - The direct information that answers your question
+  2. **Citations** - References to source documents used for the answer
+  3. **Feedback** - Ability to indicate if the response was helpful
+  
+  **Consulting sources:**
+  - Click on citation numbers to see the exact passage from the document
+  - Use the buttons next to citations to open the complete document or an attachment
+  
+  **Important:**
+  The assistant can only answer based on the documents it has access to. If the information is not in your documents, it will let you know.`
+      },
+      icon: 'BulletedList'
+    },
+    {
+      id: 'using-citations',
+      title: {
+        FR: 'Utiliser les citations et références',
+        EN: 'Using citations and references'
+      },
+      content: {
+        FR: `Les citations sont un élément clé pour vérifier la fiabilité des réponses :
+  
+  **Comment accéder aux citations :**
+  1. Cliquez sur les numéros de citation (ex: ^1^) dans la réponse pour voir la source
+  2. Ou cliquez sur "X références" en bas de la réponse pour voir toutes les sources
+  
+  **Types d'actions disponibles :**
+  - **Aperçu de la citation** - Affiche l'extrait exact utilisé par l'assistant
+  - **Ouvrir le document** - Ouvre le document complet
+  - **Ouvrir la pièce jointe** - Pour les documents avec pièces jointes
+  
+  **Bonnes pratiques :**
+  - Vérifiez toujours les sources pour les informations critiques
+  - Consultez le contexte complet en ouvrant le document si nécessaire
+  - Si vous trouvez des citations incorrectes, utilisez le bouton de feedback négatif`,
+        EN: `Citations are a key element for verifying the reliability of responses:
+  
+  **How to access citations:**
+  1. Click on the citation numbers (e.g., ^1^) in the response to see the source
+  2. Or click on "X references" at the bottom of the response to see all sources
+  
+  **Types of available actions:**
+  - **Citation preview** - Displays the exact excerpt used by the assistant
+  - **Open document** - Opens the complete document
+  - **Open attachment** - For documents with attachments
+  
+  **Best practices:**
+  - Always check sources for critical information
+  - Consult the complete context by opening the document if necessary
+  - If you find incorrect citations, use the negative feedback button`
+      },
+      icon: 'DocumentSearch'
+    },
+    {
+      id: 'additional-features',
+      title: {
+        FR: 'Fonctionnalités additionnelles',
+        EN: 'Additional features'
+      },
+      content: {
+        FR: `**Historique des conversations :**
+  - Accédez à vos conversations précédentes via le bouton "Historique" en haut à droite
+  - Renommez ou supprimez des conversations en utilisant les boutons sur chaque entrée
+  
+  **Exporter une conversation :**
+  - Utilisez le bouton "Exporter" pour sauvegarder une conversation au format PDF
+  - Le PDF inclut l'ensemble de l'échange et peut être partagé facilement
+  
+  **Partager l'application :**
+  - Le bouton "Partager" permet de copier l'URL de l'application pour la partager avec des collègues
+  
+  **Feedback :**
+  - Utilisez les boutons 👍 et 👎 pour indiquer si une réponse est utile
+  - Votre feedback aide à améliorer la qualité des réponses futures`,
+        EN: `**Conversation history:**
+  - Access your previous conversations via the "History" button in the top right
+  - Rename or delete conversations using the buttons on each entry
+  
+  **Export a conversation:**
+  - Use the "Export" button to save a conversation as a PDF
+  - The PDF includes the entire exchange and can be easily shared
+  
+  **Share the application:**
+  - The "Share" button allows you to copy the application URL to share with colleagues
+  
+  **Feedback:**
+  - Use the 👍 and 👎 buttons to indicate if a response is helpful
+  - Your feedback helps improve the quality of future responses`
+      },
+      icon: 'MoreSports'
+    }
+  ];
+  
+  // Liste des prompts prédéfinis
+  export const predefinedPrompts: PredefinedPrompt[] = [
+    // Catégorie Général
+    {
+      id: 1,
+      category: 'general',
+      title: {
+        FR: 'Trouver des informations sur un sujet',
+        EN: 'Find information on a topic'
+      },
+      description: {
+        FR: 'Recherche d\'informations générales sur un sujet précis',
+        EN: 'Search for general information on a specific topic'
+      },
+      prompt: {
+        FR: 'Quelles informations avons-nous sur [sujet spécifique] ? Présente un résumé des points clés.',
+        EN: 'What information do we have about [specific topic]? Present a summary of key points.'
+      }
+    },
+    {
+      id: 2,
+      category: 'general',
+      title: {
+        FR: 'Dernières mises à jour',
+        EN: 'Latest updates'
+      },
+      description: {
+        FR: 'Recherche des informations récentes sur un sujet',
+        EN: 'Search for recent information on a topic'
+      },
+      prompt: {
+        FR: 'Quelles sont les dernières informations ou mises à jour concernant [sujet] ? Y a-t-il eu des changements récents ?',
+        EN: 'What are the latest information or updates regarding [topic]? Have there been any recent changes?'
+      }
+    },
+    // Catégorie Documents
+    {
+      id: 3,
+      category: 'documents',
+      title: {
+        FR: 'Résumé de document',
+        EN: 'Document summary'
+      },
+      description: {
+        FR: 'Obtenir un résumé concis d\'un document spécifique',
+        EN: 'Get a concise summary of a specific document'
+      },
+      prompt: {
+        FR: 'Peux-tu me faire un résumé du document concernant [sujet ou nom du document] ? Inclus les points principaux et les conclusions.',
+        EN: 'Can you summarize the document about [topic or document name]? Include the main points and conclusions.'
+      }
+    },
+    {
+      id: 4,
+      category: 'documents',
+      title: {
+        FR: 'Recherche de procédure',
+        EN: 'Procedure search'
+      },
+      description: {
+        FR: 'Trouver une procédure ou un processus spécifique',
+        EN: 'Find a specific procedure or process'
+      },
+      prompt: {
+        FR: 'Quelle est la procédure pour [action spécifique] ? Peux-tu me donner les étapes à suivre ?',
+        EN: 'What is the procedure for [specific action]? Can you give me the steps to follow?'
+      }
+    },
+    // Catégorie Analyse
+    {
+      id: 5,
+      category: 'analysis',
+      title: {
+        FR: 'Comparaison d\'informations',
+        EN: 'Information comparison'
+      },
+      description: {
+        FR: 'Comparer différentes informations ou approches',
+        EN: 'Compare different information or approaches'
+      },
+      prompt: {
+        FR: 'Peux-tu comparer les différentes approches concernant [sujet] ? Quels sont les avantages et inconvénients de chaque méthode ?',
+        EN: 'Can you compare the different approaches regarding [topic]? What are the advantages and disadvantages of each method?'
+      }
+    },
+    {
+      id: 6,
+      category: 'analysis',
+      title: {
+        FR: 'Analyse des tendances',
+        EN: 'Trend analysis'
+      },
+      description: {
+        FR: 'Analyser les tendances sur un sujet spécifique',
+        EN: 'Analyze trends on a specific topic'
+      },
+      prompt: {
+        FR: 'Quelles sont les tendances principales concernant [sujet] dans nos documents ? Y a-t-il une évolution notable ?',
+        EN: 'What are the main trends regarding [topic] in our documents? Is there a notable evolution?'
+      }
+    },
+    // Catégorie Rédaction
+    {
+      id: 7,
+      category: 'writing',
+      title: {
+        FR: 'Rédaction d\'un message',
+        EN: 'Draft a message'
+      },
+      description: {
+        FR: 'Aide à la rédaction d\'un message professionnel',
+        EN: 'Help drafting a professional message'
+      },
+      prompt: {
+        FR: 'Aide-moi à rédiger un message professionnel pour [contexte] qui inclut les informations suivantes : [points clés]. Le ton doit être [formel/informel].',
+        EN: 'Help me draft a professional message for [context] that includes the following information: [key points]. The tone should be [formal/informal].'
+      }
+    },
+    {
+      id: 8,
+      category: 'writing',
+      title: {
+        FR: 'Simplification d\'un texte',
+        EN: 'Text simplification'
+      },
+      description: {
+        FR: 'Simplifier un texte technique ou complexe',
+        EN: 'Simplify a technical or complex text'
+      },
+      prompt: {
+        FR: 'Peux-tu m\'aider à simplifier cette information technique : [texte complexe] ? Je voudrais l\'expliquer à quelqu\'un qui n\'est pas spécialiste du domaine.',
+        EN: 'Can you help me simplify this technical information: [complex text]? I would like to explain it to someone who is not a specialist in the field.'
+      }
+    }
+  ];
+  
+  // Définition des catégories pour l'organisation des prompts
+  export const categories: Category[] = [
+    { key: 'general', name: { FR: 'Général', EN: 'General' }, icon: 'Info' },
+    { key: 'documents', name: { FR: 'Documents', EN: 'Documents' }, icon: 'Document' },
+    { key: 'analysis', name: { FR: 'Analyse', EN: 'Analysis' }, icon: 'AnalyticsReport' },
+    { key: 'writing', name: { FR: 'Rédaction', EN: 'Writing' }, icon: 'Edit' }
+  ];
+  
+  // Traductions de l'interface
+  export const translations = {
+    FR: {
+      helpPanelTitle: 'Centre d\'aide',
+      hide: 'Fermer',
+      dismiss: 'Fermer',
+      promptCopied: 'Exemple copié dans le presse-papiers!',
+      copyError: 'Erreur lors de la copie',
+      
+      // Onglets
+      promptsTab: 'Exemples de prompts',
+      guideTab: 'Guide d\'utilisation',
+      tipsTab: 'Astuces',
+      
+      // Contenu de l'onglet Prompts
+      promptsTabTitle: 'Exemples de prompts par catégorie',
+      searchPrompts: 'Rechercher un prompt...',
+      allCategories: 'Toutes les catégories',
+      promptLabel: 'Prompt à copier:',
+      noPromptResults: 'Aucun prompt ne correspond à votre recherche',
+      
+      // Message "à venir"
+      comingSoon: 'Contenu à venir prochainement...'
+    },
+    EN: {
+      helpPanelTitle: 'Help Center',
+      hide: 'Close',
+      dismiss: 'Dismiss',
+      promptCopied: 'Example copied to clipboard!',
+      copyError: 'Error copying to clipboard',
+      
+      // Tabs
+      promptsTab: 'Prompt examples',
+      guideTab: 'User guide',
+      tipsTab: 'Tips & tricks',
+      
+      // Prompts tab content
+      promptsTabTitle: 'Prompt examples by category',
+      searchPrompts: 'Search for a prompt...',
+      allCategories: 'All categories',
+      promptLabel: 'Prompt to copy:',
+      noPromptResults: 'No prompts match your search',
+      
+      // Coming soon message
+      comingSoon: 'Content coming soon...'
+    }
+  };
