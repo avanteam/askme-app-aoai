@@ -43,7 +43,7 @@ interface GuideSection {
 
 interface PredefinedPrompt {
   id: number;
-  category: string;
+  categories: string[];
   title: { [lang: string]: string };
   description: { [lang: string]: string };
   prompt: { [lang: string]: string };
@@ -169,7 +169,7 @@ export function HelpPanel() {
     
     // Filtrer par catégorie si une catégorie est sélectionnée
     if (selectedCategory) {
-      filtered = filtered.filter(prompt => prompt.category === selectedCategory);
+      filtered = filtered.filter(prompt => prompt.categories.includes(selectedCategory));
     }
     
     // Filtrer par recherche si une recherche est effectuée
@@ -231,24 +231,40 @@ export function HelpPanel() {
     }
   }, [appStateContext?.state.userLanguage])
 
+  // Rendu des badges de catégories pour un prompt
+  const renderCategoryBadges = (categories: string[]) => {
+    if (!helpContent) return null;
+    
+    // Trouver les objets de catégorie correspondants
+    const categoryObjects = categories.map(categoryKey => 
+      helpContent.categories.find(cat => cat.key === categoryKey)
+    ).filter(Boolean) as Category[];
+    
+    return (
+      <div className={styles.categoryBadgesContainer}>
+        {categoryObjects.map((category, index) => (
+          <span key={index} className={styles.promptCardCategory}>
+            <Icon iconName={category.icon} className={styles.promptCardCategoryIcon} />
+            {category.name[currentLanguage]}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
   // Rendu d'un élément de prompt
   const renderPromptItem = (item?: PredefinedPrompt) => {
     if (!item || !helpContent) return null;
     
-    const getCategoryIcon = (categoryKey: string) => {
-      const category = helpContent.categories.find(cat => cat.key === categoryKey);
-      return category ? category.icon : 'Tag';
-    };
-    
-    const getCategoryName = (categoryKey: string) => {
-      const category = helpContent.categories.find(cat => cat.key === categoryKey);
-      return category ? category.name[currentLanguage] : categoryKey;
-    };
-    
     return (
       <div className={styles.promptCard} onClick={() => copyPromptExample(item.prompt[currentLanguage])}>
         <div className={styles.promptCardHeader}>
-          <Icon iconName={getCategoryIcon(item.category)} className={styles.promptCardIcon} />
+          <Icon 
+            iconName={
+              helpContent.categories.find(cat => cat.key === item.categories[0])?.icon || 'Tag'
+            } 
+            className={styles.promptCardIcon} 
+          />
           <div className={styles.promptCardTitle}>{item.title[currentLanguage]}</div>
         </div>
         <div className={styles.promptCardDescription}>{item.description[currentLanguage]}</div>
@@ -259,10 +275,7 @@ export function HelpPanel() {
             {item.prompt[currentLanguage]}
           </div>
         </div>
-        <div className={styles.promptCardCategory}>
-          <Icon iconName="Tag" className={styles.promptCardCategoryIcon} />
-          {getCategoryName(item.category)}
-        </div>
+        {renderCategoryBadges(item.categories)}
       </div>
     );
   };

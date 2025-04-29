@@ -104,7 +104,7 @@
     "predefinedPrompts": [
       {
         "id": 1,
-        "category": "general",
+        "categories": ["general"],
         "title": {
           "FR": "Trouver des informations sur un sujet",
           "EN": "Find information on a topic"
@@ -120,7 +120,7 @@
       },
       {
         "id": 2,
-        "category": "general",
+        "categories": ["general", "documents"],
         "title": {
           "FR": "Dernières mises à jour",
           "EN": "Latest updates"
@@ -136,7 +136,7 @@
       },
       {
         "id": 3,
-        "category": "documents",
+        "categories": ["documents"],
         "title": {
           "FR": "Résumé de document",
           "EN": "Document summary"
@@ -152,7 +152,7 @@
       },
       {
         "id": 4,
-        "category": "documents",
+        "categories": ["documents", "general"],
         "title": {
           "FR": "Recherche de procédure",
           "EN": "Procedure search"
@@ -168,7 +168,7 @@
       },
       {
         "id": 5,
-        "category": "analysis",
+        "categories": ["analysis", "documents"],
         "title": {
           "FR": "Comparaison d'informations",
           "EN": "Information comparison"
@@ -184,7 +184,7 @@
       },
       {
         "id": 6,
-        "category": "analysis",
+        "categories": ["analysis"],
         "title": {
           "FR": "Analyse des tendances",
           "EN": "Trend analysis"
@@ -200,7 +200,7 @@
       },
       {
         "id": 7,
-        "category": "writing",
+        "categories": ["writing", "general"],
         "title": {
           "FR": "Rédaction d'un message",
           "EN": "Draft a message"
@@ -216,7 +216,7 @@
       },
       {
         "id": 8,
-        "category": "writing",
+        "categories": ["writing", "analysis"],
         "title": {
           "FR": "Simplification d'un texte",
           "EN": "Text simplification"

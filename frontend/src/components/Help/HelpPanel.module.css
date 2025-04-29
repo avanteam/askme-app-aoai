@@ -271,6 +271,14 @@
   color: #0f6cbd;
 }
 
+/* Conteneur pour les badges de catégories */
+.categoryBadgesContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .promptCardCategory {
   display: inline-flex;
   align-items: center;
@@ -344,6 +352,11 @@
   .promptCardHeader {
     flex-direction: column;
     align-items: flex-start;
+  }
+  
+  .categoryBadgesContainer {
+    flex-direction: row;
+    flex-wrap: wrap;
   }
 }
 
