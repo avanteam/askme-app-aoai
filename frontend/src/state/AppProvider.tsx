@@ -18,10 +18,12 @@ import {
 } from '../api'
 
 import { appStateReducer } from './AppReducer'
+import { CustomizationPreferences } from '../components/Customization/CustomizationPanel'
 
 export interface AppState {
   isChatHistoryOpen: boolean
   isHelpPanelOpen: boolean
+  isCustomizationPanelOpen: boolean
   chatHistoryLoadingState: ChatHistoryLoadingState
   isCosmosDBAvailable: CosmosDBHealth
   chatHistory: Conversation[] | null
@@ -37,11 +39,13 @@ export interface AppState {
   encryptedUsername: string;
   initialQuestion: string;
   isAuthenticated: boolean;
+  customizationPreferences: CustomizationPreferences;
 }
 
 export type Action =
   | { type: 'TOGGLE_CHAT_HISTORY' }
-  | { type: 'TOGGLE_HELP_PANEL' } // Nouvelle action
+  | { type: 'TOGGLE_HELP_PANEL' }
+  | { type: 'TOGGLE_CUSTOMIZATION_PANEL' }
   | { type: 'SET_COSMOSDB_STATUS'; payload: CosmosDBHealth }
   | { type: 'UPDATE_CHAT_HISTORY_LOADING_STATE'; payload: ChatHistoryLoadingState }
   | { type: 'UPDATE_CURRENT_CHAT'; payload: Conversation | null }
@@ -65,10 +69,12 @@ export type Action =
   | { type: 'SET_ENCRYPTED_USERNAME'; payload: string }
   | { type: 'SET_INITIAL_QUESTION'; payload: string }
   | { type: 'SET_AUTHENTICATION_STATUS'; payload: boolean }
+  | { type: 'UPDATE_CUSTOMIZATION_PREFERENCES'; payload: CustomizationPreferences }
 
 const initialState: AppState = {
   isChatHistoryOpen: false,
-  isHelpPanelOpen: false, // Initialisation à false
+  isHelpPanelOpen: false,
+  isCustomizationPanelOpen: false,
   chatHistoryLoadingState: ChatHistoryLoadingState.Loading,
   chatHistory: null,
   filteredChatHistory: null,
@@ -87,6 +93,10 @@ const initialState: AppState = {
   encryptedUsername: "",
   initialQuestion: "",
   isAuthenticated: false,
+  customizationPreferences: {
+    responseSize: 'medium',
+    documentsCount: 5
+  }
 }
 
 export const AppStateContext = createContext<

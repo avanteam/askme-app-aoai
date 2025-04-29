@@ -138,6 +138,38 @@
   margin-right: 4px;
 }
 
+/* Styles du bouton de personnalisation */
+.customizationButtonRoot {
+  width: 120px;
+  height: 34px;
+  border-radius: 5px;
+  background: #0f6cbd;
+  padding: 5px 12px;
+  border: none;
+  transition: all 0.2s ease-in-out;
+  margin-left: 5px;
+}
+
+.customizationButtonRoot:hover {
+  background: #0a5091;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.customizationButtonRoot span {
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
+  color: #ffffff;
+  letter-spacing: 0.1px;
+}
+
+.customizationButtonRoot i,
+.customizationButtonRoot:hover i {
+  color: #ffffff !important;
+  margin-right: 4px;
+}
+
 .buttonContent {
   display: flex;
   align-items: center;
@@ -162,7 +194,8 @@
 @media (max-width: 768px) {
   .shareButtonRoot,
   .exportButtonRoot,
-  .helpButtonRoot {
+  .helpButtonRoot,
+  .customizationButtonRoot {
     width: auto;
     padding: 6px 12px;
   }
@@ -176,7 +209,8 @@
 @media (max-width: 480px) {
   .shareButtonRoot,
   .exportButtonRoot,
-  .helpButtonRoot {
+  .helpButtonRoot,
+  .customizationButtonRoot {
     width: 36px;
     height: 36px;
     padding: 6px;
@@ -185,13 +219,15 @@
   
   .shareButtonRoot span,
   .exportButtonRoot span,
-  .helpButtonRoot span {
+  .helpButtonRoot span,
+  .customizationButtonRoot span {
     display: none;
   }
   
   .shareButtonRoot i,
   .exportButtonRoot i,
-  .helpButtonRoot i {
+  .helpButtonRoot i,
+  .customizationButtonRoot i {
     margin-right: 0;
     font-size: 16px;
   }

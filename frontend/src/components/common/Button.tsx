@@ -52,3 +52,14 @@ export const HelpButton: React.FC<ButtonProps> = ({ onClick, text }) => {
     />
   )
 }
+
+export const CustomizationButton: React.FC<ButtonProps> = ({ onClick, text }) => {
+  return (
+    <DefaultButton
+      className={styles.customizationButtonRoot}
+      text={text}
+      iconProps={{ iconName: 'Settings' }}
+      onClick={onClick}
+    />
+  )
+}

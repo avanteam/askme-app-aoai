@@ -5,8 +5,9 @@ import { CopyRegular } from '@fluentui/react-icons'
 
 import { CosmosDBStatus } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
-import { ExportButton, HistoryButton, ShareButton, HelpButton } from '../../components/common/Button'
-import { HelpPanel } from '../../components/Help/HelpPanel' // Importer le composant HelpPanel
+import { CustomizationButton, ExportButton, HistoryButton, ShareButton, HelpButton } from '../../components/common/Button'
+import { HelpPanel } from '../../components/Help/HelpPanel' 
+import { CustomizationPanel } from '../../components/Customization/CustomizationPanel'
 import { AppStateContext } from '../../state/AppProvider'
 import { exportToPdf } from '../../utils/exportToPdf'
 
@@ -22,7 +23,8 @@ const Layout = () => {
   const [exportLabel, setExportLabel] = useState<string | undefined>(localizedStrings.export)
   const [hideHistoryLabel, setHideHistoryLabel] = useState<string>(localizedStrings.hideHistory)
   const [showHistoryLabel, setShowHistoryLabel] = useState<string>(localizedStrings.showHistory)
-  const [helpLabel, setHelpLabel] = useState<string | undefined>(localizedStrings.help) // Nouveau état pour le libellé d'aide
+  const [helpLabel, setHelpLabel] = useState<string | undefined>(localizedStrings.help)
+  const [customizeLabel, setCustomizeLabel] = useState<string | undefined>(localizedStrings.customize)
   const [logo, setLogo] = useState('')
   const appStateContext = useContext(AppStateContext)
   const ui = appStateContext?.state.frontendSettings?.ui
@@ -92,9 +94,14 @@ const Layout = () => {
     appStateContext?.dispatch({ type: 'TOGGLE_CHAT_HISTORY' })
   }
 
-  // Nouvel handler pour le clic sur le bouton d'aide
+  // Handler pour le bouton d'aide
   const handleHelpClick = () => {
     appStateContext?.dispatch({ type: 'TOGGLE_HELP_PANEL' })
+  }
+
+  // Handler pour le bouton de personnalisation
+  const handleCustomizeClick = () => {
+    appStateContext?.dispatch({ type: 'TOGGLE_CUSTOMIZATION_PANEL' })
   }
 
   useEffect(() => {
@@ -115,7 +122,8 @@ const Layout = () => {
     setExportLabel(localizedStrings.export)
     setHideHistoryLabel(localizedStrings.hideHistory)
     setShowHistoryLabel(localizedStrings.showHistory)
-    setHelpLabel(localizedStrings.help) // Mise à jour du libellé d'aide
+    setHelpLabel(localizedStrings.help)
+    setCustomizeLabel(localizedStrings.customize)
    }, [appStateContext?.state.userLanguage])
 
   useEffect(() => { }, [appStateContext?.state.isCosmosDBAvailable.status])
@@ -127,13 +135,15 @@ const Layout = () => {
         setExportLabel(undefined)
         setHideHistoryLabel(localizedStrings.hideHistory)
         setShowHistoryLabel(localizedStrings.showHistory)
-        setHelpLabel(undefined) // Masquer le texte du bouton d'aide sur mobile
+        setHelpLabel(undefined)
+        setCustomizeLabel(undefined)
       } else {
         setShareLabel(localizedStrings.share)
         setExportLabel(localizedStrings.export)
         setHideHistoryLabel(localizedStrings.hideHistory)
         setShowHistoryLabel(localizedStrings.showHistory)
-        setHelpLabel(localizedStrings.help) // Afficher le texte du bouton d'aide sur desktop
+        setHelpLabel(localizedStrings.help)
+        setCustomizeLabel(localizedStrings.customize)
       }
     }
 
@@ -163,10 +173,17 @@ const Layout = () => {
               text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
               />
             )}
-            {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && appStateContext?.state.isAuthenticated && (
+            {appStateContext?.state.isAuthenticated && (
               <HelpButton
                 onClick={handleHelpClick}
                 text={helpLabel}
+              />
+            )}
+            {/* Bouton de personnalisation */}
+            {appStateContext?.state.isAuthenticated && (
+              <CustomizationButton
+                onClick={handleCustomizeClick}
+                text={customizeLabel}
               />
             )}
             {appStateContext?.state.currentChat?.messages && appStateContext.state.currentChat.messages.length > 0 && ui?.show_export_button && (
@@ -181,8 +198,9 @@ const Layout = () => {
       </header>
       <div className={styles.contentRoot}>
         <Outlet />
-        {/* Le panneau d'aide est maintenant en superposition et n'affecte pas la mise en page */}
+        {/* Panneaux flottants */}
         {appStateContext?.state.isHelpPanelOpen && <HelpPanel />}
+        {appStateContext?.state.isCustomizationPanelOpen && <CustomizationPanel />}
       </div>
       <Dialog
         onDismiss={handleSharePanelDismiss}
@@ -233,7 +251,8 @@ let localizedStrings = new LocalizedStrings({
       copiedUrl : "URL copiée",
       share : "Partager",
       export : "Exporter",
-      help : "Aide", // Nouveau texte pour le bouton d'aide
+      help : "Aide",
+      customize : "Personnaliser",
       shareWebApp: "Partager l'app web",
       conversationExport: "Export de conversation"
   },
@@ -244,7 +263,8 @@ let localizedStrings = new LocalizedStrings({
     copiedUrl : "Copied URL",
     share: "Share",
     export: "Export",
-    help : "Help", // Nouveau texte pour le bouton d'aide
+    help : "Help",
+    customize : "Customize",
     shareWebApp: "Share the web app",
     conversationExport: "Conversation Export"
 },
