@@ -61,8 +61,8 @@ export function CustomizationPanel() {
       documentsCount
     }
     
-    // À terme, vous pourriez vouloir sauvegarder ces préférences dans le contexte global
-    // appStateContext?.dispatch({ type: 'UPDATE_CUSTOMIZATION_PREFERENCES', payload: preferences })
+    // Mise à jour des préférences dans le contexte global
+    appStateContext?.dispatch({ type: 'UPDATE_CUSTOMIZATION_PREFERENCES', payload: preferences })
     
     // Afficher un toast de confirmation
     setToastMessage(currentLanguage === 'FR' ? 'Préférences enregistrées avec succès!' : 'Preferences saved successfully!')
@@ -84,8 +84,17 @@ export function CustomizationPanel() {
   
   // Réinitialiser les paramètres par défaut
   const resetToDefaults = () => {
+    const defaultPreferences: CustomizationPreferences = {
+      responseSize: 'medium',
+      documentsCount: 5
+    }
+    
+    // Mettre à jour l'état local
     setResponseSize('medium')
     setDocumentsCount(5)
+    
+    // Mettre à jour l'état global
+    appStateContext?.dispatch({ type: 'UPDATE_CUSTOMIZATION_PREFERENCES', payload: defaultPreferences })
     
     // Afficher un toast de confirmation
     setToastMessage(currentLanguage === 'FR' ? 'Préférences réinitialisées' : 'Preferences reset to defaults')
@@ -107,6 +116,12 @@ export function CustomizationPanel() {
     const userLang = appStateContext?.state.userLanguage || 'FR';
     setCurrentLanguage(userLang);
     
+    // Synchroniser l'état local avec les préférences globales à chaque ouverture du panneau
+    if (appStateContext?.state.customizationPreferences) {
+      setResponseSize(appStateContext.state.customizationPreferences.responseSize);
+      setDocumentsCount(appStateContext.state.customizationPreferences.documentsCount);
+    }
+    
     // Ajouter l'écouteur pour la touche Escape
     const handleEscapeKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -120,7 +135,7 @@ export function CustomizationPanel() {
     return () => {
       document.removeEventListener('keydown', handleEscapeKey)
     }
-  }, [appStateContext?.state.userLanguage])
+  }, [appStateContext?.state.userLanguage, appStateContext?.state.customizationPreferences])
 
   return (
     <>
