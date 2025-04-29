@@ -1,56 +1,72 @@
 .shareButtonRoot {
-  width: 86px;
-  height: 32px;
-  border-radius: 4px;
-  background: radial-gradient(109.81% 107.82% at 100.1% 90.19%, #0f6cbd 33.63%, #2d87c3 70.31%, #8dddd8 100%);
+  width: 90px;
+  height: 34px;
+  border-radius: 5px;
+  background: #0f6cbd;
   padding: 5px 12px;
+  border: none;
+  transition: all 0.2s ease-in-out;
+  margin-left: 5px;
 }
 
 .shareButtonRoot:hover {
-  background: linear-gradient(135deg, #0f6cbd 0%, #2d87c3 51.04%, #8dddd8 100%);
+  background: #0a5091;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .shareButtonRoot span {
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 20px;
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
   color: #ffffff;
+  letter-spacing: 0.1px;
 }
 
 .shareButtonRoot i,
 .shareButtonRoot:hover i {
   color: #ffffff !important;
+  margin-right: 4px;
 }
 
 .exportButtonRoot {
-  width: 86px;
-  height: 32px;
-  border-radius: 4px;
-  background: radial-gradient(109.81% 107.82% at 100.1% 90.19%, #0f6cbd 33.63%, #2d87c3 70.31%, #8dddd8 100%);
+  width: 90px;
+  height: 34px;
+  border-radius: 5px;
+  background: #0f6cbd;
   padding: 5px 12px;
-  opacity: 0.9;
-}
-
-.exportButtonRoot:hover {
-  background: linear-gradient(135deg, #0f6cbd 0%, #2d87c3 51.04%, #8dddd8 100%);
+  border: none;
+  transition: all 0.2s ease-in-out;
+  margin-left: 5px;
   opacity: 1;
 }
 
+.exportButtonRoot:hover {
+  background: #0a5091;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
 .exportButtonRoot span {
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 20px;
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
   color: #ffffff;
+  letter-spacing: 0.1px;
 }
 
 .exportButtonRoot i,
 .exportButtonRoot:hover i {
   color: #ffffff !important;
+  margin-right: 4px;
 }
 
 .exportButtonRoot:disabled {
   background: #f0f0f0;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.7;
 }
 
 .exportButtonRoot:disabled span,
@@ -59,41 +75,67 @@
 }
 
 .historyButtonRoot {
-  width: 180px;
-  border: 1px solid #d1d1d1;
+  width: 150px;
+  height: 34px;
+  border-radius: 5px;
+  border: 1px solid #e0e0e0;
+  background-color: #fcfcfc;
+  transition: all 0.2s ease-in-out;
+  margin-left: 5px;
 }
 
 .historyButtonRoot:hover {
-  border: 1px solid #d1d1d1;
+  border: 1px solid #0f6cbd;
+  background-color: #f5f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.07);
 }
 
 .historyButtonRoot:active {
-  border: 1px solid #d1d1d1;
+  border: 1px solid #0f6cbd;
+  background-color: #e6f2ff;
 }
 
-/* Ajout des styles du bouton d'aide */
+.historyButtonRoot span {
+  font-weight: 500;
+  color: #323130;
+}
+
+.historyButtonRoot i {
+  color: #0f6cbd;
+  margin-right: 6px;
+}
+
+/* Amélioration des styles du bouton d'aide */
 .helpButtonRoot {
-  width: 80px;
-  height: 32px;
-  border-radius: 4px;
-  background: radial-gradient(109.81% 107.82% at 100.1% 90.19%, #0f6cbd 33.63%, #2d87c3 70.31%, #8dddd8 100%);
+  width: 90px;
+  height: 34px;
+  border-radius: 5px;
+  background: #0f6cbd;
   padding: 5px 12px;
+  border: none;
+  transition: all 0.2s ease-in-out;
+  margin-left: 5px;
 }
 
 .helpButtonRoot:hover {
-  background: linear-gradient(135deg, #0f6cbd 0%, #2d87c3 51.04%, #8dddd8 100%);
+  background: #0a5091;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .helpButtonRoot span {
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 20px;
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
   color: #ffffff;
+  letter-spacing: 0.1px;
 }
 
 .helpButtonRoot i,
 .helpButtonRoot:hover i {
   color: #ffffff !important;
+  margin-right: 4px;
 }
 
 .buttonContent {
@@ -110,22 +152,56 @@
 }
 
 .buttonText {
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 20px;
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
   color: #ffffff;
+}
+
+/* Réglages responsifs améliorés */
+@media (max-width: 768px) {
+  .shareButtonRoot,
+  .exportButtonRoot,
+  .helpButtonRoot {
+    width: auto;
+    padding: 6px 12px;
+  }
+  
+  .historyButtonRoot {
+    width: auto;
+    padding: 0 10px;
+  }
 }
 
 @media (max-width: 480px) {
   .shareButtonRoot,
   .exportButtonRoot,
   .helpButtonRoot {
-    width: auto;
-    padding: 5px 8px;
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+    border-radius: 50%;
   }
-
+  
+  .shareButtonRoot span,
+  .exportButtonRoot span,
+  .helpButtonRoot span {
+    display: none;
+  }
+  
+  .shareButtonRoot i,
+  .exportButtonRoot i,
+  .helpButtonRoot i {
+    margin-right: 0;
+    font-size: 16px;
+  }
+  
   .historyButtonRoot {
     width: auto;
     padding: 0 8px;
+  }
+  
+  .historyButtonRoot span {
+    font-size: 12px;
   }
 }
