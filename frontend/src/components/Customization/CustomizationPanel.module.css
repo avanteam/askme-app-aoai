@@ -1,4 +1,9 @@
-.container {
+.warningMessage {
+  margin-top: 15px;
+  font-size: 12px;
+  background-color: #fff4ce;
+  border-left-color: #ffd335;
+}.container {
   position: fixed;
   top: 0;
   right: 0;

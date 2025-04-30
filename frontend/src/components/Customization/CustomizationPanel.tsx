@@ -239,6 +239,15 @@ export function CustomizationPanel() {
                 <span className={styles.sliderMax}>20</span>
               </div>
             </div>
+            
+            <MessageBar 
+              className={styles.warningMessage}
+              messageBarType={MessageBarType.warning}
+            >
+              {currentLanguage === 'FR' 
+                ? 'Attention : Un nombre élevé de documents peut diminuer la précision des réponses et augmenter le temps de traitement.'
+                : 'Warning: A higher number of documents may decrease answer precision and increase processing time.'}
+            </MessageBar>
           </div>
           
           {/* Bouton de réinitialisation uniquement */}
