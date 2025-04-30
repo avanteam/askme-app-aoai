@@ -7,7 +7,8 @@ import {
   ChoiceGroup,
   IChoiceGroupOption,
   MessageBar,
-  MessageBarType
+  MessageBarType,
+  DefaultButton
 } from '@fluentui/react'
 import { AppStateContext } from '../../state/AppProvider'
 
@@ -45,33 +46,40 @@ export function CustomizationPanel() {
     { key: 'comprehensive', text: currentLanguage === 'FR' ? 'Très complète' : 'Comprehensive' }
   ]
   
+  // Fonction pour mettre à jour les préférences
+  const updatePreferences = (newResponseSize?: 'veryShort' | 'medium' | 'comprehensive', newDocumentsCount?: number) => {
+    const updatedPreferences: CustomizationPreferences = {
+      responseSize: newResponseSize || responseSize,
+      documentsCount: newDocumentsCount !== undefined ? newDocumentsCount : documentsCount
+    }
+    
+    // Mise à jour des préférences dans le contexte global sans afficher de toast
+    appStateContext?.dispatch({ type: 'UPDATE_CUSTOMIZATION_PREFERENCES', payload: updatedPreferences })
+  }
+  
+  // Gestionnaires d'événements pour les changements
+  const handleResponseSizeChange = (_: React.FormEvent<HTMLElement | HTMLInputElement> | undefined, option?: IChoiceGroupOption) => {
+    if (option) {
+      const newValue = option.key as 'veryShort' | 'medium' | 'comprehensive'
+      setResponseSize(newValue)
+      updatePreferences(newValue, undefined)
+    }
+  }
+  
+  const handleDocumentsCountChange = (value: number) => {
+    setDocumentsCount(value)
+    updatePreferences(undefined, value)
+  }
+  
   // Fermeture du panneau de personnalisation
   const handleCloseCustomization = () => {
+    // Animer la fermeture du panneau
     setIsVisible(false)
+    
     // Délai avant de réellement masquer le panneau (pour permettre l'animation)
     setTimeout(() => {
       appStateContext?.dispatch({ type: 'TOGGLE_CUSTOMIZATION_PANEL' })
     }, 300)
-  }
-  
-  // Enregistrement des préférences utilisateur
-  const savePreferences = () => {
-    const preferences: CustomizationPreferences = {
-      responseSize,
-      documentsCount
-    }
-    
-    // Mise à jour des préférences dans le contexte global
-    appStateContext?.dispatch({ type: 'UPDATE_CUSTOMIZATION_PREFERENCES', payload: preferences })
-    
-    // Afficher un toast de confirmation
-    setToastMessage(currentLanguage === 'FR' ? 'Préférences enregistrées avec succès!' : 'Preferences saved successfully!')
-    setShowToast(true)
-    
-    // Masquer après 3 secondes
-    setTimeout(() => {
-      setShowToast(false)
-    }, 3000)
   }
   
   // Gestion du clic sur l'overlay (fond semi-transparent)
@@ -100,10 +108,10 @@ export function CustomizationPanel() {
     setToastMessage(currentLanguage === 'FR' ? 'Préférences réinitialisées' : 'Preferences reset to defaults')
     setShowToast(true)
     
-    // Masquer après 3 secondes
+    // Masquer après 2 secondes
     setTimeout(() => {
       setShowToast(false)
-    }, 3000)
+    }, 2000)
   }
 
   useEffect(() => {
@@ -161,6 +169,7 @@ export function CustomizationPanel() {
               isMultiline={false}
               onDismiss={() => setShowToast(false)}
               dismissButtonAriaLabel={currentLanguage === 'FR' ? 'Fermer' : 'Dismiss'}
+              aria-live="polite"
             >
               {toastMessage}
             </MessageBar>
@@ -197,7 +206,7 @@ export function CustomizationPanel() {
             <ChoiceGroup 
               selectedKey={responseSize}
               options={responseSizeOptions}
-              onChange={(_, option) => option && setResponseSize(option.key as any)}
+              onChange={handleResponseSizeChange}
               className={styles.choiceGroup}
             />
           </div>
@@ -221,7 +230,7 @@ export function CustomizationPanel() {
                 max={20}
                 step={1}
                 value={documentsCount}
-                onChange={setDocumentsCount}
+                onChange={handleDocumentsCountChange}
                 showValue={false}
                 className={styles.slider}
               />
@@ -232,24 +241,22 @@ export function CustomizationPanel() {
             </div>
           </div>
           
-          {/* Boutons d'action */}
+          {/* Bouton de réinitialisation uniquement */}
           <div className={styles.actionButtons}>
-            <button 
-              className={styles.saveButton}
-              onClick={savePreferences}
-            >
-              <Icon iconName="Save" className={styles.buttonIcon} />
-              {currentLanguage === 'FR' ? 'Enregistrer' : 'Save'}
-            </button>
-            
-            <button 
+            <DefaultButton
               className={styles.resetButton}
               onClick={resetToDefaults}
-            >
-              <Icon iconName="Refresh" className={styles.buttonIcon} />
-              {currentLanguage === 'FR' ? 'Réinitialiser' : 'Reset'}
-            </button>
+              iconProps={{ iconName: 'Refresh', className: styles.buttonIcon }}
+              text={currentLanguage === 'FR' ? 'Rétablir les paramètres par défaut' : 'Reset to defaults'}
+            />
           </div>
+
+          {/* Note informative */}
+          <MessageBar className={styles.infoMessage}>
+            {currentLanguage === 'FR' 
+              ? 'Vos préférences sont automatiquement appliquées lorsque vous les modifiez.'
+              : 'Your preferences are automatically applied when you change them.'}
+          </MessageBar>
         </div>
       </div>
     </>
