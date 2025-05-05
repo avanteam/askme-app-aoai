@@ -2,17 +2,25 @@ import { chatHistorySampleData } from '../constants/chatHistory'
 
 import { ChatMessage, Conversation, ConversationRequest, CosmosDBHealth, CosmosDBStatus, UserInfo } from './models'
 
-export async function conversationApi(options: ConversationRequest, abortSignal: AbortSignal, token:string, username:string, userFullDefinition:string): Promise<Response> {
+export async function conversationApi(
+  options: ConversationRequest, 
+  abortSignal: AbortSignal, 
+  token: string, 
+  username: string, 
+  userFullDefinition: string,
+  customizationPreferences?: any
+): Promise<Response> {
   const response = await fetch('/conversation', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
-      , "AuthToken":token
+      'Content-Type': 'application/json',
+      "AuthToken": token
     },
     body: JSON.stringify({
-      messages: options.messages
-      , currentUser: username
-      , userFullDefinition: userFullDefinition
+      messages: options.messages,
+      currentUser: username,
+      userFullDefinition: userFullDefinition,
+      customizationPreferences: customizationPreferences
     }),
     signal: abortSignal
   })
@@ -24,8 +32,8 @@ export async function authenticate(authToken:string): Promise<boolean> {
   const response = await fetch("/authenticate", {
       method: "POST",
       headers: {
-          "Content-Type": "application/json"
-          , "AuthToken":authToken
+          "Content-Type": "application/json",
+          "AuthToken":authToken
       }
   })
   var resJson = await response.json();
@@ -69,8 +77,8 @@ export const fetchChatHistoryInit = (): Conversation[] | null => {
 
 export const historyList = async (offset = 0, authToken:string, encryptedUsername:string): Promise<Conversation[] | null> => {
   const response = await fetch(`/history/list?offset=${offset}`, {
-    method: 'GET'
-    , headers: {
+    method: 'GET',
+    headers: {
       "AuthToken":authToken,
       "EncodedUsername":encryptedUsername
     },
@@ -118,8 +126,8 @@ export const historyRead = async (convId: string, authToken: string, encryptedUs
       conversation_id: convId
     }),
     headers: {
-      'Content-Type': 'application/json'
-      , "AuthToken":authToken,
+      'Content-Type': 'application/json',
+      "AuthToken":authToken,
       "EncodedUsername":encryptedUsername
     }
   })
@@ -156,6 +164,7 @@ export const historyGenerate = async (
   options: ConversationRequest,
   abortSignal: AbortSignal,
   userFullDefinition: string,
+  customizationPreferences?: any,
   convId?: string,
 ): Promise<Response> => {
   let body
@@ -163,12 +172,14 @@ export const historyGenerate = async (
     body = JSON.stringify({
       conversation_id: convId,
       messages: options.messages,
-      userFullDefinition: userFullDefinition
+      userFullDefinition: userFullDefinition,
+      customizationPreferences: customizationPreferences
     })
   } else {
     body = JSON.stringify({
       messages: options.messages,
-      userFullDefinition: userFullDefinition
+      userFullDefinition: userFullDefinition,
+      customizationPreferences: customizationPreferences
     })
   }
   const response = await fetch('/history/generate', {
@@ -199,9 +210,9 @@ export const historyUpdate = async (messages: ChatMessage[], convId: string, aut
       messages: messages
     }),
     headers: {
-      'Content-Type': 'application/json'
-      , "AuthToken": authToken
-      , "EncodedUsername":encryptedUsername
+      'Content-Type': 'application/json',
+      "AuthToken": authToken,
+      "EncodedUsername":encryptedUsername
     }
   })
     .then(async res => {
@@ -226,9 +237,9 @@ export const historyDelete = async (convId: string, authToken :string, encrypted
       conversation_id: convId
     }),
     headers: {
-      'Content-Type': 'application/json'
-      , "AuthToken": authToken
-      , "EncodedUsername":encryptedUsername
+      'Content-Type': 'application/json',
+      "AuthToken": authToken,
+      "EncodedUsername":encryptedUsername
     }
   })
     .then(res => {
@@ -251,9 +262,9 @@ export const historyDeleteAll = async (authToken: string, encryptedUsername:stri
     method: 'DELETE',
     body: JSON.stringify({}),
     headers: {
-      'Content-Type': 'application/json'
-      , "AuthToken": authToken
-      , "EncodedUsername":encryptedUsername
+      'Content-Type': 'application/json',
+      "AuthToken": authToken,
+      "EncodedUsername":encryptedUsername
     }
   })
     .then(res => {
@@ -278,9 +289,9 @@ export const historyClear = async (convId: string, authToken: string, encryptedU
       conversation_id: convId
     }),
     headers: {
-      'Content-Type': 'application/json'
-      , "AuthToken": authToken
-      , "EncodedUsername":encryptedUsername
+      'Content-Type': 'application/json',
+      "AuthToken": authToken,
+      "EncodedUsername":encryptedUsername
     }
   })
     .then(res => {
@@ -306,9 +317,9 @@ export const historyRename = async (convId: string, title: string, authToken: st
       title: title
     }),
     headers: {
-      'Content-Type': 'application/json'
-      , "AuthToken": authToken
-      , "EncodedUsername":encryptedUsername
+      'Content-Type': 'application/json',
+      "AuthToken": authToken,
+      "EncodedUsername":encryptedUsername
     }
   })
     .then(res => {
@@ -328,8 +339,8 @@ export const historyRename = async (convId: string, title: string, authToken: st
 
 export const historyEnsure = async (token:string): Promise<CosmosDBHealth> => {
   const response = await fetch('/history/ensure', {
-    method: 'GET'
-    , headers: {
+    method: 'GET',
+    headers: {
       "AuthToken":token
     },
   })
@@ -393,9 +404,9 @@ export const historyMessageFeedback = async (messageId: string, feedback: string
       message_feedback: feedback
     }),
     headers: {
-      'Content-Type': 'application/json'
-      , "AuthToken":authToken
-      , "EncodedUsername":encryptedUsername
+      'Content-Type': 'application/json',
+      "AuthToken":authToken,
+      "EncodedUsername":encryptedUsername
     }
   })
     .then(res => {

@@ -254,13 +254,39 @@ async def init_cosmosdb_client():
 def prepare_model_args(request_body, request_headers, shouldStream = True):
     request_messages = request_body.get("messages", [])
     messages = []
+    
+    # Récupérer les préférences de personnalisation si elles existent
+    customization_preferences = request_body.get("customizationPreferences", None)
+    
+    # Base system message
+    system_message = app_settings.azure_openai.system_message
+    
+    # Modifier le message système en fonction des préférences de taille de réponse
+    if customization_preferences and "responseSize" in customization_preferences:
+        response_size = customization_preferences["responseSize"]
+        
+        if response_size == "veryShort":
+            system_message += " Fournissez des réponses très courtes et concises. Allez droit au but sans détails superflus."
+        elif response_size == "comprehensive":
+            system_message += " Fournissez des réponses détaillées et complètes. Incluez autant de contexte et d'informations pertinentes que possible."
+        # Pour 'medium', on garde le message système par défaut
+    
+    # Ajouter le message système modifié
     if not app_settings.datasource:
         messages = [
             {
                 "role": "system",
-                "content": app_settings.azure_openai.system_message
+                "content": system_message
             }
         ]
+    else:
+        # Modifier également le role_information pour les datasources
+        search_copy = copy.deepcopy(app_settings.search)
+        search_copy.role_information = system_message
+        
+        # Mettre à jour l'objet app_settings avec la version modifiée temporairement
+        app_settings_copy = copy.deepcopy(app_settings)
+        app_settings_copy.search = search_copy
 
     for message in request_messages:
         if message:
@@ -305,19 +331,28 @@ def prepare_model_args(request_body, request_headers, shouldStream = True):
         "user": user_json
     }
 
-    if len(messages) > 0:
-        if messages[-1]["role"] == "user":
-            if app_settings.azure_openai.function_call_azure_functions_enabled and len(azure_openai_tools) > 0:
-                model_args["tools"] = azure_openai_tools
+    # Ajout des outils et datasources si nécessaire
+    if len(messages) > 0 and messages[-1]["role"] == "user":
+        if app_settings.azure_openai.function_call_azure_functions_enabled and len(azure_openai_tools) > 0:
+            model_args["tools"] = azure_openai_tools
 
-            if app_settings.datasource:
-                model_args["extra_body"] = {
-                    "data_sources": [
-                        app_settings.datasource.construct_payload_configuration(
-                            fullDefinition=request_body.get("userFullDefinition", "*")
-                        )
-                    ]
-                }
+        if app_settings.datasource:
+            # Obtenir le nombre de documents depuis les préférences
+            documents_count = None
+            if customization_preferences and "documentsCount" in customization_preferences:
+                documents_count = customization_preferences["documentsCount"]
+            
+            # Utiliser app_settings_copy pour les datasources si disponible
+            datasource_settings = app_settings_copy.datasource if 'app_settings_copy' in locals() else app_settings.datasource
+                
+            model_args["extra_body"] = {
+                "data_sources": [
+                    datasource_settings.construct_payload_configuration(
+                        fullDefinition=request_body.get("userFullDefinition", "*"),
+                        documents_count=documents_count
+                    )
+                ]
+            }
 
     model_args_clean = copy.deepcopy(model_args)
     if model_args_clean.get("extra_body"):
@@ -356,7 +391,6 @@ def prepare_model_args(request_body, request_headers, shouldStream = True):
     logging.debug(f"REQUEST BODY: {json.dumps(model_args_clean, indent=4)}")
 
     return model_args
-
 
 async def promptflow_request(request):
     try:
@@ -726,7 +760,7 @@ async def check_tokens():
 @bp.route("/history/generate", methods=["POST"])
 async def add_conversation():
     if not(CheckAuthenticate(request)):
-        return jsonify({"error": "Unauthorized"}), 40
+        return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
 
     # authenticated_user = get_authenticated_user_details(request_headers=request.headers)

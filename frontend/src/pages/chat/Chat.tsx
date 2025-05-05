@@ -288,17 +288,17 @@ const Chat = () => {
     setShowLoadingMessage(true)
     const abortController = new AbortController()
     abortFuncs.current.unshift(abortController)
-
+  
     const questionContent = typeof question === 'string' ? question : [{ type: "text", text: question[0].text }, { type: "image_url", image_url: { url: question[1].image_url.url } }]
     question = typeof question !== 'string' && question[0]?.text?.length > 0 ? question[0].text : question
-
+  
     const userMessage: ChatMessage = {
       id: uuid(),
       role: 'user',
       content: questionContent as string,
       date: new Date().toISOString()
     }
-
+  
     let conversation: Conversation | null | undefined
     if (!conversationId) {
       conversation = {
@@ -319,26 +319,38 @@ const Chat = () => {
         conversation.messages.push(userMessage)
       }
     }
-
+  
     appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CHAT', payload: conversation })
     setMessages(conversation.messages)
-
+  
     const request: ConversationRequest = {
       messages: [...conversation.messages.filter(answer => answer.role !== ERROR)]
     }
-
+  
     let result = {} as ChatResponse
     try {
-      const response = await conversationApi(request, abortController.signal, getToken(), currentUser, userFullDef)
+      // Récupérer les préférences de personnalisation
+      const customizationPreferences = appStateContext?.state.customizationPreferences;
+      
+      // Passer les préférences à l'API
+      const response = await conversationApi(
+        request, 
+        abortController.signal, 
+        getToken(), 
+        currentUser, 
+        userFullDef, 
+        customizationPreferences
+      )
+      
       if (response?.body) {
         const reader = response.body.getReader()
-
+  
         let runningText = ''
         while (true) {
           setProcessMessages(messageStatus.Processing)
           const { done, value } = await reader.read()
           if (done) break
-
+  
           var text = new TextDecoder('utf-8').decode(value)
           const objects = text.split('\n')
           objects.forEach(obj => {
@@ -385,9 +397,9 @@ const Chat = () => {
         } else if (typeof result.error === 'string') {
           errorMessage = result.error
         }
-
+  
         errorMessage = parseErrorMessage(errorMessage)
-
+  
         let errorChatMsg: ChatMessage = {
           id: uuid(),
           role: ERROR,
@@ -406,7 +418,7 @@ const Chat = () => {
       abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
       setProcessMessages(messageStatus.Done)
     }
-
+  
     return abortController.abort()
   }
 
@@ -417,14 +429,14 @@ const Chat = () => {
     abortFuncs.current.unshift(abortController)
     const questionContent = typeof question === 'string' ? question : [{ type: "text", text: question[0].text }, { type: "image_url", image_url: { url: question[1].image_url.url } }]
     question = typeof question !== 'string' && question[0]?.text?.length > 0 ? question[0].text : question
-
+  
     const userMessage: ChatMessage = {
       id: uuid(),
       role: 'user',
       content: questionContent as string,
       date: new Date().toISOString()
     }
-
+  
     let request: ConversationRequest
     let conversation
     if (conversationId) {
@@ -450,9 +462,28 @@ const Chat = () => {
     let result = {} as ChatResponse
     var errorResponseMessage = 'Please try again. If the problem persists, please contact the site administrator.'
     try {
+      // Récupérer les préférences de personnalisation
+      const customizationPreferences = appStateContext?.state.customizationPreferences;
+      
       const response = conversationId
-        ? await historyGenerate(token, encryptedCurrentUser, request, abortController.signal, userFullDef, conversationId)
-        : await historyGenerate(token, encryptedCurrentUser, request, abortController.signal, userFullDef)
+        ? await historyGenerate(
+            token, 
+            encryptedCurrentUser, 
+            request, 
+            abortController.signal, 
+            userFullDef, 
+            customizationPreferences, 
+            conversationId
+          )
+        : await historyGenerate(
+            token, 
+            encryptedCurrentUser, 
+            request, 
+            abortController.signal, 
+            userFullDef, 
+            customizationPreferences
+          )
+          
       if (!response?.ok) {
         const responseJson = await response.json()
         errorResponseMessage =
@@ -485,15 +516,16 @@ const Chat = () => {
         setMessages([...resultConversation.messages])
         return
       }
+      
       if (response?.body) {
         const reader = response.body.getReader()
-
+  
         let runningText = ''
         while (true) {
           setProcessMessages(messageStatus.Processing)
           const { done, value } = await reader.read()
           if (done) break
-
+  
           var text = new TextDecoder('utf-8').decode(value)
           const objects = text.split('\n')
           objects.forEach(obj => {
@@ -531,7 +563,7 @@ const Chat = () => {
             }
           })
         }
-
+  
         let resultConversation
         if (conversationId) {
           resultConversation = appStateContext?.state?.chatHistory?.find(conv => conv.id === conversationId)
@@ -575,9 +607,9 @@ const Chat = () => {
         } else if (typeof result.error === 'string') {
           errorMessage = result.error
         }
-
+  
         errorMessage = parseErrorMessage(errorMessage)
-
+  
         let errorChatMsg: ChatMessage = {
           id: uuid(),
           role: ERROR,

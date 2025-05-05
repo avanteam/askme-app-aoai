@@ -351,6 +351,9 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
         **kwargs
     ):
         fullDef = kwargs.pop('fullDefinition', "*")
+        # Récupérer le nombre de documents, s'il est fourni
+        documents_count = kwargs.pop('documents_count', None)
+        
         if fullDef and self.permitted_groups_column:
             self.filter = self._set_filter_string_from_fulldef(fullDef)
 
@@ -359,11 +362,14 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
         parameters = self.model_dump(exclude_none=True, by_alias=True)
         parameters.update(self._settings.search.model_dump(exclude_none=True, by_alias=True))
         
+        # Mettre à jour le nombre de documents si spécifié
+        if documents_count is not None:
+            parameters["top_n_documents"] = documents_count
+        
         return {
             "type": self._type,
             "parameters": parameters
         }
-
 
 class _AzureCosmosDbMongoVcoreSettings(
     BaseSettings,
@@ -427,10 +433,18 @@ class _AzureCosmosDbMongoVcoreSettings(
         *args,
         **kwargs
     ):
+        # Récupérer le nombre de documents, s'il est fourni
+        documents_count = kwargs.pop('documents_count', None)
+        
         self.embedding_dependency = \
             self._settings.azure_openai.extract_embedding_dependency()
         parameters = self.model_dump(exclude_none=True, by_alias=True)
         parameters.update(self._settings.search.model_dump(exclude_none=True, by_alias=True))
+        
+        # Mettre à jour le nombre de documents si spécifié
+        if documents_count is not None:
+            parameters["top_n_documents"] = documents_count
+            
         return {
             "type": self._type,
             "parameters": parameters
@@ -497,12 +511,19 @@ class _ElasticsearchSettings(BaseSettings, DatasourcePayloadConstructor):
         *args,
         **kwargs
     ):
+        # Récupérer le nombre de documents, s'il est fourni
+        documents_count = kwargs.pop('documents_count', None)
+        
         self.embedding_dependency = \
             {"type": "model_id", "model_id": self.embedding_model_id} if self.embedding_model_id else \
             self._settings.azure_openai.extract_embedding_dependency() 
             
         parameters = self.model_dump(exclude_none=True, by_alias=True)
         parameters.update(self._settings.search.model_dump(exclude_none=True, by_alias=True))
+        
+        # Mettre à jour le nombre de documents si spécifié
+        if documents_count is not None:
+            parameters["top_n_documents"] = documents_count
                 
         return {
             "type": self._type,
@@ -569,10 +590,17 @@ class _PineconeSettings(BaseSettings, DatasourcePayloadConstructor):
         *args,
         **kwargs
     ):
+        # Récupérer le nombre de documents, s'il est fourni
+        documents_count = kwargs.pop('documents_count', None)
+        
         self.embedding_dependency = \
             self._settings.azure_openai.extract_embedding_dependency()
         parameters = self.model_dump(exclude_none=True, by_alias=True)
         parameters.update(self._settings.search.model_dump(exclude_none=True, by_alias=True))
+        
+        # Mettre à jour le nombre de documents si spécifié
+        if documents_count is not None:
+            parameters["top_n_documents"] = documents_count
         
         return {
             "type": self._type,
@@ -627,8 +655,15 @@ class _AzureMLIndexSettings(BaseSettings, DatasourcePayloadConstructor):
         *args,
         **kwargs
     ):
+        # Récupérer le nombre de documents, s'il est fourni
+        documents_count = kwargs.pop('documents_count', None)
+        
         parameters = self.model_dump(exclude_none=True, by_alias=True)
         parameters.update(self._settings.search.model_dump(exclude_none=True, by_alias=True))
+        
+        # Mettre à jour le nombre de documents si spécifié
+        if documents_count is not None:
+            parameters["top_n_documents"] = documents_count
         
         return {
             "type": self._type,
@@ -748,11 +783,18 @@ class _MongoDbSettings(BaseSettings, DatasourcePayloadConstructor):
         *args,
         **kwargs
     ):
+        # Récupérer le nombre de documents, s'il est fourni
+        documents_count = kwargs.pop('documents_count', None)
+        
         self.embedding_dependency = \
             self._settings.azure_openai.extract_embedding_dependency()
             
         parameters = self.model_dump(exclude_none=True, by_alias=True)
         parameters.update(self._settings.search.model_dump(exclude_none=True, by_alias=True))
+        
+        # Mettre à jour le nombre de documents si spécifié
+        if documents_count is not None:
+            parameters["top_n_documents"] = documents_count
         
         return {
             "type": self._type,
