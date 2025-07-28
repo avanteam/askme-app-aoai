@@ -24,7 +24,17 @@
       "Bash(docker:*)",
       "Bash(timeout 300 npm run build)",
       "Bash(pkill:*)",
-      "Bash(./start.sh:*)"
+      "Bash(./start.sh:*)",
+      "Bash(./k8s/deploy.sh:*)",
+      "Bash(kubectl get pods:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(kubectl delete:*)",
+      "Bash(kubectl apply:*)",
+      "Bash(kubectl get configmap:*)",
+      "Bash(kubectl rollout restart:*)",
+      "Bash(kubectl get secret:*)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl wait:*)"
     ],
     "deny": []
   }

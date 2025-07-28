@@ -1,0 +1,262 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: askme-app
+  namespace: askme-app
+  labels:
+    app: askme-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: askme-app
+  template:
+    metadata:
+      labels:
+        app: askme-app
+    spec:
+      containers:
+      - name: askme-app
+        image: 7wpjr0wh.c1.gra9.container-registry.ovh.net/askme/askme-app:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        env:
+        # Configuration from ConfigMap
+        - name: LLM_PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: LLM_PROVIDER
+        - name: AVAILABLE_LLM_PROVIDERS
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: AVAILABLE_LLM_PROVIDERS
+        - name: DATASOURCE_TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: DATASOURCE_TYPE
+        - name: VOICE_INPUT_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: VOICE_INPUT_ENABLED
+        - name: WAKE_WORD_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: WAKE_WORD_ENABLED
+        - name: WAKE_WORD_PHRASES
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: WAKE_WORD_PHRASES
+        - name: AZURE_SPEECH_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: AZURE_SPEECH_ENABLED
+        - name: AZURE_SPEECH_VOICE_FR
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: AZURE_SPEECH_VOICE_FR
+        - name: AZURE_SPEECH_VOICE_EN
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: AZURE_SPEECH_VOICE_EN
+        - name: IMAGE_MAX_SIZE_MB
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: IMAGE_MAX_SIZE_MB
+        - name: CITATION_CONTENT_MAX_LENGTH
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: CITATION_CONTENT_MAX_LENGTH
+        - name: AZURE_USE_AUTHENTICATION
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: AZURE_USE_AUTHENTICATION
+        - name: CHAT_HISTORY_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: CHAT_HISTORY_ENABLED
+        - name: ORCHESTRATION_STRATEGY
+          valueFrom:
+            configMapKeyRef:
+              name: askme-config
+              key: ORCHESTRATION_STRATEGY
+        
+        # Secrets
+        - name: AZURE_OPENAI_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_OPENAI_ENDPOINT
+        - name: AZURE_OPENAI_KEY
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_OPENAI_KEY
+        - name: AZURE_OPENAI_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_OPENAI_MODEL
+        - name: CLAUDE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: CLAUDE_API_KEY
+        - name: CLAUDE_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: CLAUDE_MODEL
+        - name: OPENAI_DIRECT_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: OPENAI_DIRECT_API_KEY
+        - name: OPENAI_DIRECT_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: OPENAI_DIRECT_MODEL
+        - name: MISTRAL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: MISTRAL_API_KEY
+        - name: MISTRAL_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: MISTRAL_MODEL
+        - name: MISTRAL_MAX_TOKENS
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: MISTRAL_MAX_TOKENS
+        - name: MISTRAL_TEMPERATURE
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: MISTRAL_TEMPERATURE
+        - name: MISTRAL_TOP_P
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: MISTRAL_TOP_P
+        - name: MISTRAL_SYSTEM_MESSAGE
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: MISTRAL_SYSTEM_MESSAGE
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: GEMINI_API_KEY
+        - name: GEMINI_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: GEMINI_MODEL
+        - name: AZURE_SEARCH_SERVICE
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_SEARCH_SERVICE
+        - name: AZURE_SEARCH_INDEX
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_SEARCH_INDEX
+        - name: AZURE_SEARCH_KEY
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_SEARCH_KEY
+        - name: AZURE_SPEECH_KEY
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_SPEECH_KEY
+        - name: AZURE_SPEECH_REGION
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_SPEECH_REGION
+        - name: AZURE_COSMOSDB_ACCOUNT
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_COSMOSDB_ACCOUNT
+        - name: AZURE_COSMOSDB_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_COSMOSDB_DATABASE
+        - name: AZURE_COSMOSDB_CONVERSATIONS_CONTAINER
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_COSMOSDB_CONVERSATIONS_CONTAINER
+        - name: AZURE_COSMOSDB_ACCOUNT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: AZURE_COSMOSDB_ACCOUNT_KEY
+        - name: MS_DEFENDER_ENABLED
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: MS_DEFENDER_ENABLED
+        - name: MS_DEFENDER_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: MS_DEFENDER_ENDPOINT
+        - name: MS_DEFENDER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: askme-secrets
+              key: MS_DEFENDER_KEY
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      
+      imagePullSecrets:
+      - name: harbor-secret
+      restartPolicy: Always
