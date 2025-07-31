@@ -1,6 +1,6 @@
-# [Preview] Sample Chat App with AOAI
- 
-This repo contains sample code for a simple chat webapp that integrates with Azure OpenAI. Note: some portions of the app use preview APIs.
+# AskMe - Multi-Client AI ChatBot
+
+This repository contains the AskMe application, a multi-client AI chatbot that supports multiple LLM providers and can be deployed to multiple clients using Helm on Kubernetes.
 
 ## Prerequisites
 - An existing Azure OpenAI resource and model deployment of a chat model (e.g. `gpt-35-turbo-16k`, `gpt-4`)
@@ -42,15 +42,23 @@ cat .env | jq -R '. | capture("(?<name>[A-Z_]+)=(?<value>.*)")' | jq -s '.[].slo
 
 ## Deploy the app
 
-### Deploy with Azure Developer CLI
-Please see [README_azd.md](./README_azd.md) for detailed instructions.
+### Multi-Client Helm Deployment on OVH Kubernetes
 
-### One click Azure deployment
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fmicrosoft%2Fsample-app-aoai-chatGPT%2Fmain%2Finfrastructure%2Fdeployment.json)
+For detailed deployment instructions with Helm multi-client architecture, see [README-HELM-DEPLOYMENT.md](./README-HELM-DEPLOYMENT.md).
 
-Click on the Deploy to Azure button and configure your settings in the Azure Portal as described in the [Environment variables](#environment-variables) section.
+#### Quick Start
+```bash
+# Deploy main client
+./deploy-helm-client.sh askme.avanteam-online.com deploy
 
-Please see the [section below](#add-an-identity-provider) for important information about adding authentication to your app.
+# Deploy QSaaS client
+./deploy-helm-client.sh askme-qsaas.avanteam-online.com deploy
+
+# Monitor all clients
+./helm-status-all.sh
+```
+
+Configure your settings as described in the [Environment variables](#environment-variables) section in the Helm values files for each client.
 
 ### Deploy from your local machine
 

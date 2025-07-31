@@ -1,0 +1,28 @@
+# Configuration Rancher activée pour askme-qsaas.avanteam-online.com
+rancher:
+  enabled: true
+  clusterName: "askme-prod-cluster"
+  managementNamespace: "cattle-system"
+  
+  # Quotas adaptés au type de client
+  resourceQuota:
+    cpu: "1000m"
+    memory: "2Gi"
+    storage: "5Gi"
+  
+  rbac:
+    enabled: true
+    annotations:
+      field.cattle.io/projectId: "c-m-g8b9wrhd:askme-askme-qsaas"
+    additionalUsers:
+      - name: "admin@avanteam.com"
+      - name: "devops@avanteam.com"
+  
+  monitoring:
+    enabled: true
+    projectId: "c-m-g8b9wrhd:askme-askme-qsaas"
+  
+  alerting:
+    enabled: true
+    recipients:
+      - email: "admin@avanteam.com"

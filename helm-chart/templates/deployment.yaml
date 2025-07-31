@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "askme.fullname" . }}
+  namespace: {{ .Values.client.namespace }}
+  labels:
+    {{- include "askme.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "askme.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "askme.selectorLabels" . | nindent 8 }}
+        client: {{ .Values.client.name }}
+      annotations:
+        # Force redeploy si config change
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        askme.avanteam.com/client: {{ .Values.client.name }}
+        askme.avanteam.com/version: {{ .Values.image.tag }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.service.targetPort }}
+          protocol: TCP
+        env:
+        # Configuration from ConfigMap
+        {{- range $key, $value := .Values.config }}
+        - name: {{ $key }}
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "askme.fullname" $ }}-config
+              key: {{ $key }}
+        {{- end }}
+        
+        # Secrets
+        {{- range $key, $value := .Values.secrets }}
+        {{- if $value }}
+        - name: {{ $key }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "askme.fullname" $ }}-secrets
+              key: {{ $key }}
+        {{- end }}
+        {{- end }}
+        
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        
+        {{- if .Values.probes.liveness }}
+        livenessProbe:
+          {{- toYaml .Values.probes.liveness | nindent 10 }}
+        {{- end }}
+        
+        {{- if .Values.probes.readiness }}
+        readinessProbe:
+          {{- toYaml .Values.probes.readiness | nindent 10 }}
+        {{- end }}
+      
+      restartPolicy: Always

@@ -1,0 +1,212 @@
+name: 🚀 Deploy AskMe to OVH Kubernetes
+
+on:
+  push:
+    branches: [ main, test-rg2 ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY_URL: 7wpjr0wh.c1.gra9.container-registry.ovh.net
+  IMAGE_NAME: askme/askme-app
+  KUBERNETES_NAMESPACE: askme-app
+
+jobs:
+  # Job 1: Tests et validation
+  test:
+    name: 🧪 Tests et Linting
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: 📦 Installation des dépendances Python
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: 🧪 Tests Python
+      run: |
+        python -m pytest tests/ -v
+
+    - name: 📱 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: 📦 Installation des dépendances Node.js
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: 🧪 Tests Frontend
+      working-directory: ./frontend
+      run: npm run test
+
+    - name: 🔍 Linting
+      working-directory: ./frontend
+      run: npm run lint
+
+  # Job 2: Build et Push de l'image Docker
+  build:
+    name: 🐳 Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+    
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.docker.outputs.digest }}
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+
+    - name: 🏷️ Extraction des métadonnées
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY_URL }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: 🔐 Connexion au Harbor Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_URL }}
+        username: ${{ secrets.HARBOR_USERNAME }}
+        password: ${{ secrets.HARBOR_PASSWORD }}
+
+    - name: 🏗️ Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 🐳 Build et Push de l'image
+      id: docker
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./WebApp.Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Job 3: Déploiement sur Kubernetes
+  deploy:
+    name: ☸️ Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test-rg2'
+    environment: 
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+      url: https://askme.avanteam-online.com
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+
+    - name: ☸️ Configuration de kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+
+    - name: 🔐 Configuration du cluster Kubernetes
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+
+    - name: 🔍 Vérification de la connexion
+      run: |
+        kubectl cluster-info
+        kubectl get nodes
+
+    - name: 🏷️ Extraction du tag d'image
+      id: image
+      run: |
+        IMAGE_TAG="${{ needs.build.outputs.image-tag }}"
+        echo "tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+    - name: 🚀 Déploiement des manifestes Kubernetes
+      run: |
+        # Application des manifestes de base
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/configmap.yaml
+        
+        # Note: secret.yaml n'est pas appliqué car il contient des clés réelles
+        # Les secrets doivent être gérés séparément et appliqués manuellement
+        
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+        kubectl apply -f k8s/ingress.yaml
+        kubectl apply -f k8s/letsencrypt-issuer.yaml
+
+    - name: 🔄 Mise à jour de l'image du déploiement
+      run: |
+        kubectl set image deployment/askme-app \
+          askme-app=${{ steps.image.outputs.tag }} \
+          -n ${{ env.KUBERNETES_NAMESPACE }}
+
+    - name: ⏳ Attente du déploiement
+      run: |
+        kubectl rollout status deployment/askme-app \
+          -n ${{ env.KUBERNETES_NAMESPACE }} \
+          --timeout=300s
+
+    - name: ✅ Vérification du déploiement
+      run: |
+        echo "📊 État des pods:"
+        kubectl get pods -n ${{ env.KUBERNETES_NAMESPACE }}
+        
+        echo "🌐 État des services:"
+        kubectl get services -n ${{ env.KUBERNETES_NAMESPACE }}
+        
+        echo "🚪 État de l'ingress:"
+        kubectl get ingress -n ${{ env.KUBERNETES_NAMESPACE }}
+
+    - name: 🧪 Test de santé de l'application
+      run: |
+        # Attendre que l'application soit prête
+        sleep 30
+        
+        # Test HTTP
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://askme.avanteam-online.com || echo "000")
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Application accessible (HTTP $HTTP_CODE)"
+        else
+          echo "❌ Application non accessible (HTTP $HTTP_CODE)"
+          exit 1
+        fi
+
+  # Job 4: Notification de déploiement
+  notify:
+    name: 📢 Notification
+    runs-on: ubuntu-latest
+    needs: [test, build, deploy]
+    if: always()
+    
+    steps:
+    - name: 📧 Notification de succès
+      if: needs.deploy.result == 'success'
+      run: |
+        echo "✅ Déploiement réussi !"
+        echo "🌐 Application disponible : https://askme.avanteam-online.com"
+        echo "🏷️ Image : ${{ needs.build.outputs.image-tag }}"
+
+    - name: 📧 Notification d'échec
+      if: needs.deploy.result == 'failure'
+      run: |
+        echo "❌ Déploiement échoué !"
+        echo "🔍 Vérifiez les logs des étapes précédentes"

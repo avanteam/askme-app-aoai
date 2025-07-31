@@ -87,6 +87,33 @@ start.cmd   # Builds frontend, installs dependencies, starts backend
 ./start.sh  # Builds frontend, installs dependencies, starts backend
 ```
 
+### Docker Development
+
+#### Local Docker Build and Test
+```powershell
+# Windows PowerShell - Local development
+.\deploy-local.ps1 build    # Build Docker image locally
+.\deploy-local.ps1 run      # Run container on localhost:50505
+.\deploy-local.ps1 stop     # Stop and remove container
+```
+
+#### Production Deployment to OVH Kubernetes avec Helm
+```bash
+# Déploiement client principal
+./deploy-helm-client.sh askme.avanteam-online.com deploy
+
+# Déploiement client QSaaS
+./deploy-helm-client.sh askme-qsaas.avanteam-online.com deploy
+
+# Build local pour tests
+.\deploy-local.ps1 build
+.\deploy-local.ps1 run      # Test sur localhost:50505
+```
+
+#### CI/CD Deployment
+- **Automatic**: Push to `main` or `test-rg2` triggers GitHub Actions
+- **Manual**: GitHub → Actions → "Deploy AskMe to OVH Kubernetes" → Run workflow
+
 ### Testing
 ```bash
 # Frontend tests (from /frontend)
@@ -137,8 +164,9 @@ The application supports multiple data sources configured via environment variab
 
 ### Deployment
 - **Docker**: `WebApp.Dockerfile` for containerized deployment
-- **Azure**: Bicep templates in `/infra` for infrastructure as code
-- **Azure Developer CLI**: Configured via `azure.yaml`
+- **Helm Multi-Client**: Chart Helm dans `/helm-chart` pour déploiement multi-client
+- **OVH Kubernetes**: Architecture Helm multi-client avec Harbor registry integration
+- **GitHub Actions**: Automated deployment workflow (`.github/workflows/deploy.yml`)
 
 ## Key Development Considerations
 
@@ -619,4 +647,134 @@ AskMe: Configuration modifiée avec succès. Les réponses seront maintenant cou
 Utilisateur: Crée une nouvelle conversation
 AskMe: Nouvelle conversation créée avec succès.
 [L'interface se réinitialise avec une conversation vide]
+```
+
+## CI/CD et Déploiement OVH Kubernetes
+
+L'application dispose d'un pipeline CI/CD complet pour déployer automatiquement sur l'infrastructure Kubernetes OVH.
+
+### Infrastructure OVH
+
+#### Cluster Kubernetes
+- **Provider**: OVH Managed Kubernetes
+- **Registry**: Harbor registry privé OVH (`7wpjr0wh.c1.gra9.container-registry.ovh.net`)
+- **Domain**: `askme.avanteam-online.com` avec certificats SSL Let's Encrypt
+- **Namespace**: `askme-app`
+
+### Pipeline GitHub Actions
+
+#### Workflow Principal (`.github/workflows/deploy.yml`)
+**Déclencheurs automatiques :**
+- Push sur `main` → Déploiement production
+- Push sur `test-rg2` → Déploiement staging
+- Pull Request → Tests uniquement
+
+**Pipeline en 4 étapes :**
+1. **🧪 Tests** : Python pytest + Frontend npm test + ESLint
+2. **🐳 Build** : Docker build multi-stage + push vers Harbor
+3. **☸️ Deploy** : Déploiement Kubernetes avec kubectl
+4. **📢 Notify** : Notifications de succès/échec
+
+#### Configuration des Secrets GitHub
+Secrets requis dans GitHub Repository Settings :
+```
+HARBOR_USERNAME     # Username Harbor Registry OVH
+HARBOR_PASSWORD     # Password Harbor Registry OVH  
+KUBE_CONFIG        # Fichier kubeconfig encodé en base64
+```
+
+### Scripts de Déploiement
+
+#### Architecture Helm Multi-Client
+Le projet utilise maintenant Helm pour supporter le déploiement multi-client :
+
+**Scripts de Déploiement :**
+- **`deploy-helm-client.sh`** : Script Linux/WSL pour déploiement Helm multi-client
+- **`deploy-helm-client.ps1`** : Script Windows PowerShell pour déploiement Helm multi-client
+- **`helm-status-all.sh`** : Monitoring global de tous les clients déployés
+- **`deploy-local.ps1`** : Build et test local Docker (conservé)
+
+**Structure Multi-Client :**
+```
+helm-chart/                    # Chart Helm principal
+deployments/clients/           # Configurations spécifiques clients
+├── askme.avanteam-online.com/
+└── askme-qsaas.avanteam-online.com/
+```
+
+**Commandes de Déploiement :**
+```bash
+# Déployer un client spécifique
+./deploy-helm-client.sh <client-domain> deploy
+
+# Mettre à jour un client
+./deploy-helm-client.sh <client-domain> upgrade v1.2.0
+
+# Status de tous les clients
+./helm-status-all.sh
+```
+
+### Workflow de Développement
+
+#### Développement Standard
+```bash
+# 1. Développement local
+git checkout test-rg2
+# ... modifications du code ...
+
+# 2. Build et test local (optionnel)
+.\deploy-local.ps1 build
+.\deploy-local.ps1 run     # Test sur localhost:50505
+
+# 3. Commit et push
+git add .
+git commit -m "feat: nouvelle fonctionnalité"
+git push origin test-rg2
+# → Déclenchement automatique du pipeline GitHub Actions
+
+# 4. Vérification sur https://askme.avanteam-online.com
+```
+
+#### Mise en Production
+```bash
+# Après validation sur test-rg2
+git checkout main
+git merge test-rg2
+git push origin main
+# → Déploiement automatique en production
+```
+
+### Résolution des Problèmes Courants
+
+#### Images Docker Non Mises à Jour
+**Problème** : Kubernetes utilise l'image en cache même après un nouveau build
+
+**Solutions** :
+1. **Tags avec timestamp** : `./deploy.ps1 deploy` utilise des tags uniques
+2. **Force pull** : `imagePullPolicy: Always` dans les manifestes K8s
+3. **Rollout restart** : `kubectl rollout restart deployment/askme-app -n askme-app`
+
+#### Dockerfile Permissions Issues
+**Correction appliquée** : Ajout de `--chown=node:node` pour les fichiers package.json
+```dockerfile
+COPY --chown=node:node ./frontend/package*.json ./
+```
+
+### Documentation Complète
+- **`CICD_DEPLOYMENT_GUIDE.md`** : Guide complet du pipeline CI/CD
+- **`DOCUMENTATION_DEPLOYMENT_KUBERNETES_OVH.md`** : Infrastructure OVH détaillée
+- **`GITHUB_SECRETS_SETUP.md`** : Configuration des secrets GitHub
+
+### Monitoring et Debug
+```bash
+# Status du déploiement
+kubectl get pods -n askme-app
+kubectl get services -n askme-app
+kubectl get ingress -n askme-app
+
+# Logs applicatifs
+kubectl logs deployment/askme-app -n askme-app --tail=50
+
+# Rollback si nécessaire
+kubectl rollout undo deployment/askme-app -n askme-app
 ```
