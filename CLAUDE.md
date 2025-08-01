@@ -771,7 +771,7 @@ git push origin v1.0.2
 | Pull Request | vers `main` | ✅ Tests seulement | ❌ Non |
 
 **🔧 Configuration Requise :**
-- **Secret GitHub** : `askme-catalog-sync` (Personal Access Token)
+- **Secret GitHub** : `ASKME_CATALOG_SYNC` (Personal Access Token)
 - **Repository cible** : `askme-rancher-catalog` branche `main`
 - **Format de tag** : `v1.0.0`, `v1.2.3`, etc.
 
@@ -804,7 +804,7 @@ COPY --chown=node:node ./frontend/package*.json ./
 
 **Vérifications** :
 1. **GitHub Actions** : Vérifier que le workflow s'est déclenché sur le tag
-2. **Secret Token** : Vérifier que `askme-catalog-sync` est configuré
+2. **Secret Token** : Vérifier que `ASKME_CATALOG_SYNC` est configuré
 3. **Permissions** : Le token doit avoir accès en écriture au repository `askme-rancher-catalog`
 4. **Branche cible** : Vérifier que la branche `prod` existe dans le catalog
 
@@ -874,7 +874,7 @@ echo "🔑 GitHub Secrets nécessaires :"
 echo "- HARBOR_USERNAME (Harbor Registry)"
 echo "- HARBOR_PASSWORD (Harbor Registry)" 
 echo "- KUBE_CONFIG (Kubernetes cluster)"
-echo "- askme-catalog-sync (Rancher Catalog sync)"
+echo "- ASKME_CATALOG_SYNC (Rancher Catalog sync)"
 
 # 2. Tester manuellement la synchronisation
 git tag v1.0.0-test

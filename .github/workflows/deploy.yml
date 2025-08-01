@@ -212,7 +212,7 @@ jobs:
       with:
         repository: avanteam/askme-rancher-catalog
         ref: main  # Utilisation de la branche main (branche par défaut)
-        token: ${{ secrets.askme-catalog-sync }}
+        token: ${{ secrets.ASKME_CATALOG_SYNC }}
         path: rancher-catalog
 
     - name: 🔄 Update Chart.yaml with new version
