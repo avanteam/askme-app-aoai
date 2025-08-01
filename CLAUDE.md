@@ -772,7 +772,7 @@ git push origin v1.0.2
 
 **🔧 Configuration Requise :**
 - **Secret GitHub** : `CATALOG_GITHUB_TOKEN` (Personal Access Token)
-- **Repository cible** : `askme-rancher-catalog` branche `prod`
+- **Repository cible** : `askme-rancher-catalog` branche `main`
 - **Format de tag** : `v1.0.0`, `v1.2.3`, etc.
 
 **📦 Synchronisation Automatique :**
