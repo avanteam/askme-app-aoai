@@ -373,15 +373,19 @@ async def send_chat_request(request_body, request_headers, shouldStream = True):
     
     # Get provider from request or customizationPreferences, fallback to default
     provider_type = request_body.get("provider")
+    logging.info(f"DEBUG PROVIDER: Direct provider from request: {provider_type}")
     
     # If provider not directly specified, check customizationPreferences
     if not provider_type:
         customization_preferences = request_body.get("customizationPreferences", {})
         provider_type = customization_preferences.get("llmProvider")
+        logging.info(f"DEBUG PROVIDER: Provider from customizationPreferences: {provider_type}")
+        logging.info(f"DEBUG PROVIDER: Full customizationPreferences: {customization_preferences}")
     
     # Fallback to default if still not found
     if not provider_type:
         provider_type = LLMProviderFactory.get_default_provider()
+        logging.info(f"DEBUG PROVIDER: Using default provider: {provider_type}")
     
     print(f"🤖 LLM Provider utilisé: {provider_type}")
     logging.info(f"🤖 LLM Provider utilisé: {provider_type}")
@@ -566,7 +570,7 @@ async def stream_chat_request(request_body, request_headers):
     response, apim_request_id = await send_chat_request(request_body, request_headers, shouldStream)
     history_metadata = request_body.get("history_metadata", {})
     
-    async def generate(apim_request_id, history_metadata):
+    async def generate(apim_request_id, history_metadata, provider_type):
         # Azure OpenAI specific function calling logic
         if provider_type == "AZURE_OPENAI" and app_settings.azure_openai.function_call_azure_functions_enabled:
             # Maintain state during function call streaming
@@ -577,7 +581,7 @@ async def stream_chat_request(request_body, request_headers):
                 
                 # No function call, asistant response
                 if stream_state == "INITIAL":
-                    yield format_stream_response(completionChunk, history_metadata, apim_request_id)
+                    yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
 
                 # Function call stream completed, functions were executed.
                 # Append function calls and results to history and send to OpenAI, to stream the final answer.
@@ -585,28 +589,28 @@ async def stream_chat_request(request_body, request_headers):
                     request_body["messages"].extend(function_call_stream_state.function_messages)
                     function_response, apim_request_id = await send_chat_request(request_body, request_headers)
                     async for functionCompletionChunk in function_response:
-                        yield format_stream_response(functionCompletionChunk, history_metadata, apim_request_id)
+                        yield format_stream_response(functionCompletionChunk, history_metadata, apim_request_id, provider_type)
                 
         else:
             # For Claude and non-function Azure OpenAI requests
             if hasattr(response, '__aiter__'):
                 # Response is already an async generator (streaming)
                 async for completionChunk in response:
-                    yield format_stream_response(completionChunk, history_metadata, apim_request_id)
+                    yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
             elif isinstance(response, dict):
                 # Response is a single completion object (non-streaming) - but this shouldn't happen for Claude
                 logging.warning(f"Received dict response in stream_chat_request: {type(response)}")
-                yield format_stream_response(response, history_metadata, apim_request_id)
+                yield format_stream_response(response, history_metadata, apim_request_id, provider_type)
             elif hasattr(response, 'id'):
                 # Response is a single completion object (MockAzureOpenAIResponse for Claude)
-                formatted_response = format_stream_response(response, history_metadata, apim_request_id)
+                formatted_response = format_stream_response(response, history_metadata, apim_request_id, provider_type)
                 yield formatted_response
             else:
                 # Response is a regular iterable (fallback)
                 for completionChunk in response:
-                    yield format_stream_response(completionChunk, history_metadata, apim_request_id)
+                    yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
 
-    return generate(apim_request_id=apim_request_id, history_metadata=history_metadata)
+    return generate(apim_request_id=apim_request_id, history_metadata=history_metadata, provider_type=provider_type)
 
 def LogCallToAiManager(request_body):
     
