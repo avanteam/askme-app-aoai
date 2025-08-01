@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Fond circulaire avec dégradé -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="search-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f8f9fa;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Fond principal -->
+  <circle cx="16" cy="16" r="15" fill="url(#bg-gradient)" stroke="#ffffff" stroke-width="0.5"/>
+  
+  <!-- Loupe - cercle principal -->
+  <circle cx="13" cy="13" r="6" fill="none" stroke="url(#search-gradient)" stroke-width="2.5"/>
+  
+  <!-- Loupe - manche -->
+  <line x1="17.5" y1="17.5" x2="22" y2="22" stroke="url(#search-gradient)" stroke-width="2.5" stroke-linecap="round"/>
+  
+  <!-- Points décoratifs pour représenter l'IA/données -->
+  <circle cx="13" cy="10" r="1" fill="#ffffff" opacity="0.8"/>
+  <circle cx="16" cy="13" r="1" fill="#ffffff" opacity="0.6"/>
+  <circle cx="13" cy="16" r="1" fill="#ffffff" opacity="0.7"/>
+  <circle cx="10" cy="13" r="1" fill="#ffffff" opacity="0.9"/>
+  
+  <!-- Micro reflet pour l'effet moderne -->
+  <circle cx="12" cy="11" r="2" fill="none" stroke="#ffffff" stroke-width="0.5" opacity="0.3"/>
+</svg>

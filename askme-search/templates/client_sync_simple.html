@@ -1,0 +1,943 @@
+{% extends "base.html" %}
+
+{% block title %}Synchronisation {{ client_id }} - AskMe Search{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('clients') }}">Clients</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('client_detail', client_id=client_id) }}">{{ client_id }}</a></li>
+                <li class="breadcrumb-item active">Synchronisation</li>
+            </ol>
+        </nav>
+        
+        <h1 class="mb-4">
+            <i class="fas fa-sync text-primary"></i>
+            Synchronisation - <code>{{ client_id }}</code>
+        </h1>
+    </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-bolt"></i> Actions Rapides
+            </div>
+            <div class="card-body">
+                <div class="btn-group" role="group">
+                    <button class="btn btn-success" onclick="runManualSync()" id="syncButton">
+                        <i class="fas fa-play"></i> Synchroniser Maintenant
+                    </button>
+                    <button class="btn btn-info" onclick="showProgressModal()" id="showProgressBtn" style="display: none;">
+                        <i class="fas fa-chart-line"></i> Voir Progression
+                    </button>
+                    <button class="btn btn-warning" onclick="debugSyncState()">
+                        <i class="fas fa-bug"></i> Diagnostiquer
+                    </button>
+                    <button class="btn btn-danger" onclick="resetState()">
+                        <i class="fas fa-trash"></i> Reset État
+                    </button>
+                    <button class="btn btn-secondary" onclick="inspectFailedDoc()">
+                        <i class="fas fa-microscope"></i> Inspecter Document
+                    </button>
+                    <button class="btn btn-info" onclick="loadSyncHistory()">
+                        <i class="fas fa-history"></i> Historique
+                    </button>
+                    <a href="/monitoring?client_id={{ client_id }}" class="btn btn-outline-primary" target="_blank">
+                        <i class="fas fa-chart-line"></i> Monitoring Index
+                    </a>
+                    <a href="{{ url_for('client_detail', client_id=client_id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left"></i> Retour aux Documents
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Résultats -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle"></i> Résultats
+            </div>
+            <div class="card-body">
+                <div id="results">
+                    <p class="text-muted">Cliquez sur un bouton pour voir le résultat...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading">
+    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+    <p>Chargement...</p>
+</div>
+
+<!-- Modal de progression temps réel -->
+<div class="modal fade" id="progressModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-sync fa-spin text-primary"></i>
+                    Synchronisation en cours
+                </h5>
+            </div>
+            <div class="modal-body">
+                <!-- Barre de progression globale -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Progression globale</strong>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                    <div class="progress mb-2" style="height: 25px;">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small id="progressMessage" class="text-muted">Initialisation...</small>
+                </div>
+                
+                <!-- Détails de progression -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header py-2">
+                                <small><strong>Document en cours</strong></small>
+                            </div>
+                            <div class="card-body py-2">
+                                <div id="currentDoc" class="text-muted">-</div>
+                                <div id="currentFile" class="text-primary small"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header py-2">
+                                <small><strong>Statistiques</strong></small>
+                            </div>
+                            <div class="card-body py-2">
+                                <div><small>Docs: <span id="docsProgress">0/0</span></small></div>
+                                <div><small>Chunks: <span id="chunksProgress">0/0</span></small></div>
+                                <div><small>Durée: <span id="elapsedTime">0s</span></small></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Log temps réel -->
+                <div class="mt-3">
+                    <div class="card">
+                        <div class="card-header py-2">
+                            <small><strong>Activité temps réel</strong></small>
+                            <button class="btn btn-sm btn-outline-secondary float-end" onclick="clearProgressLog()">
+                                <i class="fas fa-eraser"></i>
+                            </button>
+                        </div>
+                        <div class="card-body p-2">
+                            <div id="progressLog" style="height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.8em; background: #f8f9fa; padding: 10px;">
+                                <div class="text-muted">En attente de données...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div id="progressActions">
+                    <button type="button" class="btn btn-secondary" onclick="hideProgressModal()">
+                        <i class="fas fa-minimize"></i> Masquer
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="cancelSync()" id="cancelSyncBtn" style="display: none;">
+                        <i class="fas fa-stop"></i> Annuler
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+<script>
+    const clientId = '{{ client_id }}';
+    
+    // WebSocket pour progression temps réel
+    const socket = io();
+    let progressModal = null;
+    let syncInProgress = false;
+    let currentSyncData = null;
+    let closePromptShown = false;  // Variable pour éviter la popup multiple
+    
+    // Connexion WebSocket
+    socket.on('connect', function() {
+        console.log('🔌 WebSocket connecté');
+        socket.emit('join_sync_room', {client_id: clientId});
+    });
+    
+    // Événements de progression
+    socket.on('sync_progress', function(data) {
+        console.log('📡 Progress:', data);
+        
+        // Debug spécial pour les problèmes de progression
+        if (data.progress_percent >= 95 || data.phase === 'complete' || data.phase === 'document_complete') {
+            console.log('🔍 Debug progression:', {
+                phase: data.phase,
+                progress_percent: data.progress_percent,
+                completed_docs: data.completed_docs_count,
+                total_docs: data.total_docs,
+                current_doc: data.current_doc
+            });
+        }
+        
+        currentSyncData = data;
+        updateProgressModal(data);
+        
+        // Mettre à jour l'état de synchronisation
+        if (data.phase === 'start') {
+            syncInProgress = true;
+            closePromptShown = false;  // Réinitialiser au début de sync
+            resetProgressModal(); // Reset propre au démarrage
+            updateSyncButtons();
+        } else if (data.phase === 'complete' || data.phase === 'error') {
+            syncInProgress = false;
+            updateSyncButtons();
+            // Nettoyer les données après completion
+            setTimeout(() => {
+                currentSyncData = null;
+            }, 5000);
+        }
+    });
+    
+    // Initialiser la modal de progression
+    function initProgressModal() {
+        if (!progressModal) {
+            progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
+        }
+        return progressModal;
+    }
+    
+    // Afficher la modal de progression
+    function showProgressModal() {
+        initProgressModal();
+        
+        // Si une synchronisation est en cours, restaurer les données
+        if (syncInProgress && currentSyncData) {
+            updateProgressModal(currentSyncData);
+        } else {
+            // Reset initial seulement si pas de sync en cours
+            resetProgressModal();
+        }
+        
+        progressModal.show();
+    }
+    
+    // Cacher la modal de progression
+    function hideProgressModal() {
+        if (progressModal) {
+            progressModal.hide();
+        }
+    }
+    
+    // Mettre à jour l'état des boutons
+    function updateSyncButtons() {
+        const syncButton = document.getElementById('syncButton');
+        const showProgressBtn = document.getElementById('showProgressBtn');
+        const cancelBtn = document.getElementById('cancelSyncBtn');
+        
+        if (syncInProgress) {
+            syncButton.disabled = true;
+            syncButton.innerHTML = 'Synchronisation en cours...';
+            showProgressBtn.style.display = 'inline-block';
+            if (cancelBtn) cancelBtn.style.display = 'inline-block';
+        } else {
+            syncButton.disabled = false;
+            syncButton.innerHTML = '<i class="fas fa-play"></i> Synchroniser Maintenant';
+            showProgressBtn.style.display = 'none';
+            if (cancelBtn) cancelBtn.style.display = 'none';
+        }
+    }
+    
+    // Annuler la synchronisation
+    function cancelSync() {
+        if (confirm('Voulez-vous vraiment annuler la synchronisation en cours ?')) {
+            // TODO: Implémenter l'annulation côté serveur
+            socket.emit('cancel_sync', {client_id: clientId});
+            syncInProgress = false;
+            updateSyncButtons();
+            hideProgressModal();
+        }
+    }
+    
+    // Mettre à jour la modal avec les données de progression
+    function updateProgressModal(data) {
+        const {
+            phase, message, progress_percent = 0, 
+            current_doc = 0, total_docs = 0,
+            processed_chunks = 0, elapsed_time = 0,
+            doc_id, filename
+        } = data;
+        
+        // Barre de progression avec message enrichi selon la phase
+        let displayMessage = message || '';
+        if (phase === 'embeddings_start') {
+            displayMessage = `🧠 Génération d'embeddings IA en cours...`;
+        } else if (phase === 'embeddings_complete') {
+            displayMessage = `✅ Embeddings IA générés avec succès`;
+        } else if (phase === 'extraction') {
+            displayMessage = `📝 Extraction du contenu textuel...`;
+        } else if (phase === 'chunking') {
+            displayMessage = `✂️ Découpage en segments d'analyse...`;
+        } else if (phase === 'chunk_indexing') {
+            displayMessage = `📊 Indexation des segments dans la base...`;
+        }
+        
+        document.getElementById('progressMessage').textContent = displayMessage;
+        
+        // Document en cours - afficher seulement les infos pertinentes pour cette session
+        if (phase === 'document_start' && doc_id) {
+            document.getElementById('currentDoc').textContent = `Doc ${current_doc}/${total_docs}: ${doc_id.substring(0, 8)}...`;
+        }
+        
+        // Affichage détaillé du fichier et de l'étape en cours
+        if (phase === 'file_start' && filename) {
+            document.getElementById('currentFile').textContent = `📎 ${filename}`;
+        }
+        if (phase === 'extraction' && filename) {
+            document.getElementById('currentFile').textContent = `📝 Extraction: ${filename}`;
+        }
+        if (phase === 'chunking' && filename) {
+            document.getElementById('currentFile').textContent = `✂️ Découpage: ${filename}`;
+        }
+        if (phase === 'embeddings_start' && filename) {
+            document.getElementById('currentFile').textContent = `🧠 Embeddings: ${filename}`;
+        }
+        if (phase === 'embeddings_complete' && filename) {
+            document.getElementById('currentFile').textContent = `✅ Embeddings terminés: ${filename}`;
+        }
+        if (phase === 'chunk_indexing' && filename) {
+            document.getElementById('currentFile').textContent = `📊 Indexation: ${filename}`;
+        }
+        if (phase === 'file_complete' && filename) {
+            document.getElementById('currentFile').textContent = `✅ Fichier terminé: ${filename}`;
+        }
+        
+        // Pour la restauration, ne pas afficher doc/file spécifiques
+        if (!phase || phase === 'restore') {
+            // Laisser les anciens textes mais mettre à jour seulement les stats globales
+            // Ne pas écraser currentDoc et currentFile
+        }
+        
+        // Statistiques - affichage amélioré
+        const completedDocs = data.completed_docs_count || 0;
+        document.getElementById('docsProgress').textContent = `${completedDocs}/${total_docs} terminés`;
+        
+        // Affichage chunks - priorité au document en cours
+        if (data.current_doc_chunks > 0 && data.current_doc_processed !== undefined) {
+            // Afficher la progression du document en cours
+            document.getElementById('chunksProgress').textContent = `${data.current_doc_processed}/${data.current_doc_chunks} (doc) | ${processed_chunks} total`;
+        } else if (data.total_chunks > 0) {
+            document.getElementById('chunksProgress').textContent = `${processed_chunks}/${data.total_chunks}`;
+        } else if (data.estimated_total > 0) {
+            document.getElementById('chunksProgress').textContent = `${processed_chunks}/${data.estimated_total} (est.)`;
+        } else {
+            document.getElementById('chunksProgress').textContent = processed_chunks;
+        }
+        
+        document.getElementById('elapsedTime').textContent = Math.round(elapsed_time) + 's';
+        
+        // Log temps réel
+        addToProgressLog(message, phase);
+        
+        // Gestion des phases spéciales
+        if (phase === 'complete') {
+            // Synchronisation terminée - forcer 100%
+            document.getElementById('progressBar').style.width = '100%';
+            document.getElementById('progressPercent').textContent = '100%';
+            document.getElementById('progressBar').classList.remove('progress-bar-animated');
+            document.getElementById('progressBar').classList.add('bg-success');
+            
+            // Le message de completion vient déjà du serveur
+            // addToProgressLog('🎉 Synchronisation terminée !', 'complete');
+            
+            // Proposer de fermer après 3 secondes mais ne pas forcer
+            setTimeout(() => {
+                if (!closePromptShown && confirm('Synchronisation terminée ! Voulez-vous fermer la fenêtre de progression ?')) {
+                    hideProgressModal();
+                }
+                closePromptShown = true;  // Marquer comme affiché
+                // Recharger les résultats
+                loadSyncHistory();
+            }, 2000);
+        } else {
+            // Pour toutes les autres phases, utiliser le pourcentage calculé
+            let displayPercent = progress_percent;
+            let isComplete = false;
+            
+            // Détecter la fin automatiquement SEULEMENT si c'est vraiment terminé
+            if (data.completed_docs_count && data.completed_docs_count === total_docs && phase === 'complete') {
+                displayPercent = 100;
+                isComplete = true;
+            }
+            
+            // Ou si on reçoit explicitement 100% ET que c'est la phase complete
+            if (progress_percent >= 100 && phase === 'complete') {
+                displayPercent = 100;
+                isComplete = true;
+            }
+            
+            // Mettre à jour la barre
+            document.getElementById('progressBar').style.width = displayPercent + '%';
+            document.getElementById('progressPercent').textContent = displayPercent + '%';
+            
+            // Si terminé, changer l'apparence
+            if (isComplete) {
+                document.getElementById('progressBar').classList.remove('progress-bar-animated');
+                document.getElementById('progressBar').classList.add('bg-success');
+                
+                // Simuler la phase complete si elle n'arrive pas
+                if (phase !== 'complete') {
+                    setTimeout(() => {
+                        // Le message de completion vient déjà du serveur
+            // addToProgressLog('🎉 Synchronisation terminée !', 'complete');
+                        if (!closePromptShown && confirm('Synchronisation terminée ! Voulez-vous fermer la fenêtre de progression ?')) {
+                            hideProgressModal();
+                        }
+                        closePromptShown = true;  // Marquer comme affiché
+                        loadSyncHistory();
+                    }, 1000);
+                }
+            }
+        }
+        
+        if (phase === 'error') {
+            document.getElementById('progressBar').classList.remove('progress-bar-animated');
+            document.getElementById('progressBar').classList.add('bg-danger');
+            addToProgressLog('❌ Erreur de synchronisation', 'error');
+        }
+    }
+    
+    // Ajouter une ligne au log de progression
+    function addToProgressLog(message, phase = '') {
+        const logDiv = document.getElementById('progressLog');
+        const time = new Date().toLocaleTimeString();
+        
+        let icon = '📡';
+        let className = '';
+        
+        switch(phase) {
+            case 'start': icon = '🚀'; className = 'text-primary'; break;
+            case 'document_start': icon = '📄'; className = 'text-info'; break;
+            case 'file_start': icon = '📎'; className = 'text-secondary'; break;
+            case 'extraction': icon = '📝'; break;
+            case 'chunking': icon = '✂️'; break;
+            case 'embeddings_start': icon = '🧠'; className = 'text-warning'; break;
+            case 'embeddings_batch': icon = '🧠'; break;
+            case 'embeddings_complete': icon = '✅'; className = 'text-success'; break;
+            case 'chunk_indexing': icon = '📊'; break;
+            case 'file_complete': icon = '✅'; className = 'text-success'; break;
+            case 'document_complete': icon = '🎯'; className = 'text-success'; break;
+            case 'complete': icon = '🎉'; className = 'text-success fw-bold'; break;
+            case 'error': icon = '❌'; className = 'text-danger'; break;
+        }
+        
+        const logEntry = document.createElement('div');
+        logEntry.className = className;
+        logEntry.innerHTML = `<small class="text-muted">[${time}]</small> ${icon} ${message}`;
+        
+        logDiv.appendChild(logEntry);
+        logDiv.scrollTop = logDiv.scrollHeight;
+        
+        // Limiter à 100 lignes
+        while (logDiv.children.length > 100) {
+            logDiv.removeChild(logDiv.firstChild);
+        }
+    }
+    
+    // Vider le log de progression
+    function clearProgressLog() {
+        document.getElementById('progressLog').innerHTML = '<div class="text-muted">Log vidé...</div>';
+    }
+    
+    // Reset complet de la modal
+    function resetProgressModal() {
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressBar').className = 'progress-bar progress-bar-striped progress-bar-animated';
+        document.getElementById('progressPercent').textContent = '0%';
+        document.getElementById('progressMessage').textContent = 'Initialisation...';
+        document.getElementById('currentDoc').textContent = '-';
+        document.getElementById('currentFile').textContent = '';
+        document.getElementById('docsProgress').textContent = '0/0';
+        document.getElementById('chunksProgress').textContent = '0';
+        document.getElementById('elapsedTime').textContent = '0s';
+        document.getElementById('progressLog').innerHTML = '<div class="text-muted">En attente de données...</div>';
+    }
+    
+    // Initialisation au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        updateSyncButtons();
+        
+        // Vérifier s'il y a une synchronisation en cours au chargement
+        socket.emit('check_sync_status', {client_id: clientId});
+    });
+    
+    // Réception du statut de synchronisation
+    socket.on('sync_status', function(data) {
+        if (data.in_progress) {
+            syncInProgress = true;
+            currentSyncData = data.current_data;
+            updateSyncButtons();
+            
+            if (data.current_data) {
+                updateProgressModal(data.current_data);
+            }
+        }
+    });
+    
+    // Synchronisation manuelle avec progression temps réel
+    async function runManualSync() {
+        document.getElementById('results').innerHTML = '<p class="text-info">🔄 Lancement de la synchronisation...</p>';
+        
+        try {
+            // Afficher la modal de progression
+            showProgressModal();
+            
+            const response = await fetch('/api/clients/' + clientId + '/sync', {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                if (result.progress_enabled) {
+                    // La progression sera gérée par WebSocket
+                    document.getElementById('results').innerHTML = '<div class="alert alert-info">🔄 Synchronisation en cours - suivez la progression dans la fenêtre</div>';
+                } else {
+                    // Fallback sans progression
+                    document.getElementById('results').innerHTML = '<div class="alert alert-success">✅ ' + result.message + '</div>';
+                    hideProgressModal();
+                }
+            } else {
+                document.getElementById('results').innerHTML = '<div class="alert alert-warning">⚠️ ' + result.message + '</div>';
+                hideProgressModal();
+            }
+            
+        } catch (error) {
+            document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ Erreur: ' + error.message + '</div>';
+            hideProgressModal();
+        }
+    }
+    
+    // Diagnostic simple
+    async function debugSyncState() {
+        document.getElementById('results').innerHTML = '<p class="text-info">🔍 Diagnostic en cours...</p>';
+        
+        try {
+            showLoading('loading');
+            
+            const response = await fetch('/api/clients/' + clientId + '/sync/debug');
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                const debug = result.debug_info;
+                let html = '<div class="alert alert-info"><h6>📊 Diagnostic:</h6>';
+                html += '<p><strong>Dossier client:</strong> ' + (debug.client_path_exists ? '✅ Existe' : '❌ Manquant') + '</p>';
+                html += '<p><strong>Dossier documents:</strong> ' + (debug.documents_path_exists ? '✅ Existe' : '❌ Manquant') + '</p>';
+                html += '<p><strong>Fichier d\'état:</strong> ' + (debug.state_file_exists ? '✅ Existe' : '⚠️ Absent') + '</p>';
+                html += '<p><strong>Documents trouvés:</strong> ' + debug.documents_found.length + '</p>';
+                
+                if (debug.changes_detected.new_documents) {
+                    html += '<p><strong>Nouveaux documents:</strong> ' + debug.changes_detected.new_documents.length + '</p>';
+                    html += '<p><strong>Documents modifiés:</strong> ' + (debug.changes_detected.modified_documents?.length || 0) + '</p>';
+                    html += '<p><strong>Documents supprimés:</strong> ' + (debug.changes_detected.deleted_documents?.length || 0) + '</p>';
+                    html += '<p><strong>Documents inchangés:</strong> ' + (debug.changes_detected.unchanged_documents?.length || 0) + '</p>';
+                    
+                    // Afficher les documents problématiques
+                    if (debug.changes_detected.unchanged_documents && debug.changes_detected.unchanged_documents.length > 0) {
+                        html += '<div class="alert alert-warning mt-2">';
+                        html += '<h6>⚠️ Documents marqués comme déjà indexés:</h6>';
+                        debug.changes_detected.unchanged_documents.forEach(function(docId) {
+                            html += '<p>' + docId + ' <button class="btn btn-sm btn-outline-secondary" onclick="inspectSpecificDoc(\'' + docId + '\')">🔍 Inspecter</button></p>';
+                        });
+                        html += '</div>';
+                    }
+                    
+                    // Afficher la liste des documents trouvés pour inspection
+                    if (debug.documents_found && debug.documents_found.length > 0) {
+                        html += '<div class="alert alert-info mt-2">';
+                        html += '<h6>📁 Documents disponibles pour inspection:</h6>';
+                        debug.documents_found.slice(0, 5).forEach(function(doc) {
+                            const status = doc.has_metadata ? '✅' : '⚠️';
+                            html += '<p>' + status + ' ' + doc.doc_id.substring(0, 8) + '... (' + doc.attachments_count + ' PJ) ';
+                            html += '<button class="btn btn-sm btn-outline-primary" onclick="inspectSpecificDoc(\'' + doc.doc_id + '\')">🔍 Inspecter</button></p>';
+                        });
+                        if (debug.documents_found.length > 5) {
+                            html += '<p class="text-muted"><small>... et ' + (debug.documents_found.length - 5) + ' autres documents</small></p>';
+                        }
+                        html += '</div>';
+                    }
+                }
+                
+                html += '<pre class="mt-2 bg-light p-2" style="font-size: 0.8em; max-height: 200px; overflow-y: auto;">';
+                html += JSON.stringify(debug.current_state, null, 2);
+                html += '</pre></div>';
+                
+                document.getElementById('results').innerHTML = html;
+                
+                // Sauvegarder les résultats pour l'inspection
+                window.lastDiagnosticResult = result.debug_info;
+                
+            } else {
+                document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ ' + result.message + '</div>';
+            }
+            
+        } catch (error) {
+            document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ Erreur diagnostic: ' + error.message + '</div>';
+        } finally {
+            hideLoading('loading');
+        }
+    }
+    
+    // Reset simple
+    async function resetState() {
+        if (!confirm('⚠️ Reset l\'état d\'indexation ?\\n\\nCela forcera une re-synchronisation complète.')) {
+            return;
+        }
+        
+        document.getElementById('results').innerHTML = '<p class="text-info">🗑️ Reset en cours...</p>';
+        
+        try {
+            const response = await fetch('/api/clients/' + clientId + '/sync/reset', {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                document.getElementById('results').innerHTML = '<div class="alert alert-success">✅ ' + result.message + 
+                    '<br><button class="btn btn-primary btn-sm mt-2" onclick="runManualSync()">Lancer Synchronisation</button></div>';
+            } else {
+                document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ ' + result.message + '</div>';
+            }
+            
+        } catch (error) {
+            document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ Erreur reset: ' + error.message + '</div>';
+        }
+    }
+    
+    // Vérifier l'index OpenSearch
+    async function verifyIndex() {
+        document.getElementById('results').innerHTML = '<p class="text-info">🔍 Vérification de l\'index OpenSearch...</p>';
+        
+        try {
+            showLoading('loading');
+            
+            const response = await fetch('/api/clients/' + clientId + '/sync/verify');
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                const verify = result.verification;
+                let html = '<div class="alert alert-info"><h6>🔍 Vérification Index OpenSearch:</h6>';
+                
+                html += '<p><strong>Index:</strong> ' + verify.index_name + '</p>';
+                html += '<p><strong>Total chunks dans l\'index:</strong> ' + verify.total_chunks_in_index + '</p>';
+                html += '<p><strong>Documents uniques dans l\'index:</strong> ' + verify.unique_documents_in_index + '</p>';
+                html += '<p><strong>Documents dans l\'état local:</strong> ' + verify.documents_in_local_state + '</p>';
+                
+                if (verify.discrepancies.length > 0) {
+                    html += '<div class="alert alert-warning mt-2"><h6>⚠️ Discordances trouvées:</h6>';
+                    verify.discrepancies.forEach(function(disc) {
+                        html += '<p><strong>' + disc.type + ':</strong> ' + disc.message + '</p>';
+                    });
+                    html += '</div>';
+                } else {
+                    html += '<div class="alert alert-success mt-2">✅ Aucune discordance trouvée</div>';
+                }
+                
+                // Détails des documents indexés
+                if (verify.indexed_documents.length > 0) {
+                    html += '<h6>Documents dans OpenSearch:</h6><ul>';
+                    verify.indexed_documents.forEach(function(doc) {
+                        html += '<li>' + doc.parent_id + ' (' + doc.chunks_count + ' chunks)</li>';
+                    });
+                    html += '</ul>';
+                } else {
+                    html += '<p class="text-warning">⚠️ Aucun document trouvé dans l\'index OpenSearch !</p>';
+                }
+                
+                // État local
+                html += '<h6>Documents dans l\'état local:</h6>';
+                if (verify.local_state_documents.length > 0) {
+                    html += '<ul>';
+                    verify.local_state_documents.forEach(function(docId) {
+                        html += '<li>' + docId + '</li>';
+                    });
+                    html += '</ul>';
+                } else {
+                    html += '<p>Aucun document dans l\'état local</p>';
+                }
+                
+                html += '</div>';
+                document.getElementById('results').innerHTML = html;
+                
+            } else {
+                document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ ' + result.message + '</div>';
+            }
+            
+        } catch (error) {
+            document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ Erreur vérification: ' + error.message + '</div>';
+        } finally {
+            hideLoading('loading');
+        }
+    }
+    
+    // Inspecter le document qui échoue (depuis l'état diagnostic)
+    function inspectFailedDoc() {
+        // Récupérer un document depuis le diagnostic précédent
+        if (window.lastDiagnosticResult && window.lastDiagnosticResult.documents_found.length > 0) {
+            const firstDoc = window.lastDiagnosticResult.documents_found[0];
+            inspectSpecificDoc(firstDoc);
+        } else {
+            // Demander à l'utilisateur de saisir l'ID
+            const docId = prompt('Entrez l\'ID du document à inspecter (UUID complet):');
+            if (docId && docId.trim()) {
+                inspectSpecificDoc(docId.trim());
+            } else {
+                showResult('warning', '⚠️ Inspection annulée - aucun ID document fourni');
+            }
+        }
+    }
+    
+    // Inspecter un document spécifique
+    async function inspectSpecificDoc(docId) {
+        if (!docId || docId.trim() === '') {
+            showResult('warning', '⚠️ ID de document vide ou invalide');
+            return;
+        }
+        
+        const shortId = docId.length > 8 ? docId.substring(0, 8) + '...' : docId;
+        document.getElementById('results').innerHTML = '<p class="text-info">🔬 Inspection du document ' + shortId + '</p>';
+        
+        try {
+            showLoading('loading');
+            
+            const response = await fetch('/api/clients/' + clientId + '/documents/' + encodeURIComponent(docId) + '/inspect');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                const inspect = result.inspection;
+                let html = '<div class="alert alert-info"><h6>🔬 Inspection Document: ' + docId + '</h6>';
+                
+                html += '<p><strong>Chemin:</strong> ' + inspect.doc_path + '</p>';
+                html += '<p><strong>Existe:</strong> ' + (inspect.exists ? '✅ Oui' : '❌ Non') + '</p>';
+                html += '<p><strong>Est un dossier:</strong> ' + (inspect.is_directory ? '✅ Oui' : '❌ Non') + '</p>';
+                
+                const analysis = inspect.content_analysis;
+                html += '<h6>📊 Analyse du contenu:</h6>';
+                html += '<p><strong>Total fichiers:</strong> ' + analysis.total_files + '</p>';
+                html += '<p><strong>Pièces jointes:</strong> ' + analysis.attachment_files + '</p>';
+                html += '<p><strong>A metadata.json:</strong> ' + (analysis.has_metadata_json ? '✅ Oui' : '❌ Non') + '</p>';
+                html += '<p><strong>Taille totale:</strong> ' + analysis.total_size_bytes + ' octets</p>';
+                
+                if (analysis.file_extensions.length > 0) {
+                    html += '<p><strong>Extensions:</strong> ' + analysis.file_extensions.join(', ') + '</p>';
+                }
+                
+                if (analysis.empty_files.length > 0) {
+                    html += '<div class="alert alert-warning mt-2"><strong>⚠️ Fichiers vides:</strong> ' + analysis.empty_files.join(', ') + '</div>';
+                }
+                
+                if (analysis.unreadable_files.length > 0) {
+                    html += '<div class="alert alert-danger mt-2"><strong>❌ Fichiers illisibles:</strong> ' + analysis.unreadable_files.join(', ') + '</div>';
+                }
+                
+                // Détails des fichiers
+                if (inspect.files.length > 0) {
+                    html += '<h6>📁 Fichiers trouvés:</h6><ul>';
+                    inspect.files.forEach(function(file) {
+                        html += '<li><strong>' + file.name + '</strong> (' + file.size_bytes + ' octets)';
+                        if (file.extension) html += ' - ' + file.extension;
+                        if (!file.readable) html += ' <span class="text-danger">❌ Non lisible</span>';
+                        if (file.size_bytes === 0) html += ' <span class="text-warning">⚠️ Vide</span>';
+                        html += '</li>';
+                    });
+                    html += '</ul>';
+                }
+                
+                // Métadonnées
+                if (inspect.metadata && Object.keys(inspect.metadata).length > 0) {
+                    html += '<h6>📋 Métadonnées:</h6>';
+                    html += '<pre class="bg-light p-2" style="font-size: 0.8em; max-height: 150px; overflow-y: auto;">';
+                    html += JSON.stringify(inspect.metadata, null, 2);
+                    html += '</pre>';
+                }
+                
+                html += '</div>';
+                document.getElementById('results').innerHTML = html;
+                
+            } else {
+                document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ ' + result.message + '</div>';
+            }
+            
+        } catch (error) {
+            document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ Erreur inspection: ' + error.message + '</div>';
+        } finally {
+            hideLoading('loading');
+        }
+    }
+    
+    // Charger l'historique des synchronisations
+    async function loadSyncHistory() {
+        document.getElementById('results').innerHTML = '<p class="text-info">📋 Chargement de l\'historique...</p>';
+        
+        try {
+            showLoading('loading');
+            
+            const response = await fetch('/api/sync/results?limit=20');
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                const allResults = result.results || [];
+                
+                // Filtrer les résultats pour ce client seulement
+                const clientResults = allResults.filter(r => r.client_id === clientId);
+                
+                let html = '<div class="alert alert-info">';
+                html += '<h6>📋 Historique des Synchronisations - ' + clientId + '</h6>';
+                html += '<p><strong>Total synchronisations:</strong> ' + clientResults.length + '</p>';
+                
+                if (clientResults.length === 0) {
+                    html += '<p class="text-muted">Aucune synchronisation trouvée pour ce client.</p>';
+                } else {
+                    // Trier par date (plus récent en premier)
+                    const sortedResults = clientResults.sort((a, b) => 
+                        new Date(b.started_at) - new Date(a.started_at)
+                    );
+                    
+                    html += '<div class="table-responsive mt-3">';
+                    html += '<table class="table table-sm table-striped">';
+                    html += '<thead><tr>';
+                    html += '<th>Date</th>';
+                    html += '<th>Statut</th>';
+                    html += '<th>Documents</th>';
+                    html += '<th>Durée</th>';
+                    html += '<th>Détails</th>';
+                    html += '</tr></thead><tbody>';
+                    
+                    sortedResults.slice(0, 10).forEach(function(sync) {
+                        html += '<tr>';
+                        
+                        // Date
+                        const date = new Date(sync.started_at);
+                        html += '<td><small>' + date.toLocaleDateString() + '<br>' + date.toLocaleTimeString() + '</small></td>';
+                        
+                        // Statut
+                        let statusIcon = '';
+                        let statusClass = '';
+                        if (sync.status === 'completed') {
+                            statusIcon = '✅';
+                            statusClass = 'text-success';
+                        } else if (sync.status === 'failed') {
+                            statusIcon = '❌';
+                            statusClass = 'text-danger';
+                        } else if (sync.status === 'running') {
+                            statusIcon = '🔄';
+                            statusClass = 'text-primary';
+                        }
+                        html += '<td><span class="' + statusClass + '">' + statusIcon + ' ' + sync.status + '</span></td>';
+                        
+                        // Documents traités
+                        html += '<td>' + (sync.processed_documents || 0) + '</td>';
+                        
+                        // Durée
+                        if (sync.duration_seconds) {
+                            const duration = Math.round(sync.duration_seconds);
+                            html += '<td>' + duration + 's</td>';
+                        } else {
+                            html += '<td>-</td>';
+                        }
+                        
+                        // Détails
+                        html += '<td>';
+                        if (sync.operations && sync.operations.length > 0) {
+                            html += '<button class="btn btn-sm btn-outline-info" onclick="showSyncDetails(\'' + sync.started_at + '\')">Voir</button>';
+                        } else {
+                            html += '-';
+                        }
+                        html += '</td>';
+                        
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    
+                    if (clientResults.length > 10) {
+                        html += '<p class="text-muted mt-2">Affichage des 10 synchronisations les plus récentes sur ' + clientResults.length + ' au total.</p>';
+                    }
+                }
+                
+                html += '</div>';
+                document.getElementById('results').innerHTML = html;
+                
+                // Stocker les résultats pour les détails
+                window.clientSyncResults = clientResults;
+                
+            } else {
+                document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ ' + result.message + '</div>';
+            }
+            
+        } catch (error) {
+            document.getElementById('results').innerHTML = '<div class="alert alert-danger">❌ Erreur chargement historique: ' + error.message + '</div>';
+        } finally {
+            hideLoading('loading');
+        }
+    }
+    
+    // Afficher les détails d'une synchronisation
+    function showSyncDetails(startedAt) {
+        const sync = window.clientSyncResults.find(r => r.started_at === startedAt);
+        if (!sync) return;
+        
+        let html = '<div class="alert alert-info">';
+        html += '<h6>🔍 Détails de la Synchronisation</h6>';
+        html += '<p><strong>Date:</strong> ' + new Date(sync.started_at).toLocaleString() + '</p>';
+        html += '<p><strong>Statut:</strong> ' + sync.status + '</p>';
+        html += '<p><strong>Documents traités:</strong> ' + (sync.processed_documents || 0) + '</p>';
+        
+        if (sync.operations && sync.operations.length > 0) {
+            html += '<h6>📝 Opérations:</h6><ul>';
+            sync.operations.forEach(function(op) {
+                html += '<li>' + op + '</li>';
+            });
+            html += '</ul>';
+        }
+        
+        if (sync.errors && sync.errors.length > 0) {
+            html += '<h6>❌ Erreurs:</h6>';
+            html += '<div class="alert alert-warning">';
+            sync.errors.forEach(function(error) {
+                html += '<p>' + error + '</p>';
+            });
+            html += '</div>';
+        }
+        
+        html += '<button class="btn btn-secondary btn-sm" onclick="loadSyncHistory()">← Retour à l\'historique</button>';
+        html += '</div>';
+        
+        document.getElementById('results').innerHTML = html;
+    }
+</script>
+{% endblock %}

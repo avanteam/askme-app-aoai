@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring Index OpenSearch - AskMe Search{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-chart-line text-primary"></i>
+            Monitoring Index OpenSearch
+            <button class="btn btn-outline-primary float-end" onclick="autoRefresh()">
+                <i class="fas fa-sync" id="refreshIcon"></i> Auto-refresh
+            </button>
+        </h1>
+    </div>
+</div>
+
+<!-- Sélection Client -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-users"></i> Sélection Client
+            </div>
+            <div class="card-body">
+                <select class="form-select" id="clientSelect" onchange="loadClientStats()">
+                    <option value="">Sélectionnez un client...</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-server"></i> État OpenSearch
+            </div>
+            <div class="card-body">
+                <div id="clusterHealth">
+                    <i class="fas fa-spinner fa-spin"></i> Vérification...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiques Globales -->
+<div class="row mb-4" id="globalStats" style="display: none;">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6>Total Chunks</h6>
+                        <h2 id="totalChunks">-</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-cubes fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6>Documents</h6>
+                        <h2 id="totalDocuments">-</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-file-alt fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6>Taille Index</h6>
+                        <h2 id="indexSize">-</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-hdd fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6>Dernière MAJ</h6>
+                        <h6 id="lastUpdate">-</h6>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Détails par Document -->
+<div class="row" id="documentsDetails" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-list"></i> Détails par Document
+                <button class="btn btn-sm btn-outline-secondary float-end" onclick="loadClientStats()">
+                    <i class="fas fa-refresh"></i> Actualiser
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Document ID</th>
+                                <th>Chunks</th>
+                                <th>Taille Moy.</th>
+                                <th>Dernière Modif.</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="documentsTable">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">
+                                    Sélectionnez un client pour voir les détails
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Console de Requêtes -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-terminal"></i> Console de Requêtes OpenSearch
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <textarea class="form-control" id="queryInput" rows="4" placeholder="Entrez votre requête JSON ici...">
+{
+  "query": {"match_all": {}},
+  "size": 5
+}</textarea>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-2">
+                            <label class="form-label">Endpoint:</label>
+                            <select class="form-select" id="endpointSelect" onchange="updateQueryExample()">
+                                <option value="_search">/_search</option>
+                                <option value="_count">/_count</option>
+                                <option value="_stats">/_stats</option>
+                                <option value="_mapping">/_mapping</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="executeQuery()">
+                            <i class="fas fa-play"></i> Exécuter
+                        </button>
+                    </div>
+                </div>
+                <div id="queryResult" style="display: none;">
+                    <h6>Résultat:</h6>
+                    <pre id="queryOutput" class="bg-light p-3" style="max-height: 400px; overflow-y: auto;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedClient = '';
+let autoRefreshInterval = null;
+
+// Initialisation
+document.addEventListener('DOMContentLoaded', function() {
+    loadClusterHealth();
+    loadClients();
+    updateQueryExample(); // Initialiser l'exemple de requête
+});
+
+// Charger la santé du cluster
+async function loadClusterHealth() {
+    try {
+        const response = await fetch('/api/opensearch/cluster/health');
+        const result = await response.json();
+        
+        let healthHtml = '';
+        if (result.status === 'success') {
+            const health = result.health;
+            const statusColor = health.status === 'green' ? 'success' : 
+                               health.status === 'yellow' ? 'warning' : 'danger';
+            
+            healthHtml = `
+                <span class="badge bg-${statusColor}">${health.status.toUpperCase()}</span>
+                <small class="d-block mt-1">
+                    ${health.number_of_nodes} nœuds • ${health.active_shards} shards actifs
+                </small>
+            `;
+        } else {
+            healthHtml = '<span class="badge bg-danger">INACCESSIBLE</span>';
+        }
+        
+        document.getElementById('clusterHealth').innerHTML = healthHtml;
+    } catch (error) {
+        document.getElementById('clusterHealth').innerHTML = '<span class="badge bg-danger">ERREUR</span>';
+    }
+}
+
+// Charger la liste des clients
+async function loadClients() {
+    try {
+        const response = await fetch('/api/clients');
+        const result = await response.json();
+        
+        const select = document.getElementById('clientSelect');
+        select.innerHTML = '<option value="">Sélectionnez un client...</option>';
+        
+        if (result.status === 'success') {
+            result.clients.forEach(client => {
+                const option = document.createElement('option');
+                option.value = client.id;
+                option.textContent = client.id;
+                select.appendChild(option);
+            });
+            
+            // Vérifier s'il y a un client présélectionné dans l'URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const preselectedClient = urlParams.get('client_id');
+            
+            if (preselectedClient) {
+                // Vérifier que le client existe dans la liste
+                const clientExists = result.clients.some(client => client.id === preselectedClient);
+                if (clientExists) {
+                    select.value = preselectedClient;
+                    loadClientStats();
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Erreur chargement clients:', error);
+    }
+}
+
+// Charger les stats d'un client
+async function loadClientStats() {
+    const clientId = document.getElementById('clientSelect').value;
+    if (!clientId) {
+        document.getElementById('globalStats').style.display = 'none';
+        document.getElementById('documentsDetails').style.display = 'none';
+        return;
+    }
+    
+    selectedClient = clientId;
+    
+    try {
+        // Stats globales
+        const statsResponse = await fetch(`/api/opensearch/indices/askme-${clientId}/stats`);
+        const statsResult = await statsResponse.json();
+        
+        if (statsResult.status === 'success') {
+            const stats = statsResult.stats;
+            document.getElementById('totalChunks').textContent = stats.total_docs.toLocaleString();
+            document.getElementById('indexSize').textContent = formatBytes(stats.store_size_bytes);
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            
+            document.getElementById('globalStats').style.display = 'block';
+        }
+        
+        // Détails par document
+        const docsResponse = await fetch(`/api/opensearch/indices/askme-${clientId}/documents`);
+        const docsResult = await docsResponse.json();
+        
+        if (docsResult.status === 'success') {
+            const documents = docsResult.documents;
+            document.getElementById('totalDocuments').textContent = documents.length;
+            
+            const tableBody = document.getElementById('documentsTable');
+            tableBody.innerHTML = '';
+            
+            documents.forEach(doc => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <small class="text-muted">${doc.parent_id.substring(0, 8)}...</small>
+                        <div class="small">${doc.parent_id}</div>
+                    </td>
+                    <td><span class="badge bg-primary">${doc.chunks_count}</span></td>
+                    <td>${Math.round(doc.avg_chunk_size)} chars</td>
+                    <td><small>${new Date(doc.last_modified).toLocaleString()}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-info" onclick="showDocumentChunks('${doc.parent_id}')">
+                            <i class="fas fa-eye"></i> Voir Chunks
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            document.getElementById('documentsDetails').style.display = 'block';
+        }
+        
+    } catch (error) {
+        console.error('Erreur chargement stats:', error);
+    }
+}
+
+// Exécuter une requête custom
+async function executeQuery() {
+    const clientId = selectedClient;
+    if (!clientId) {
+        alert('Sélectionnez d\'abord un client');
+        return;
+    }
+    
+    const query = document.getElementById('queryInput').value;
+    const endpoint = document.getElementById('endpointSelect').value;
+    
+    try {
+        const queryObj = JSON.parse(query);
+        
+        const response = await fetch(`/api/opensearch/indices/askme-${clientId}/${endpoint}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(queryObj)
+        });
+        
+        const result = await response.json();
+        
+        document.getElementById('queryOutput').textContent = JSON.stringify(result, null, 2);
+        document.getElementById('queryResult').style.display = 'block';
+        
+    } catch (error) {
+        document.getElementById('queryOutput').textContent = 'Erreur: ' + error.message;
+        document.getElementById('queryResult').style.display = 'block';
+    }
+}
+
+// Auto-refresh
+function autoRefresh() {
+    const icon = document.getElementById('refreshIcon');
+    
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        icon.className = 'fas fa-sync';
+    } else {
+        autoRefreshInterval = setInterval(() => {
+            if (selectedClient) {
+                loadClientStats();
+                loadClusterHealth();
+            }
+        }, 5000);
+        icon.className = 'fas fa-sync fa-spin';
+    }
+}
+
+// Utilitaires
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function showDocumentChunks(parentId) {
+    // TODO: Implémenter modal avec détails des chunks
+    alert(`Voir chunks pour document: ${parentId}`);
+}
+
+// Mettre à jour l'exemple de requête selon l'endpoint
+function updateQueryExample() {
+    const endpoint = document.getElementById('endpointSelect').value;
+    const queryInput = document.getElementById('queryInput');
+    
+    const examples = {
+        '_search': `{
+  "query": {"match_all": {}},
+  "size": 5,
+  "sort": [{"metadata_storage_last_modified": "desc"}]
+}`,
+        '_count': `{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {"chunk": "document"}}
+      ]
+    }
+  }
+}`,
+        '_stats': `Aucun body requis - cet endpoint retourne les statistiques de l'index`,
+        '_mapping': `Aucun body requis - cet endpoint retourne le mapping de l'index`
+    };
+    
+    queryInput.value = examples[endpoint];
+    
+    // Désactiver le textarea pour _stats et _mapping
+    queryInput.disabled = (endpoint === '_stats' || endpoint === '_mapping');
+}
+</script>
+{% endblock %}

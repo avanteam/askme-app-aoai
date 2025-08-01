@@ -1,0 +1,500 @@
+{% extends "base.html" %}
+
+{% block title %}Pièces Jointes - {{ doc_id[:8] }}... - AskMe Search{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('clients') }}">Clients</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('client_detail', client_id=client_id) }}">{{ client_id }}</a></li>
+                <li class="breadcrumb-item active">{{ doc_id[:8] }}... - Pièces Jointes</li>
+            </ol>
+        </nav>
+        
+        <h1 class="mb-4">
+            <i class="fas fa-paperclip text-primary"></i>
+            Pièces Jointes - <code>{{ doc_id[:8] }}...</code>
+        </h1>
+    </div>
+</div>
+
+<!-- Informations du document -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle"></i> Informations du Document
+            </div>
+            <div class="card-body">
+                <p><strong>ID Complet:</strong> <code>{{ doc_id }}</code></p>
+                <p><strong>Chemin:</strong> <code>{{ doc_path }}</code></p>
+                <p><strong>Nombre de pièces jointes:</strong> <span class="badge bg-primary" id="attachmentCount">{{ attachments|length }}</span></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-bolt"></i> Actions Rapides
+            </div>
+            <div class="card-body">
+                <div class="btn-group" role="group">
+                    <button class="btn btn-success" onclick="reindexDocument()">
+                        <i class="fas fa-sync"></i> Réindexer Document
+                    </button>
+                    <button class="btn btn-warning" onclick="verifyIndexing()">
+                        <i class="fas fa-search"></i> Vérifier Indexation
+                    </button>
+                    <a href="{{ url_for('client_detail', client_id=client_id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left"></i> Retour aux Documents
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des pièces jointes -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-list"></i> Pièces Jointes
+                <button class="btn btn-sm btn-outline-secondary float-end" onclick="refreshAttachments()">
+                    <i class="fas fa-refresh"></i> Actualiser
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="attachmentsList">
+                    {% if attachments %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Nom</th>
+                                        <th>Taille</th>
+                                        <th>Type</th>
+                                        <th>Modifié</th>
+                                        <th>Métadonnées</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for attachment in attachments %}
+                                    <tr id="attachment-{{ loop.index0 }}">
+                                        <td>
+                                            <i class="fas fa-file-{{ attachment.icon }} text-{{ attachment.color }}"></i>
+                                            <strong>{{ attachment.name }}</strong>
+                                        </td>
+                                        <td>{{ attachment.size_human }}</td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ attachment.extension|upper if attachment.extension else 'N/A' }}</span>
+                                        </td>
+                                        <td>
+                                            <small>{{ attachment.modified_date }}</small>
+                                        </td>
+                                        <td>
+                                            {% if attachment.metadata %}
+                                                <button class="btn btn-sm btn-outline-info" onclick="showMetadata('{{ attachment.name }}')">
+                                                    <i class="fas fa-tags"></i> Voir
+                                                </button>
+                                            {% else %}
+                                                <span class="text-muted">Aucune</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="previewAttachment('{{ attachment.name }}')">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-warning" onclick="reindexAttachment('{{ attachment.name }}')">
+                                                    <i class="fas fa-sync"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteAttachment('{{ attachment.name }}')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <p>Aucune pièce jointe trouvée dans ce document.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal métadonnées -->
+<div class="modal fade" id="metadataModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-tags"></i>
+                    Métadonnées - <span id="metadataFileName"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="metadataContent" class="bg-light p-3" style="max-height: 400px; overflow-y: auto;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal preview -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-eye"></i>
+                    Aperçu - <span id="previewFileName"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="previewContent" style="max-height: 500px; overflow-y: auto;">
+                    <div class="text-center">
+                        <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+                        <p>Chargement...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Résultats -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle"></i> Résultats des Actions
+            </div>
+            <div class="card-body">
+                <div id="results">
+                    <p class="text-muted">Les résultats des actions s'afficheront ici...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading" style="display: none;">
+    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+    <p>Chargement...</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const clientId = '{{ client_id }}';
+    const docId = '{{ doc_id }}';
+    let metadataModal = null;
+    let previewModal = null;
+    
+    // Initialiser les modals et vérifications
+    document.addEventListener('DOMContentLoaded', function() {
+        metadataModal = new bootstrap.Modal(document.getElementById('metadataModal'));
+        previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+        
+        // Vérifier la compatibilité des fonctionnalités
+        checkBrowserCompatibility();
+    });
+    
+    // Vérifier la compatibilité du navigateur
+    function checkBrowserCompatibility() {
+        const warnings = [];
+        
+        // Vérifier fetch API
+        if (typeof fetch === 'undefined') {
+            warnings.push('API Fetch non supportée');
+        }
+        
+        // Vérifier les Promises
+        if (typeof Promise === 'undefined') {
+            warnings.push('Promises non supportées');
+        }
+        
+        if (warnings.length > 0) {
+            console.warn('Compatibilité navigateur:', warnings);
+            showResult('warning', `⚠️ Navigateur partiellement compatible: ${warnings.join(', ')}`);
+        }
+    }
+    
+    // Supprimer une pièce jointe
+    async function deleteAttachment(filename) {
+        if (!confirm(`⚠️ ATTENTION ⚠️\n\nÊtes-vous sûr de vouloir supprimer la pièce jointe "${filename}" ?\n\nCette action :\n• Supprimera le fichier physiquement\n• Supprimera tous les chunks associés de l'index OpenSearch\n• Ne peut PAS être annulée\n\nTaper "SUPPRIMER" pour confirmer:`)) {
+            return;
+        }
+        
+        const confirmation = prompt('Tapez "SUPPRIMER" (en majuscules) pour confirmer la suppression définitive :');
+        if (confirmation !== 'SUPPRIMER') {
+            showResult('info', 'Suppression annulée.');
+            return;
+        }
+        
+        showResult('info', `⚡ Suppression RAPIDE de ${filename} en cours...`);
+        showLoading(true);
+        
+        // Ajouter un indicateur de progression
+        let progressInterval = setInterval(() => {
+            const currentMessage = document.querySelector('#results .alert')?.textContent || '';
+            if (currentMessage.includes('RAPIDE')) {
+                const dots = (currentMessage.match(/\./g) || []).length;
+                const newDots = '.'.repeat((dots % 3) + 1);
+                showResult('info', `⚡ Suppression RAPIDE optimisée en cours${newDots}`);
+            }
+        }, 500);
+        
+        try {
+            const startTime = Date.now();
+            const response = await fetch(`/api/clients/${clientId}/documents/${docId}/attachments/${encodeURIComponent(filename)}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+            
+            clearInterval(progressInterval);
+            
+            if (result.status === 'success') {
+                showResult('success', `✅ ${result.message} (en ${duration}s)`);
+                
+                // Supprimer la ligne du tableau - méthode compatible
+                const attachmentRow = findAttachmentRow(filename);
+                if (attachmentRow) {
+                    attachmentRow.style.transition = 'opacity 0.3s';
+                    attachmentRow.style.opacity = '0';
+                    setTimeout(() => {
+                        attachmentRow.remove();
+                    }, 300);
+                }
+                
+                // Mettre à jour le compteur
+                const countElement = document.getElementById('attachmentCount');
+                if (countElement) {
+                    const currentCount = parseInt(countElement.textContent);
+                    const newCount = Math.max(0, currentCount - 1);
+                    countElement.textContent = newCount;
+                    
+                    // Animation du compteur
+                    countElement.style.transition = 'all 0.3s';
+                    countElement.style.transform = 'scale(1.2)';
+                    countElement.style.color = '#28a745';
+                    setTimeout(() => {
+                        countElement.style.transform = 'scale(1)';
+                        countElement.style.color = '';
+                    }, 300);
+                }
+                
+                // Vérifier s'il ne reste plus de pièces jointes
+                const remainingRows = document.querySelectorAll('tbody tr:not([style*="opacity: 0"])');
+                if (remainingRows.length <= 1) { // <= 1 car la ligne supprimée existe encore temporairement
+                    setTimeout(() => {
+                        const tbody = document.querySelector('tbody');
+                        if (tbody && tbody.children.length === 0) {
+                            const attachmentsList = document.getElementById('attachmentsList');
+                            attachmentsList.innerHTML = `
+                                <div class="text-center text-muted py-4">
+                                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                                    <p>Aucune pièce jointe dans ce document.</p>
+                                    <small>Toutes les pièces jointes ont été supprimées.</small>
+                                </div>
+                            `;
+                        }
+                    }, 400);
+                }
+                
+            } else {
+                showResult('danger', `❌ ${result.message}`);
+            }
+            
+        } catch (error) {
+            clearInterval(progressInterval);
+            console.error('Erreur suppression:', error);
+            showResult('danger', `❌ Erreur de suppression: ${error.message}`);
+        } finally {
+            showLoading(false);
+        }
+    }
+    
+    // Réindexer une pièce jointe spécifique
+    async function reindexAttachment(filename) {
+        if (!confirm(`Réindexer la pièce jointe "${filename}" ?\n\nCela va :\n• Supprimer les anciens chunks de cette PJ\n• Réindexer le fichier avec le contenu actuel`)) {
+            return;
+        }
+        
+        showResult('info', `🔄 Réindexation de ${filename} en cours...`);
+        showLoading(true);
+        
+        try {
+            const response = await fetch(`/api/clients/${clientId}/documents/${docId}/attachments/${encodeURIComponent(filename)}/reindex`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showResult('success', `✅ ${result.message}`);
+            } else {
+                showResult('danger', `❌ ${result.message}`);
+            }
+            
+        } catch (error) {
+            showResult('danger', `❌ Erreur: ${error.message}`);
+        } finally {
+            showLoading(false);
+        }
+    }
+    
+    // Réindexer tout le document
+    async function reindexDocument() {
+        if (!confirm(`Réindexer tout le document ?\n\nCela va :\n• Supprimer tous les anciens chunks de ce document\n• Réindexer toutes les pièces jointes`)) {
+            return;
+        }
+        
+        showResult('info', '🔄 Réindexation du document en cours...');
+        showLoading(true);
+        
+        try {
+            const response = await fetch(`/api/clients/${clientId}/documents/${docId}/reindex`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showResult('success', `✅ ${result.message}`);
+            } else {
+                showResult('danger', `❌ ${result.message}`);
+            }
+            
+        } catch (error) {
+            showResult('danger', `❌ Erreur: ${error.message}`);
+        } finally {
+            showLoading(false);
+        }
+    }
+    
+    // Vérifier l'indexation
+    async function verifyIndexing() {
+        showResult('info', '🔍 Vérification de l\'indexation...');
+        showLoading(true);
+        
+        try {
+            const response = await fetch(`/api/clients/${clientId}/documents/${docId}/verify`);
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                const chunks = result.chunks_in_index || 0;
+                const attachments = result.attachments_count || 0;
+                showResult('info', `📊 Document indexé: ${chunks} chunks pour ${attachments} pièces jointes`);
+            } else {
+                showResult('warning', `⚠️ ${result.message}`);
+            }
+            
+        } catch (error) {
+            showResult('danger', `❌ Erreur: ${error.message}`);
+        } finally {
+            showLoading(false);
+        }
+    }
+    
+    // Afficher les métadonnées
+    async function showMetadata(filename) {
+        document.getElementById('metadataFileName').textContent = filename;
+        document.getElementById('metadataContent').textContent = 'Chargement...';
+        metadataModal.show();
+        
+        try {
+            const response = await fetch(`/api/clients/${clientId}/documents/${docId}/attachments/${encodeURIComponent(filename)}/metadata`);
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                document.getElementById('metadataContent').textContent = JSON.stringify(result.metadata, null, 2);
+            } else {
+                document.getElementById('metadataContent').textContent = `Erreur: ${result.message}`;
+            }
+            
+        } catch (error) {
+            document.getElementById('metadataContent').textContent = `Erreur: ${error.message}`;
+        }
+    }
+    
+    // Aperçu du contenu
+    async function previewAttachment(filename) {
+        document.getElementById('previewFileName').textContent = filename;
+        document.getElementById('previewContent').innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p>Extraction du contenu...</p></div>';
+        previewModal.show();
+        
+        try {
+            const response = await fetch(`/api/clients/${clientId}/documents/${docId}/attachments/${encodeURIComponent(filename)}/preview`);
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                const content = result.content || 'Aucun contenu extractible';
+                document.getElementById('previewContent').innerHTML = `<pre style="white-space: pre-wrap;">${content.substring(0, 5000)}${content.length > 5000 ? '\n\n... (contenu tronqué)' : ''}</pre>`;
+            } else {
+                document.getElementById('previewContent').innerHTML = `<div class="alert alert-danger">Erreur: ${result.message}</div>`;
+            }
+            
+        } catch (error) {
+            document.getElementById('previewContent').innerHTML = `<div class="alert alert-danger">Erreur: ${error.message}</div>`;
+        }
+    }
+    
+    // Rafraîchir la liste
+    async function refreshAttachments() {
+        window.location.reload();
+    }
+    
+    // Trouver la ligne d'une pièce jointe dans le tableau (compatible tous navigateurs)
+    function findAttachmentRow(filename) {
+        const rows = document.querySelectorAll('tbody tr');
+        for (let row of rows) {
+            const strongElement = row.querySelector('strong');
+            if (strongElement && strongElement.textContent.trim() === filename) {
+                return row;
+            }
+        }
+        return null;
+    }
+    
+    // Utilitaires d'affichage
+    function showResult(type, message) {
+        const alertClass = type === 'success' ? 'alert-success' : 
+                          type === 'warning' ? 'alert-warning' : 
+                          type === 'info' ? 'alert-info' : 'alert-danger';
+        
+        document.getElementById('results').innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+    }
+    
+    function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+    }
+</script>
+{% endblock %}

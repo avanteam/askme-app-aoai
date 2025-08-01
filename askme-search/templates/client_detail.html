@@ -1,0 +1,711 @@
+{% extends "base.html" %}
+
+{% block title %}Client {{ client_id }} - AskMe Search{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('clients') }}">Clients</a></li>
+                <li class="breadcrumb-item active">{{ client_id }}</li>
+            </ol>
+        </nav>
+        
+        <h1 class="mb-4">
+            <i class="fas fa-building text-primary"></i>
+            Client: <code>{{ client_id }}</code>
+        </h1>
+    </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-tools"></i> Actions Rapides
+            </div>
+            <div class="card-body">
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('client_search', client_id=client_id) }}" class="btn btn-success">
+                        <i class="fas fa-search"></i> Rechercher
+                    </a>
+                    <a href="{{ url_for('upload_page', client_id=client_id) }}" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> Ajouter Documents
+                    </a>
+                    <button class="btn btn-info" onclick="refreshDocuments()">
+                        <i class="fas fa-sync-alt"></i> Actualiser
+                    </button>
+                    <button class="btn btn-warning" onclick="syncDocuments()">
+                        <i class="fas fa-sync"></i> Synchroniser
+                    </button>
+                    <a href="{{ url_for('client_sync', client_id=client_id) }}" class="btn btn-info">
+                        <i class="fas fa-cog"></i> Gestion Sync
+                    </a>
+                    <a href="/monitoring?client_id={{ client_id }}" class="btn btn-outline-primary" target="_blank">
+                        <i class="fas fa-chart-line"></i> Monitoring Index
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading">
+    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+    <p>Chargement des documents...</p>
+</div>
+
+<!-- Documents -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-folder-open"></i> Documents et Pièces Jointes</span>
+                <span id="documentsCount" class="badge bg-primary">0</span>
+            </div>
+            <div class="card-body">
+                <!-- Barre de recherche documents -->
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" class="form-control" id="documentsSearch" 
+                                   placeholder="Rechercher dans les documents (nom, titre, métadonnées...)..." 
+                                   onkeyup="filterDocuments()">
+                            <button class="btn btn-outline-secondary" type="button" onclick="clearDocumentsSearch()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-muted small">
+                            <span id="visibleDocumentsCount">0</span> / <span id="totalDocumentsCount">0</span> document(s)
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="documentsList">
+                    <!-- Sera rempli dynamiquement -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de configuration de synchronisation -->
+<div class="modal fade" id="syncConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-cog"></i> Configuration Synchronisation - {{ client_id }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="syncTasksList">
+                    <!-- Sera rempli dynamiquement -->
+                </div>
+                
+                <hr>
+                
+                <h6><i class="fas fa-plus"></i> Créer une nouvelle tâche</h6>
+                <form id="newSyncTaskForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="newTaskName" class="form-label">Nom de la tâche</label>
+                                <input type="text" class="form-control" id="newTaskName" 
+                                       placeholder="Ex: Sync quotidien {{ client_id }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="newTaskSchedule" class="form-label">Planning</label>
+                                <select class="form-select" id="newTaskSchedule" onchange="toggleNewTaskTime()">
+                                    <option value="manual">Manuel uniquement</option>
+                                    <option value="hourly">Toutes les heures</option>
+                                    <option value="daily">Quotidien</option>
+                                    <option value="weekly">Hebdomadaire (lundi)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row" id="newTaskTimeRow" style="display: none;">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="newTaskTime" class="form-label">Heure d'exécution</label>
+                                <input type="time" class="form-control" id="newTaskTime" value="02:00">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-primary" onclick="createSyncTask()">
+                            <i class="fas fa-plus"></i> Créer la tâche
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <a href="/sync" class="btn btn-info" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> Interface complète
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'édition des métadonnées -->
+<div class="modal fade" id="editMetadataModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit"></i> Éditer les Métadonnées
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="metadataForm">
+                    <div class="mb-3">
+                        <label for="editTitreDocument" class="form-label">Titre du Document</label>
+                        <input type="text" class="form-control" id="editTitreDocument">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editFieldMetadata" class="form-label">Field Metadata (format: key:value;key:value)</label>
+                        <textarea class="form-control" id="editFieldMetadata" rows="3" 
+                                  placeholder="auteur:Marie Dupont;departement:Finance;version:1.0"></textarea>
+                        <div class="form-text">
+                            Format: clé1:valeur1;clé2:valeur2 (séparés par des points-virgules)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editSecurityRights" class="form-label">Droits d'Accès</label>
+                        <input type="text" class="form-control" id="editSecurityRights" 
+                               placeholder="finance,direction,admin">
+                        <div class="form-text">
+                            Séparez les droits par des virgules. Laissez vide pour un accès libre.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="saveMetadata">
+                    <i class="fas fa-save"></i> Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const clientId = '{{ client_id }}';
+    let currentEditingPJ = null;
+    let currentEditingDocId = null;
+    let allDocuments = []; // Stocker tous les documents pour le filtrage
+    
+    // Charger les documents au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDocuments();
+    });
+    
+    // Charger les documents
+    async function loadDocuments() {
+        try {
+            showLoading('loading');
+            
+            const response = await apiCall(`/api/clients/${clientId}/documents`);
+            
+            if (response.status === 'success') {
+                allDocuments = response.documents; // Stocker pour le filtrage
+                displayDocuments(response.documents);
+                updateDocumentsCount(response.documents.length, response.documents.length);
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors du chargement des documents', 'danger');
+        } finally {
+            hideLoading('loading');
+        }
+    }
+    
+    // Afficher les documents
+    function displayDocuments(documents) {
+        const container = document.getElementById('documentsList');
+        const countBadge = document.getElementById('documentsCount');
+        
+        countBadge.textContent = allDocuments.length; // Total des documents
+        
+        if (documents.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p>Aucun document trouvé</p>
+                    <p class="small">Ajoutez vos premiers documents avec le bouton "Ajouter Documents"</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        
+        documents.forEach(doc => {
+            html += `
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-folder text-warning"></i>
+                            <strong>Document:</strong> ${doc.short_id}
+                            <span class="badge bg-info ms-2">${doc.attachments_count} PJ</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <small class="text-muted">UUID: ${doc.id}</small>
+                            <div class="btn-group" role="group">
+                                <a href="/client/${clientId}/document/${doc.id}/attachments" 
+                                   class="btn btn-sm btn-outline-primary" 
+                                   title="Gérer les pièces jointes">
+                                    <i class="fas fa-paperclip"></i>
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="confirmDeleteDocument('${doc.id}')" 
+                                        title="Supprimer ce document">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+            `;
+            
+            if (doc.attachments.length === 0) {
+                html += `
+                    <div class="text-muted text-center py-3">
+                        <i class="fas fa-file-slash"></i>
+                        Aucune pièce jointe ou métadonnées manquantes
+                    </div>
+                `;
+            } else {
+                html += '<div class="row">';
+                
+                doc.attachments.forEach(attachment => {
+                    const hasRights = attachment.security_rights && attachment.security_rights.length > 0;
+                    const rightsDisplay = hasRights ? 
+                        attachment.security_rights.map(r => `<span class="metadata-tag rights-tag">${r}</span>`).join(' ') :
+                        '<span class="metadata-tag">🌐 Accès libre</span>';
+                    
+                    // Extraire quelques champs du fieldMetadata pour affichage
+                    let fieldDisplay = '';
+                    if (attachment.field_metadata) {
+                        const fields = attachment.field_metadata.split(';').slice(0, 3);
+                        fieldDisplay = fields.map(field => {
+                            const [key, value] = field.split(':');
+                            return key && value ? `<span class="metadata-tag">${key}: ${value}</span>` : '';
+                        }).filter(Boolean).join(' ');
+                    }
+                    
+                    html += `
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-paperclip text-primary"></i>
+                                        ${attachment.name}
+                                    </h6>
+                                    
+                                    <div class="mb-2">
+                                        <strong>Titre:</strong><br>
+                                        <span class="text-muted">${attachment.title}</span>
+                                    </div>
+                                    
+                                    <div class="mb-2">
+                                        <strong>Droits:</strong><br>
+                                        ${rightsDisplay}
+                                    </div>
+                                    
+                                    ${fieldDisplay ? `
+                                        <div class="mb-2">
+                                            <strong>Métadonnées:</strong><br>
+                                            ${fieldDisplay}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <div class="small text-muted">
+                                        <i class="fas fa-folder-open"></i>
+                                        ${attachment.storage_path}
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-light">
+                                    <div class="d-grid gap-2">
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="editMetadata('${doc.id}', '${attachment.name}', ${JSON.stringify(attachment).replace(/"/g, '&quot;')})">
+                                            <i class="fas fa-edit"></i> Éditer Métadonnées
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            }
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // Éditer les métadonnées d'une PJ
+    function editMetadata(docId, pjName, attachment) {
+        currentEditingDocId = docId;
+        currentEditingPJ = pjName;
+        
+        // Remplir le formulaire
+        document.getElementById('editTitreDocument').value = attachment.title || '';
+        document.getElementById('editFieldMetadata').value = attachment.field_metadata || '';
+        document.getElementById('editSecurityRights').value = 
+            attachment.security_rights ? attachment.security_rights.join(',') : '';
+        
+        // Ouvrir le modal
+        new bootstrap.Modal(document.getElementById('editMetadataModal')).show();
+    }
+    
+    // Sauvegarder les métadonnées (pour l'instant, juste un placeholder)
+    document.getElementById('saveMetadata').addEventListener('click', function() {
+        showAlert('Fonction de sauvegarde à implémenter', 'info');
+        bootstrap.Modal.getInstance(document.getElementById('editMetadataModal')).hide();
+    });
+    
+    // Actualiser les documents
+    function refreshDocuments() {
+        loadDocuments();
+    }
+    
+    // Synchroniser les documents
+    async function syncDocuments() {
+        try {
+            showLoading('loading');
+            
+            const response = await fetch(`/api/clients/${clientId}/sync`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert(`✅ ${result.message}`, 'success');
+                
+                // Attendre un peu puis actualiser les documents
+                setTimeout(() => {
+                    loadDocuments();
+                }, 3000);
+                
+                // Proposer d'aller voir l'historique
+                setTimeout(() => {
+                    if (confirm('🔄 Synchronisation en cours...\n\nVoulez-vous suivre le progrès dans l\'interface de synchronisation ?')) {
+                        window.open('/sync', '_blank');
+                    }
+                }, 1000);
+                
+            } else {
+                showAlert(`⚠️ ${result.message}`, 'warning');
+            }
+            
+        } catch (error) {
+            console.error('Erreur synchronisation:', error);
+            showAlert('❌ Erreur lors du lancement de la synchronisation', 'danger');
+        } finally {
+            hideLoading('loading');
+        }
+    }
+    
+    // Configuration de synchronisation
+    async function showSyncConfig() {
+        try {
+            // Charger les tâches existantes pour ce client
+            const response = await apiCall('/api/sync/tasks');
+            if (response.status === 'success') {
+                const clientTasks = response.tasks.filter(task => task.client_id === clientId);
+                displayClientSyncTasks(clientTasks);
+                new bootstrap.Modal(document.getElementById('syncConfigModal')).show();
+            }
+        } catch (error) {
+            showAlert('Erreur lors du chargement de la configuration', 'danger');
+        }
+    }
+    
+    function displayClientSyncTasks(tasks) {
+        const container = document.getElementById('syncTasksList');
+        
+        if (tasks.length === 0) {
+            container.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Aucune tâche configurée</strong><br>
+                    Ce client n'a pas encore de tâche de synchronisation automatique.
+                    Créez-en une ci-dessous ou utilisez le bouton "Synchroniser" pour une sync manuelle.
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<h6><i class="fas fa-tasks"></i> Tâches existantes</h6>';
+        tasks.forEach(task => {
+            const statusBadge = task.enabled ? 
+                '<span class="badge bg-success">Activée</span>' : 
+                '<span class="badge bg-secondary">Désactivée</span>';
+            
+            const scheduleText = getScheduleDisplayText(task.schedule_type, task.schedule_time);
+            const lastRun = task.last_run ? 
+                new Date(task.last_run).toLocaleString('fr-FR') : 'Jamais';
+            
+            html += `
+                <div class="card mb-2">
+                    <div class="card-body py-2">
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <strong>${task.name}</strong><br>
+                                <small class="text-muted">${scheduleText}</small>
+                            </div>
+                            <div class="col-md-3">
+                                ${statusBadge}<br>
+                                <small class="text-muted">Dernière: ${lastRun}</small>
+                            </div>
+                            <div class="col-md-5 text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-success" onclick="runSyncTask('${task.id}')" title="Exécuter">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary" onclick="toggleSyncTask('${task.id}', ${task.enabled})" title="${task.enabled ? 'Désactiver' : 'Activer'}">
+                                        <i class="fas fa-${task.enabled ? 'pause' : 'play'}"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="deleteSyncTask('${task.id}')" title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function getScheduleDisplayText(type, time) {
+        switch(type) {
+            case 'manual': return 'Manuel uniquement';
+            case 'hourly': return 'Toutes les heures';
+            case 'daily': return `Quotidien à ${time}`;
+            case 'weekly': return `Hebdomadaire (lundi) à ${time}`;
+            default: return 'Inconnu';
+        }
+    }
+    
+    function toggleNewTaskTime() {
+        const scheduleType = document.getElementById('newTaskSchedule').value;
+        const timeRow = document.getElementById('newTaskTimeRow');
+        
+        if (scheduleType === 'daily' || scheduleType === 'weekly') {
+            timeRow.style.display = 'block';
+        } else {
+            timeRow.style.display = 'none';
+        }
+    }
+    
+    async function createSyncTask() {
+        const taskData = {
+            name: document.getElementById('newTaskName').value || `Sync ${clientId}`,
+            client_id: clientId,
+            schedule_type: document.getElementById('newTaskSchedule').value,
+            schedule_time: document.getElementById('newTaskTime').value,
+            enabled: true
+        };
+        
+        try {
+            const response = await fetch('/api/sync/tasks', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(taskData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert('Tâche créée avec succès', 'success');
+                document.getElementById('newSyncTaskForm').reset();
+                showSyncConfig(); // Recharger la liste
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la création', 'danger');
+        }
+    }
+    
+    async function runSyncTask(taskId) {
+        try {
+            const response = await fetch(`/api/sync/tasks/${taskId}/run`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert('Synchronisation démarrée', 'success');
+                setTimeout(() => loadDocuments(), 3000);
+            } else {
+                showAlert(result.message, 'warning');
+            }
+        } catch (error) {
+            showAlert('Erreur lors du lancement', 'danger');
+        }
+    }
+    
+    async function toggleSyncTask(taskId, currentEnabled) {
+        try {
+            const response = await fetch(`/api/sync/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: !currentEnabled})
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert(`Tâche ${!currentEnabled ? 'activée' : 'désactivée'}`, 'success');
+                showSyncConfig(); // Recharger
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la modification', 'danger');
+        }
+    }
+    
+    async function deleteSyncTask(taskId) {
+        if (!confirm('Supprimer cette tâche de synchronisation ?')) return;
+        
+        try {
+            const response = await fetch(`/api/sync/tasks/${taskId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert('Tâche supprimée', 'success');
+                showSyncConfig(); // Recharger
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la suppression', 'danger');
+        }
+    }
+    
+    // Filtrer les documents
+    function filterDocuments() {
+        const searchTerm = document.getElementById('documentsSearch').value.toLowerCase().trim();
+        
+        if (!searchTerm) {
+            displayDocuments(allDocuments);
+            updateDocumentsCount(allDocuments.length, allDocuments.length);
+            return;
+        }
+        
+        const filteredDocuments = allDocuments.filter(doc => {
+            // Recherche dans l'ID du document
+            if (doc.id.toLowerCase().includes(searchTerm) || 
+                doc.short_id.toLowerCase().includes(searchTerm)) {
+                return true;
+            }
+            
+            // Recherche dans les pièces jointes
+            return doc.attachments.some(attachment => {
+                return attachment.name.toLowerCase().includes(searchTerm) ||
+                       attachment.title.toLowerCase().includes(searchTerm) ||
+                       (attachment.field_metadata && attachment.field_metadata.toLowerCase().includes(searchTerm)) ||
+                       (attachment.security_rights && attachment.security_rights.some(right => 
+                           right.toLowerCase().includes(searchTerm)
+                       ));
+            });
+        });
+        
+        displayDocuments(filteredDocuments);
+        updateDocumentsCount(filteredDocuments.length, allDocuments.length);
+    }
+    
+    // Vider la recherche documents
+    function clearDocumentsSearch() {
+        document.getElementById('documentsSearch').value = '';
+        displayDocuments(allDocuments);
+        updateDocumentsCount(allDocuments.length, allDocuments.length);
+    }
+    
+    // Mettre à jour les compteurs de documents
+    function updateDocumentsCount(visible, total) {
+        document.getElementById('visibleDocumentsCount').textContent = visible;
+        document.getElementById('totalDocumentsCount').textContent = total;
+    }
+    
+    // Fonctions de suppression
+    function confirmDeleteDocument(documentId) {
+        const shortId = documentId.substring(0, 8) + '...';
+        
+        if (confirm(`⚠️ Êtes-vous sûr de vouloir supprimer le document ${shortId} ?\n\nCette action supprimera :\n- Tous les fichiers du document\n- Toutes les données indexées\n- Toutes les métadonnées\n\nCette action est IRRÉVERSIBLE !`)) {
+            deleteDocument(documentId);
+        }
+    }
+    
+    async function deleteDocument(documentId) {
+        try {
+            showLoading('loading');
+            
+            const response = await fetch(`/api/clients/${clientId}/documents/${documentId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert(`Document supprimé avec succès: ${result.deleted_files?.length || 0} fichier(s) supprimé(s)`, 'success');
+                
+                // Recharger la liste des documents
+                setTimeout(() => {
+                    loadDocuments();
+                }, 1000);
+                
+            } else {
+                showAlert(result.message, 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Erreur suppression:', error);
+            showAlert('Erreur lors de la suppression du document', 'danger');
+        } finally {
+            hideLoading('loading');
+        }
+    }
+</script>
+{% endblock %}

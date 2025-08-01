@@ -1,0 +1,22 @@
+{
+  "name": "AskMe Search",
+  "short_name": "AskMe",
+  "description": "Interface de recherche intelligente hybride vectorielle et textuelle",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#667eea",
+  "icons": [
+    {
+      "src": "/static/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/favicon-simple.svg", 
+      "sizes": "16x16",
+      "type": "image/svg+xml"
+    }
+  ]
+}

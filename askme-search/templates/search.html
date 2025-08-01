@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+
+{% block title %}Recherche - {{ client_id }} - AskMe Search{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('clients') }}">Clients</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('client_detail', client_id=client_id) }}">{{ client_id }}</a></li>
+                <li class="breadcrumb-item active">Recherche</li>
+            </ol>
+        </nav>
+        
+        <h1 class="mb-4">
+            <i class="fas fa-search text-primary"></i>
+            Recherche dans <code>{{ client_id }}</code>
+        </h1>
+    </div>
+</div>
+
+<!-- Formulaire de recherche -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-filter"></i> Recherche Avancée
+            </div>
+            <div class="card-body">
+                <form id="searchForm">
+                    <div class="row">
+                        <div class="col-md-5">
+                            <div class="mb-3">
+                                <label for="searchQuery" class="form-label">Requête de Recherche</label>
+                                <input type="text" class="form-control form-control-lg" id="searchQuery" 
+                                       placeholder="Tapez votre recherche..."
+                                       autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="userRights" class="form-label">Droits d'Accès</label>
+                                <input type="text" class="form-control" id="userRights" 
+                                       placeholder="finance,direction,admin"
+                                       title="Séparez les droits par des virgules">
+                                <div class="form-text">
+                                    Laissez vide pour une recherche libre
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="mb-3">
+                                <label for="searchMode" class="form-label">Mode de Recherche</label>
+                                <select class="form-select" id="searchMode" title="Type de recherche à effectuer">
+                                    <option value="hybrid" selected>🔀 Hybride</option>
+                                    <option value="text">🔤 Textuelle</option>
+                                    <option value="vector">🧠 Vectorielle</option>
+                                </select>
+                                <div class="form-text">
+                                    <small>Hybride recommandé</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="mb-3">
+                                <label for="resultSize" class="form-label">Nb Résultats</label>
+                                <select class="form-select" id="resultSize">
+                                    <option value="5">5</option>
+                                    <option value="10" selected>10</option>
+                                    <option value="20">20</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-search"></i> Rechercher
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-lg ms-2" onclick="clearSearch()">
+                                <i class="fas fa-times"></i> Effacer
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Exemples de recherche -->
+<div class="row mb-4" id="searchExamples">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-lightbulb"></i> Exemples de Recherche
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Recherches Textuelles</h6>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <button class="btn btn-sm btn-outline-info" onclick="setSearchQuery('rapport')">rapport</button>
+                            <button class="btn btn-sm btn-outline-info" onclick="setSearchQuery('financier')">financier</button>
+                            <button class="btn btn-sm btn-outline-info" onclick="setSearchQuery('technique')">technique</button>
+                            <button class="btn btn-sm btn-outline-info" onclick="setSearchQuery('stratégie')">stratégie</button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Filtres par Droits</h6>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <button class="btn btn-sm btn-outline-warning" onclick="setUserRights('finance')">finance</button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="setUserRights('direction')">direction</button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="setUserRights('it,tech')">it,tech</button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="setUserRights('')">accès libre</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="searchLoading" class="loading">
+    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+    <p>Recherche en cours...</p>
+</div>
+
+<!-- Résultats de recherche -->
+<div class="row" id="searchResultsContainer" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span id="searchResultsHeader">
+                    <i class="fas fa-list"></i> Résultats de Recherche
+                </span>
+                <span id="searchResultsCount" class="badge bg-success">0</span>
+            </div>
+            <div class="card-body search-results">
+                <div id="searchResults">
+                    <!-- Sera rempli dynamiquement -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de détail d'un résultat -->
+<div class="modal fade" id="resultDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-alt"></i> Détail du Résultat
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="resultDetailContent">
+                    <!-- Sera rempli dynamiquement -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const clientId = '{{ client_id }}';
+    
+    // Formulaire de recherche
+    document.getElementById('searchForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        await performSearch();
+    });
+    
+    // Recherche en temps réel (optionnel)
+    let searchTimeout;
+    document.getElementById('searchQuery').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+        
+        if (query.length >= 3) {
+            searchTimeout = setTimeout(() => {
+                performSearch();
+            }, 1000); // Attendre 1 seconde après la dernière saisie
+        }
+    });
+    
+    // Effectuer la recherche
+    async function performSearch() {
+        const query = document.getElementById('searchQuery').value.trim();
+        
+        if (!query) {
+            showAlert('Veuillez saisir une requête de recherche', 'warning');
+            return;
+        }
+        
+        const userRightsValue = document.getElementById('userRights').value.trim();
+        const userRights = userRightsValue ? userRightsValue.split(',').map(r => r.trim()) : [];
+        const size = parseInt(document.getElementById('resultSize').value);
+        const searchMode = document.getElementById('searchMode').value;
+        
+        try {
+            // Masquer les exemples et afficher le loading
+            document.getElementById('searchExamples').style.display = 'none';
+            showLoading('searchLoading');
+            
+            const response = await apiCall(`/api/clients/${clientId}/search`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    query: query,
+                    user_rights: userRights,
+                    size: size,
+                    search_mode: searchMode
+                })
+            });
+            
+            if (response.status === 'success') {
+                displaySearchResults(response);
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la recherche', 'danger');
+        } finally {
+            hideLoading('searchLoading');
+        }
+    }
+    
+    // Afficher les résultats de recherche
+    function displaySearchResults(response) {
+        const container = document.getElementById('searchResults');
+        const countBadge = document.getElementById('searchResultsCount');
+        const headerElement = document.getElementById('searchResultsHeader');
+        const resultsContainer = document.getElementById('searchResultsContainer');
+        
+        // Mettre à jour l'en-tête
+        const rightsText = response.user_rights && response.user_rights.length > 0 ? 
+            ` (droits: ${response.user_rights.join(', ')})` : ' (accès libre)';
+        const displayQuery = response.query || document.getElementById('searchQuery').value.trim() || 'recherche';
+        
+        // Icône et texte selon le mode de recherche
+        const modeInfo = {
+            'text': { icon: '🔤', name: 'Textuelle' },
+            'vector': { icon: '🧠', name: 'Vectorielle' },
+            'hybrid': { icon: '🔀', name: 'Hybride' }
+        };
+        const mode = modeInfo[response.search_mode] || modeInfo['hybrid'];
+        
+        headerElement.innerHTML = `
+            <i class="fas fa-list"></i> 
+            Résultats pour "${displayQuery}"${rightsText}
+            <small class="ms-2 text-muted">(${mode.icon} ${mode.name})</small>
+        `;
+        
+        countBadge.textContent = response.total;
+        resultsContainer.style.display = 'block';
+        
+        if (response.results.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-search-minus fa-3x mb-3"></i>
+                    <p>Aucun résultat trouvé</p>
+                    <p class="small">Essayez avec d'autres termes ou vérifiez les droits d'accès</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        
+        response.results.forEach((result, index) => {
+            const hasRights = result.security_rights && result.security_rights.length > 0;
+            const rightsDisplay = hasRights ? 
+                result.security_rights.map(r => `<span class="metadata-tag rights-tag">${r}</span>`).join(' ') :
+                '<span class="metadata-tag">🌐 Accès libre</span>';
+            
+            // Métadonnées de champ
+            let fieldDisplay = '';
+            if (result.field_metadata) {
+                const fields = result.field_metadata.split(';').slice(0, 3);
+                fieldDisplay = fields.map(field => {
+                    const [key, value] = field.split(':');
+                    return key && value ? `<span class="metadata-tag">${key}: ${value}</span>` : '';
+                }).filter(Boolean).join(' ');
+            }
+            
+            html += `
+                <div class="result-item">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="mb-1">
+                            <i class="fas fa-file-alt text-primary"></i>
+                            ${result.titre_document}
+                        </h6>
+                        <span class="badge bg-primary">Score: ${result.score.toFixed(2)}</span>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <strong>Fichier:</strong> 
+                        <code>${result.storage_name}</code>
+                        <span class="text-muted small ms-2">(${result.chunk_id})</span>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <strong>Contenu:</strong><br>
+                        <div class="text-muted small border-start border-3 border-info ps-3">
+                            ${result.content}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <strong>Droits d'accès:</strong><br>
+                        ${rightsDisplay}
+                    </div>
+                    
+                    ${fieldDisplay ? `
+                        <div class="mb-2">
+                            <strong>Métadonnées:</strong><br>
+                            ${fieldDisplay}
+                        </div>
+                    ` : ''}
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="fas fa-folder"></i> ${result.storage_path}
+                        </small>
+                        <button class="btn btn-sm btn-outline-info" 
+                                onclick="showResultDetail(${JSON.stringify(result).replace(/"/g, '&quot;')})">
+                            <i class="fas fa-eye"></i> Détail
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // Afficher le détail d'un résultat
+    function showResultDetail(result) {
+        const content = document.getElementById('resultDetailContent');
+        
+        const hasRights = result.security_rights && result.security_rights.length > 0;
+        const rightsDisplay = hasRights ? 
+            result.security_rights.map(r => `<span class="metadata-tag rights-tag">${r}</span>`).join(' ') :
+            '<span class="metadata-tag">🌐 Accès libre</span>';
+        
+        content.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Informations du Document</h6>
+                    <div class="mb-3">
+                        <strong>Titre:</strong><br>
+                        <span class="text-primary">${result.titre_document}</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Fichier:</strong><br>
+                        <span class="text-muted">${result.storage_name}</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Chunk ID:</strong><br>
+                        <small class="text-monospace text-break" style="font-size: 0.75em; color: #e83e8c;">${result.chunk_id}</small>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Parent ID:</strong><br>
+                        <small class="text-monospace text-break" style="font-size: 0.75em; color: #6f42c1;">${result.parent_id}</small>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Score:</strong><br>
+                        <span class="badge bg-info">${result.score.toFixed(4)}</span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6>Métadonnées</h6>
+                    <div class="mb-3">
+                        <strong>Droits d'accès:</strong><br>
+                        ${rightsDisplay}
+                    </div>
+                    ${result.field_metadata ? `
+                        <div class="mb-3">
+                            <strong>Field Metadata:</strong><br>
+                            <small class="text-monospace text-break text-muted" style="font-size: 0.8em;">${result.field_metadata}</small>
+                        </div>
+                    ` : ''}
+                    <div class="mb-3">
+                        <strong>Chemin de stockage:</strong><br>
+                        <small class="text-muted text-break">${result.storage_path}</small>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12">
+                    <h6>Contenu du Chunk</h6>
+                    <div class="border p-3 bg-light rounded" style="max-height: 300px; overflow-y: auto;">
+                        <div class="text-dark" style="white-space: pre-wrap; word-wrap: break-word; line-height: 1.4;">${result.content}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        new bootstrap.Modal(document.getElementById('resultDetailModal')).show();
+    }
+    
+    // Fonctions utilitaires
+    function setSearchQuery(query) {
+        document.getElementById('searchQuery').value = query;
+        document.getElementById('searchQuery').focus();
+    }
+    
+    function setUserRights(rights) {
+        document.getElementById('userRights').value = rights;
+    }
+    
+    function clearSearch() {
+        document.getElementById('searchQuery').value = '';
+        document.getElementById('userRights').value = '';
+        document.getElementById('resultSize').value = '10';
+        
+        document.getElementById('searchResultsContainer').style.display = 'none';
+        document.getElementById('searchExamples').style.display = 'block';
+    }
+    
+    // Focus automatique sur le champ de recherche
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('searchQuery').focus();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Clients - AskMe Search{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-building text-primary"></i>
+            Gestion des Clients
+        </h1>
+    </div>
+</div>
+
+<!-- Création de nouveau client -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-plus"></i> Créer un Nouveau Client
+            </div>
+            <div class="card-body">
+                <form id="createClientForm">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="clientId" class="form-label">ID du Client</label>
+                                <input type="text" class="form-control" id="clientId" 
+                                       placeholder="ex: entreprise-demo, cabinet-avocat..."
+                                       pattern="[a-zA-Z0-9_-]+" 
+                                       title="Utilisez uniquement lettres, chiffres, - et _">
+                                <div class="form-text">
+                                    Utilisez uniquement des lettres, chiffres, tirets (-) et underscores (_)
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="fas fa-plus"></i> Créer Client
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading">
+    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+    <p>Chargement des clients...</p>
+</div>
+
+<!-- Liste des clients -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-list"></i> Clients Existants</span>
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshClients()">
+                    <i class="fas fa-sync-alt"></i> Actualiser
+                </button>
+            </div>
+            <div class="card-body">
+                <!-- Barre de recherche -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" class="form-control" id="clientsSearch" 
+                                   placeholder="Rechercher un client..." 
+                                   onkeyup="filterClients()">
+                            <button class="btn btn-outline-secondary" type="button" onclick="clearClientsSearch()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">
+                            <span id="clientsCount">0</span> client(s) affiché(s)
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="clientsList">
+                    <!-- Sera rempli dynamiquement -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation de suppression -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle"></i> Confirmer la Suppression
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>ATTENTION :</strong> Cette action est irréversible !</p>
+                <p>Vous allez supprimer définitivement le client <strong id="deleteClientName"></strong> et toutes ses données :</p>
+                <ul>
+                    <li>Index OpenSearch</li>
+                    <li>Documents et métadonnées</li>
+                    <li>Historique des recherches</li>
+                </ul>
+                <p class="text-danger">Êtes-vous sûr de vouloir continuer ?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">
+                    <i class="fas fa-trash"></i> Supprimer Définitivement
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let deleteClientId = null;
+    let allClients = []; // Stocker tous les clients pour le filtrage
+    
+    // Charger les clients au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        loadClients();
+    });
+    
+    // Formulaire de création de client
+    document.getElementById('createClientForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const clientId = document.getElementById('clientId').value.trim();
+        
+        if (!clientId) {
+            showAlert('Veuillez saisir un ID client', 'warning');
+            return;
+        }
+        
+        if (!/^[a-zA-Z0-9_-]+$/.test(clientId)) {
+            showAlert('ID client invalide. Utilisez uniquement lettres, chiffres, - et _', 'danger');
+            return;
+        }
+        
+        try {
+            showLoading('loading');
+            
+            const response = await apiCall('/api/clients', {
+                method: 'POST',
+                body: JSON.stringify({ client_id: clientId })
+            });
+            
+            if (response.status === 'success') {
+                showAlert(response.message, 'success');
+                document.getElementById('clientId').value = '';
+                loadClients();
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la création du client', 'danger');
+        } finally {
+            hideLoading('loading');
+        }
+    });
+    
+    // Charger la liste des clients
+    async function loadClients() {
+        try {
+            showLoading('loading');
+            
+            const response = await apiCall('/api/clients');
+            
+            if (response.status === 'success') {
+                allClients = response.clients; // Stocker pour le filtrage
+                displayClients(response.clients);
+                updateClientsCount(response.clients.length);
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors du chargement des clients', 'danger');
+        } finally {
+            hideLoading('loading');
+        }
+    }
+    
+    // Afficher les clients
+    function displayClients(clients) {
+        const container = document.getElementById('clientsList');
+        
+        if (clients.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p>Aucun client créé pour le moment</p>
+                    <p class="small">Créez votre premier client ci-dessus</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="row">';
+        
+        clients.forEach(client => {
+            const hasDocuments = client.physical_documents > 0 || client.documents_count > 0;
+            
+            html += `
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="fas fa-building text-primary"></i>
+                                ${client.id}
+                            </h6>
+                            <div class="small text-muted mb-2">
+                                <div><i class="fas fa-database"></i> Index: ${client.index}</div>
+                            </div>
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="fw-bold text-primary">${client.physical_documents}</div>
+                                    <div class="small text-muted">Documents</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fw-bold text-info">${client.documents_count}</div>
+                                    <div class="small text-muted">Chunks</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fw-bold text-success">${client.size_mb.toFixed(1)}</div>
+                                    <div class="small text-muted">MB</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-light">
+                            <div class="btn-group w-100" role="group">
+                                <a href="/client/${client.id}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> Voir
+                                </a>
+                                <a href="/client/${client.id}/search" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-search"></i> Recherche
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="confirmDeleteClient('${client.id}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    // Confirmer suppression
+    function confirmDeleteClient(clientId) {
+        deleteClientId = clientId;
+        document.getElementById('deleteClientName').textContent = clientId;
+        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+    }
+    
+    // Supprimer client
+    document.getElementById('confirmDelete').addEventListener('click', async function() {
+        if (!deleteClientId) return;
+        
+        try {
+            const response = await apiCall(`/api/clients/${deleteClientId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.status === 'success') {
+                showAlert(response.message, 'success');
+                loadClients();
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la suppression', 'danger');
+        } finally {
+            bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+            deleteClientId = null;
+        }
+    });
+    
+    // Actualiser
+    function refreshClients() {
+        loadClients();
+    }
+    
+    // Filtrer les clients
+    function filterClients() {
+        const searchTerm = document.getElementById('clientsSearch').value.toLowerCase().trim();
+        
+        if (!searchTerm) {
+            displayClients(allClients);
+            updateClientsCount(allClients.length);
+            return;
+        }
+        
+        const filteredClients = allClients.filter(client => {
+            return client.id.toLowerCase().includes(searchTerm) ||
+                   client.index.toLowerCase().includes(searchTerm);
+        });
+        
+        displayClients(filteredClients);
+        updateClientsCount(filteredClients.length);
+    }
+    
+    // Vider la recherche
+    function clearClientsSearch() {
+        document.getElementById('clientsSearch').value = '';
+        displayClients(allClients);
+        updateClientsCount(allClients.length);
+    }
+    
+    // Mettre à jour le compteur
+    function updateClientsCount(count) {
+        document.getElementById('clientsCount').textContent = count;
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,796 @@
+{% extends "base.html" %}
+
+{% block title %}Synchronisation {{ client_id }} - AskMe Search{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('clients') }}">Clients</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('client_detail', client_id=client_id) }}">{{ client_id }}</a></li>
+                <li class="breadcrumb-item active">Synchronisation</li>
+            </ol>
+        </nav>
+        
+        <h1 class="mb-4">
+            <i class="fas fa-sync text-primary"></i>
+            Synchronisation - <code>{{ client_id }}</code>
+        </h1>
+    </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-bolt"></i> Actions Rapides
+            </div>
+            <div class="card-body">
+                <div class="btn-group" role="group">
+                    <button class="btn btn-success" onclick="runManualSync()">
+                        <i class="fas fa-play"></i> Synchroniser Maintenant
+                    </button>
+                    <button class="btn btn-warning" onclick="debugSyncState()">
+                        <i class="fas fa-bug"></i> Diagnostiquer
+                    </button>
+                    <a href="{{ url_for('client_detail', client_id=client_id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left"></i> Retour aux Documents
+                    </a>
+                    <a href="{{ url_for('sync_dashboard') }}" class="btn btn-outline-info">
+                        <i class="fas fa-chart-line"></i> Vue Globale
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statut en temps réel pour ce client -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-chart-pulse"></i> Statut de Synchronisation</span>
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshClientStatus()">
+                    <i class="fas fa-sync-alt"></i> Actualiser
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white mb-2">
+                            <div class="card-body">
+                                <h4 id="clientTasksCount">-</h4>
+                                <small>Tâches Configurées</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white mb-2">
+                            <div class="card-body">
+                                <h4 id="clientEnabledTasks">-</h4>
+                                <small>Tâches Actives</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white mb-2">
+                            <div class="card-body">
+                                <h4 id="clientRunningSync">-</h4>
+                                <small>En Cours</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white mb-2">
+                            <div class="card-body">
+                                <h4 id="lastClientSync">-</h4>
+                                <small>Dernière Sync</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sync en cours -->
+                <div id="runningSyncAlert" class="mt-3" style="display: none;">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <strong>Synchronisation en cours...</strong>
+                        <div id="runningSyncDetails"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gestion des tâches pour ce client -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-tasks"></i> Tâches de Synchronisation</span>
+                <button class="btn btn-primary" onclick="showCreateTaskModal()">
+                    <i class="fas fa-plus"></i> Nouvelle Tâche
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="clientTasksList">
+                    <!-- Sera rempli dynamiquement -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Historique des synchronisations pour ce client -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-history"></i> Historique des Synchronisations
+            </div>
+            <div class="card-body">
+                <div id="clientResultsList">
+                    <!-- Sera rempli dynamiquement -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal création de tâche -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus"></i> Nouvelle Tâche pour {{ client_id }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <div class="mb-3">
+                        <label for="taskName" class="form-label">Nom de la Tâche</label>
+                        <input type="text" class="form-control" id="taskName" 
+                               value="Sync {{ client_id }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="taskScheduleType" class="form-label">Type de Planification</label>
+                        <select class="form-select" id="taskScheduleType" required onchange="toggleScheduleTime()">
+                            <option value="manual">Manuel uniquement</option>
+                            <option value="hourly">Toutes les heures</option>
+                            <option value="daily" selected>Quotidien</option>
+                            <option value="weekly">Hebdomadaire (lundi)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="scheduleTimeGroup">
+                        <label for="taskScheduleTime" class="form-label">Heure d'Exécution</label>
+                        <input type="time" class="form-control" id="taskScheduleTime" value="02:00">
+                        <div class="form-text">
+                            Heure à laquelle lancer la synchronisation automatique
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="taskEnabled" checked>
+                            <label class="form-check-label" for="taskEnabled">
+                                Tâche activée
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveTask()">
+                    <i class="fas fa-save"></i> Créer la Tâche
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading">
+    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+    <p>Chargement...</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const clientId = '{{ client_id }}';
+    let clientTasks = [];
+    let clientResults = [];
+    let refreshInterval = null;
+    
+    // Charger les données au démarrage
+    document.addEventListener('DOMContentLoaded', function() {
+        loadClientTasks();
+        loadClientResults();
+        refreshClientStatus();
+        
+        // Actualisation automatique toutes les 30 secondes
+        refreshInterval = setInterval(refreshClientStatus, 30000);
+        
+        // Initialiser le champ de temps
+        toggleScheduleTime();
+    });
+    
+    // Nettoyer l'interval au déchargement
+    window.addEventListener('beforeunload', function() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+    
+    // Synchronisation manuelle
+    async function runManualSync() {
+        try {
+            showLoading('loading');
+            
+            const response = await fetch(`/api/clients/${clientId}/sync`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert(`✅ ${result.message}`, 'success');
+                setTimeout(() => {
+                    refreshClientStatus();
+                    loadClientResults();
+                }, 2000);
+            } else {
+                showAlert(`⚠️ ${result.message}`, 'warning');
+            }
+            
+        } catch (error) {
+            console.error('Erreur synchronisation:', error);
+            showAlert('❌ Erreur lors du lancement de la synchronisation', 'danger');
+        } finally {
+            hideLoading('loading');
+        }
+    }
+    
+    // Diagnostiquer l'état de synchronisation
+    async function debugSyncState() {
+        try {
+            showLoading('loading');
+            
+            const response = await apiCall(`/api/clients/${clientId}/sync/debug`);
+            
+            if (response.status === 'success') {
+                showDebugModal(response.debug_info);
+            } else {
+                showAlert(`❌ Erreur diagnostic: ${response.message}`, 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Erreur diagnostic:', error);
+            showAlert('❌ Erreur lors du diagnostic', 'danger');
+        } finally {
+            hideLoading('loading');
+        }
+    }
+    
+    // Afficher le modal de diagnostic
+    function showDebugModal(debugInfo) {
+        // Créer le modal avec DOM au lieu de template strings
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'debugModal';
+        modal.setAttribute('tabindex', '-1');
+        
+        const dialog = document.createElement('div');
+        dialog.className = 'modal-dialog modal-xl';
+        
+        const content = document.createElement('div');
+        content.className = 'modal-content';
+        
+        // Header
+        const header = document.createElement('div');
+        header.className = 'modal-header';
+        header.innerHTML = '<h5 class="modal-title"><i class="fas fa-bug"></i> Diagnostic Synchronisation - ' + clientId + '</h5>' +
+                          '<button type="button" class="btn-close" data-bs-dismiss="modal"></button>';
+        
+        // Body
+        const body = document.createElement('div');
+        body.className = 'modal-body';
+        
+        // État du système
+        let systemHtml = '<div class="row"><div class="col-md-6">' +
+                        '<h6><i class="fas fa-folder"></i> État du Système</h6>' +
+                        '<ul class="list-group mb-3">' +
+                        '<li class="list-group-item d-flex justify-content-between">' +
+                        '<span>Dossier client</span>' +
+                        '<span class="badge bg-' + (debugInfo.client_path_exists ? 'success' : 'danger') + '">' +
+                        (debugInfo.client_path_exists ? 'Existe' : 'Manquant') + '</span></li>' +
+                        '<li class="list-group-item d-flex justify-content-between">' +
+                        '<span>Dossier documents</span>' +
+                        '<span class="badge bg-' + (debugInfo.documents_path_exists ? 'success' : 'danger') + '">' +
+                        (debugInfo.documents_path_exists ? 'Existe' : 'Manquant') + '</span></li>' +
+                        '<li class="list-group-item d-flex justify-content-between">' +
+                        '<span>Fichier d\'état</span>' +
+                        '<span class="badge bg-' + (debugInfo.state_file_exists ? 'success' : 'warning') + '">' +
+                        (debugInfo.state_file_exists ? 'Existe' : 'Absent') + '</span></li>' +
+                        '</ul>';
+        
+        // Changements détectés
+        let changesHtml = '<h6><i class="fas fa-chart-bar"></i> Changements Détectés</h6>' +
+                         '<ul class="list-group mb-3">' +
+                         '<li class="list-group-item d-flex justify-content-between">' +
+                         '<span>Nouveaux documents</span>' +
+                         '<span class="badge bg-primary">' + (debugInfo.changes_detected.new_documents?.length || 0) + '</span></li>' +
+                         '<li class="list-group-item d-flex justify-content-between">' +
+                         '<span>Documents modifiés</span>' +
+                         '<span class="badge bg-warning">' + (debugInfo.changes_detected.modified_documents?.length || 0) + '</span></li>' +
+                         '<li class="list-group-item d-flex justify-content-between">' +
+                         '<span>Documents supprimés</span>' +
+                         '<span class="badge bg-danger">' + (debugInfo.changes_detected.deleted_documents?.length || 0) + '</span></li>' +
+                         '<li class="list-group-item d-flex justify-content-between">' +
+                         '<span>Documents inchangés</span>' +
+                         '<span class="badge bg-success">' + (debugInfo.changes_detected.unchanged_documents?.length || 0) + '</span></li>' +
+                         '</ul></div>';
+        
+        // Documents physiques
+        let docsHtml = '<div class="col-md-6"><h6><i class="fas fa-file-alt"></i> Documents Physiques (' + debugInfo.documents_found.length + ')</h6>' +
+                      '<div style="max-height: 300px; overflow-y: auto;">';
+        
+        if (debugInfo.documents_found.length === 0) {
+            docsHtml += '<div class="alert alert-warning">Aucun document trouvé</div>';
+        } else {
+            debugInfo.documents_found.forEach(function(doc) {
+                docsHtml += '<div class="card mb-2"><div class="card-body py-2">' +
+                           '<div class="d-flex justify-content-between align-items-start">' +
+                           '<div><strong class="text-' + (doc.is_uuid_like ? 'success' : 'danger') + '">' + doc.doc_id + '</strong><br>' +
+                           '<small class="text-muted">' + doc.attachments_count + ' PJ, Metadata: ' + (doc.has_metadata ? 'Oui' : 'Non') + '</small></div>' +
+                           '<div class="text-end"><span class="badge bg-' + (doc.is_uuid_like ? 'success' : 'danger') + '">' +
+                           (doc.is_uuid_like ? 'UUID OK' : 'Nom invalide') + '</span></div></div></div></div>';
+            });
+        }
+        
+        docsHtml += '</div></div></div>';
+        
+        // État d'indexation
+        let stateHtml = '<hr><div class="row"><div class="col-12">' +
+                       '<h6><i class="fas fa-database"></i> État d\'Indexation Actuel</h6>' +
+                       '<pre class="bg-light p-3" style="max-height: 200px; overflow-y: auto; font-size: 0.9em;">' +
+                       JSON.stringify(debugInfo.current_state, null, 2) + '</pre></div></div>';
+        
+        body.innerHTML = systemHtml + changesHtml + docsHtml + stateHtml;
+        
+        // Footer
+        const footer = document.createElement('div');
+        footer.className = 'modal-footer';
+        footer.innerHTML = '<button type="button" class="btn btn-danger" onclick="resetIndexState()">' +
+                          '<i class="fas fa-trash"></i> Reset État d\'Indexation</button>' +
+                          '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>';
+        
+        // Assembler
+        content.appendChild(header);
+        content.appendChild(body);
+        content.appendChild(footer);
+        dialog.appendChild(content);
+        modal.appendChild(dialog);
+        
+        // Supprimer l'ancien modal s'il existe
+        const existingModal = document.getElementById('debugModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Ajouter et afficher
+        document.body.appendChild(modal);
+        new bootstrap.Modal(modal).show();
+    }
+    
+    // Reset de l'état d'indexation
+    async function resetIndexState() {
+        if (!confirm('⚠️ Êtes-vous sûr de vouloir reset l\\'état d\\'indexation ?\\n\\nCela forcera une re-synchronisation complète au prochain lancement.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/clients/${clientId}/sync/reset`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert(`✅ ${result.message}`, 'success');
+                
+                // Fermer le modal et actualiser le diagnostic
+                bootstrap.Modal.getInstance(document.getElementById('debugModal')).hide();
+                
+                // Proposer de relancer la synchronisation
+                setTimeout(() => {
+                    if (confirm('État réinitialisé !\\n\\nVoulez-vous lancer une synchronisation maintenant ?')) {
+                        runManualSync();
+                    }
+                }, 1000);
+                
+            } else {
+                showAlert(`❌ ${result.message}`, 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Erreur reset:', error);
+            showAlert('❌ Erreur lors du reset', 'danger');
+        }
+    }
+    
+    // Charger les tâches du client
+    async function loadClientTasks() {
+        try {
+            const response = await apiCall('/api/sync/tasks');
+            if (response.status === 'success') {
+                clientTasks = response.tasks.filter(task => task.client_id === clientId);
+                displayClientTasks();
+            }
+        } catch (error) {
+            console.error('Erreur chargement tâches:', error);
+        }
+    }
+    
+    // Charger les résultats du client
+    async function loadClientResults() {
+        try {
+            const response = await apiCall('/api/sync/results?limit=50');
+            if (response.status === 'success') {
+                clientResults = response.results.filter(result => result.client_id === clientId);
+                displayClientResults();
+            }
+        } catch (error) {
+            console.error('Erreur chargement résultats:', error);
+        }
+    }
+    
+    // Actualiser le statut du client
+    async function refreshClientStatus() {
+        try {
+            const response = await apiCall('/api/sync/status');
+            if (response.status === 'success') {
+                updateClientStatusDisplay(response);
+            }
+        } catch (error) {
+            console.error('Erreur actualisation statut:', error);
+        }
+    }
+    
+    // Mettre à jour l'affichage du statut client
+    function updateClientStatusDisplay(status) {
+        const clientTasksOnly = (status.tasks || []).filter(t => t.client_id === clientId);
+        const enabledTasks = clientTasksOnly.filter(t => t.enabled);
+        
+        document.getElementById('clientTasksCount').textContent = clientTasksOnly.length;
+        document.getElementById('clientEnabledTasks').textContent = enabledTasks.length;
+        
+        // Vérifier les exécutions en cours pour ce client
+        const runningForClient = Object.values(status.running_executions || {}).filter(exec => {
+            const task = clientTasksOnly.find(t => t.id === exec.task_id);
+            return task !== undefined;
+        });
+        
+        document.getElementById('clientRunningSync').textContent = runningForClient.length;
+        
+        // Dernière synchronisation
+        const clientSpecificResults = (status.recent_results || []).filter(r => r.client_id === clientId);
+        if (clientSpecificResults.length > 0) {
+            const lastResult = clientSpecificResults[clientSpecificResults.length - 1];
+            const lastTime = new Date(lastResult.started_at).toLocaleString('fr-FR');
+            document.getElementById('lastClientSync').textContent = lastTime;
+        }
+        
+        // Sync en cours
+        const runningDiv = document.getElementById('runningSyncAlert');
+        const runningDetailsDiv = document.getElementById('runningSyncDetails');
+        
+        if (runningForClient.length > 0) {
+            let runningHtml = '';
+            runningForClient.forEach(execution => {
+                const startTime = new Date(execution.started_at).toLocaleString('fr-FR');
+                runningHtml += `<div>Démarré à ${startTime}</div>`;
+            });
+            runningDetailsDiv.innerHTML = runningHtml;
+            runningDiv.style.display = 'block';
+        } else {
+            runningDiv.style.display = 'none';
+        }
+    }
+    
+    // Afficher les tâches du client
+    function displayClientTasks() {
+        const container = document.getElementById('clientTasksList');
+        
+        if (clientTasks.length === 0) {
+            container.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Aucune tâche configurée</strong><br>
+                    Ce client n'a pas encore de tâche de synchronisation automatique.
+                    Utilisez le bouton "Nouvelle Tâche" pour en créer une.
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        clientTasks.forEach(task => {
+            const statusBadge = task.enabled ? 
+                '<span class="badge bg-success">Activée</span>' : 
+                '<span class="badge bg-secondary">Désactivée</span>';
+            
+            const scheduleText = getScheduleText(task.schedule_type, task.schedule_time);
+            const lastRun = task.last_run ? 
+                new Date(task.last_run).toLocaleString('fr-FR') : 'Jamais';
+            const nextRun = task.next_run ? 
+                new Date(task.next_run).toLocaleString('fr-FR') : 'N/A';
+            
+            html += `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <h6 class="mb-1">${task.name}</h6>
+                                <small class="text-muted">${scheduleText}</small>
+                            </div>
+                            <div class="col-md-4">
+                                ${statusBadge}<br>
+                                <small class="text-muted">
+                                    Dernière: ${lastRun}<br>
+                                    Prochaine: ${nextRun}
+                                </small>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-success" onclick="runTask('${task.id}')" title="Exécuter">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleTask('${task.id}', ${task.enabled})" title="${task.enabled ? 'Désactiver' : 'Activer'}">
+                                        <i class="fas fa-${task.enabled ? 'pause' : 'play'}"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTask('${task.id}')" title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // Afficher les résultats du client
+    function displayClientResults() {
+        const container = document.getElementById('clientResultsList');
+        
+        if (clientResults.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-history fa-3x mb-3"></i>
+                    <p>Aucun historique de synchronisation</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        
+        // Trier par date décroissante et prendre les 10 derniers
+        const sortedResults = [...clientResults].sort((a, b) => 
+            new Date(b.started_at) - new Date(a.started_at)
+        ).slice(0, 10);
+        
+        sortedResults.forEach(result => {
+            const statusIcon = getStatusIcon(result.status);
+            const statusClass = getStatusClass(result.status);
+            const duration = result.duration_seconds ? 
+                `${result.duration_seconds.toFixed(1)}s` : 'N/A';
+            
+            html += `
+                <div class="card mb-2">
+                    <div class="card-body py-2">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <span class="badge bg-${statusClass}">${statusIcon} ${result.status}</span>
+                            </div>
+                            <div class="col-md-3">
+                                ${new Date(result.started_at).toLocaleString('fr-FR')}
+                            </div>
+                            <div class="col-md-2 text-center">
+                                <span class="badge bg-info">${result.processed_documents}</span>
+                                <small class="d-block text-muted">docs</small>
+                            </div>
+                            <div class="col-md-2 text-center">
+                                ${duration}
+                            </div>
+                            <div class="col-md-2 text-end">
+                                ${result.errors.length > 0 ? 
+                                    `<span class="badge bg-danger">${result.errors.length} erreur(s)</span>` : 
+                                    '<span class="badge bg-success">OK</span>'
+                                }
+                            </div>
+                        </div>
+                        
+                        ${result.operations.length > 0 ? `
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    ${result.operations.slice(0, 2).join(' • ')}
+                                    ${result.operations.length > 2 ? '...' : ''}
+                                </small>
+                            </div>
+                        ` : ''}
+                        
+                        ${result.errors.length > 0 ? `
+                            <div class="mt-2">
+                                <div class="alert alert-danger alert-sm mb-0">
+                                    <small><strong>Erreurs:</strong> ${result.errors.join(', ')}</small>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // Fonctions utilitaires
+    function getScheduleText(type, time) {
+        switch(type) {
+            case 'manual': return 'Manuel uniquement';
+            case 'hourly': return 'Toutes les heures';
+            case 'daily': return `Quotidien à ${time}`;
+            case 'weekly': return `Hebdomadaire (lundi) à ${time}`;
+            default: return 'Inconnu';
+        }
+    }
+    
+    function getStatusIcon(status) {
+        switch(status) {
+            case 'running': return '<i class="fas fa-spinner fa-spin"></i>';
+            case 'completed': return '<i class="fas fa-check"></i>';
+            case 'failed': return '<i class="fas fa-times"></i>';
+            case 'completed_with_errors': return '<i class="fas fa-exclamation-triangle"></i>';
+            default: return '<i class="fas fa-question"></i>';
+        }
+    }
+    
+    function getStatusClass(status) {
+        switch(status) {
+            case 'running': return 'warning';
+            case 'completed': return 'success';
+            case 'failed': return 'danger';
+            case 'completed_with_errors': return 'warning';
+            default: return 'secondary';
+        }
+    }
+    
+    // Gestion des tâches
+    function showCreateTaskModal() {
+        new bootstrap.Modal(document.getElementById('taskModal')).show();
+    }
+    
+    function toggleScheduleTime() {
+        const scheduleType = document.getElementById('taskScheduleType').value;
+        const timeGroup = document.getElementById('scheduleTimeGroup');
+        
+        if (scheduleType === 'daily' || scheduleType === 'weekly') {
+            timeGroup.style.display = 'block';
+        } else {
+            timeGroup.style.display = 'none';
+        }
+    }
+    
+    async function saveTask() {
+        const taskData = {
+            name: document.getElementById('taskName').value,
+            client_id: clientId,
+            schedule_type: document.getElementById('taskScheduleType').value,
+            schedule_time: document.getElementById('taskScheduleTime').value,
+            enabled: document.getElementById('taskEnabled').checked
+        };
+        
+        try {
+            const response = await fetch('/api/sync/tasks', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(taskData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert('Tâche créée avec succès', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('taskModal')).hide();
+                loadClientTasks();
+                refreshClientStatus();
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la création', 'danger');
+        }
+    }
+    
+    async function runTask(taskId) {
+        try {
+            const response = await fetch(`/api/sync/tasks/${taskId}/run`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert('Synchronisation démarrée', 'success');
+                setTimeout(() => {
+                    refreshClientStatus();
+                    loadClientResults();
+                }, 2000);
+            } else {
+                showAlert(result.message, 'warning');
+            }
+        } catch (error) {
+            showAlert('Erreur lors du lancement', 'danger');
+        }
+    }
+    
+    async function toggleTask(taskId, currentEnabled) {
+        try {
+            const response = await fetch(`/api/sync/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: !currentEnabled})
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert(`Tâche ${!currentEnabled ? 'activée' : 'désactivée'}`, 'success');
+                loadClientTasks();
+                refreshClientStatus();
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la modification', 'danger');
+        }
+    }
+    
+    async function deleteTask(taskId) {
+        if (!confirm('Supprimer cette tâche de synchronisation ?')) return;
+        
+        try {
+            const response = await fetch(`/api/sync/tasks/${taskId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert('Tâche supprimée', 'success');
+                loadClientTasks();
+                refreshClientStatus();
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la suppression', 'danger');
+        }
+    }
+</script>
+{% endblock %}

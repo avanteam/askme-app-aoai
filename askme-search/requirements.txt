@@ -1,0 +1,32 @@
+# Dépendances pour l'indexation de documents OpenSearch
+
+# Base
+requests>=2.28.0
+python-dateutil>=2.8.0
+
+# Interface Web
+Flask>=2.3.0
+Flask-SocketIO>=5.3.0
+
+# Traitement PDF
+PyPDF2>=3.0.0
+PyMuPDF>=1.23.0  # fitz - meilleure extraction PDF
+
+# Traitement Office
+python-docx>=0.8.11  # Documents Word
+openpyxl>=3.1.0      # Excel
+pandas>=1.5.0        # Excel + analyse
+python-pptx>=0.6.21  # PowerPoint
+
+# Traitement texte
+chardet>=5.0.0       # Détection d'encodage
+
+# OpenAI pour embeddings hybrides (requis pour recherche vectorielle)
+openai>=1.0.0
+
+# Utilitaires
+# pathlib2>=2.3.7  # Pas nécessaire avec Python 3.4+
+# hashlib est inclus dans Python standard library
+
+# Planification et tâches
+schedule>=1.2.0

@@ -1,0 +1,732 @@
+{% extends "base.html" %}
+
+{% block title %}Synchronisation - AskMe Search{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item active">Synchronisation</li>
+            </ol>
+        </nav>
+        
+        <h1 class="mb-4">
+            <i class="fas fa-sync text-primary"></i>
+            Gestion de la Synchronisation
+        </h1>
+    </div>
+</div>
+
+<!-- Statut en temps réel -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-chart-line"></i> Statut en Temps Réel</span>
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshStatus()">
+                    <i class="fas fa-sync-alt"></i> Actualiser
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white mb-2">
+                            <div class="card-body">
+                                <h4 id="totalTasks">-</h4>
+                                <small>Tâches Totales</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white mb-2">
+                            <div class="card-body">
+                                <h4 id="enabledTasks">-</h4>
+                                <small>Tâches Actives</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white mb-2">
+                            <div class="card-body">
+                                <h4 id="runningTasks">-</h4>
+                                <small>En Cours</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white mb-2">
+                            <div class="card-body">
+                                <h4 id="lastExecution">-</h4>
+                                <small>Dernière Exécution</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Exécutions en cours -->
+                <div id="runningExecution" class="mt-3" style="display: none;">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <strong>Synchronisation en cours:</strong>
+                        <div id="runningDetails"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gestion des tâches -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-tasks"></i> Tâches de Synchronisation</span>
+                <button class="btn btn-primary" onclick="showCreateTaskModal()">
+                    <i class="fas fa-plus"></i> Nouvelle Tâche
+                </button>
+            </div>
+            <div class="card-body">
+                <!-- Barre de recherche tâches -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" class="form-control" id="tasksSearch" 
+                                   placeholder="Rechercher une tâche (nom, client...)..." 
+                                   onkeyup="filterTasks()">
+                            <button class="btn btn-outline-secondary" type="button" onclick="clearTasksSearch()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">
+                            <span id="visibleTasksCount">0</span> / <span id="totalTasksCount">0</span> tâche(s)
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="tasksList">
+                    <!-- Sera rempli dynamiquement -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Historique des résultats -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-history"></i> Historique des Synchronisations
+            </div>
+            <div class="card-body">
+                <div id="resultsList">
+                    <!-- Sera rempli dynamiquement -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal création/édition de tâche -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus"></i> <span id="modalTitle">Nouvelle Tâche</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <input type="hidden" id="taskId">
+                    
+                    <div class="mb-3">
+                        <label for="taskName" class="form-label">Nom de la Tâche *</label>
+                        <input type="text" class="form-control" id="taskName" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="taskClientId" class="form-label">Client ID *</label>
+                        <input type="text" class="form-control" id="taskClientId" required 
+                               placeholder="Ex: client-entreprise-1">
+                        <div class="form-text">
+                            Identifiant du client à synchroniser
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="taskScheduleType" class="form-label">Type de Planification *</label>
+                        <select class="form-select" id="taskScheduleType" required onchange="toggleScheduleTime()">
+                            <option value="">Sélectionner...</option>
+                            <option value="manual">Manuel uniquement</option>
+                            <option value="hourly">Toutes les heures</option>
+                            <option value="daily">Quotidien</option>
+                            <option value="weekly">Hebdomadaire (lundi)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="scheduleTimeGroup" style="display: none;">
+                        <label for="taskScheduleTime" class="form-label">Heure d'Exécution</label>
+                        <input type="time" class="form-control" id="taskScheduleTime" value="02:00">
+                        <div class="form-text">
+                            Heure à laquelle lancer la synchronisation automatique
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="taskEnabled" checked>
+                            <label class="form-check-label" for="taskEnabled">
+                                Tâche activée
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveTask()">
+                    <i class="fas fa-save"></i> Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading">
+    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+    <p>Chargement...</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let tasks = [];
+    let allTasks = []; // Stocker toutes les tâches pour le filtrage
+    let results = [];
+    let refreshInterval = null;
+    
+    // Charger les données au démarrage
+    document.addEventListener('DOMContentLoaded', function() {
+        loadTasks();
+        loadResults();
+        refreshStatus();
+        
+        // Actualisation automatique toutes les 30 secondes
+        refreshInterval = setInterval(refreshStatus, 30000);
+    });
+    
+    // Nettoyer l'interval au déchargement
+    window.addEventListener('beforeunload', function() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+    
+    // Charger les tâches
+    async function loadTasks() {
+        try {
+            const response = await apiCall('/api/sync/tasks');
+            if (response.status === 'success') {
+                tasks = response.tasks;
+                allTasks = response.tasks; // Stocker pour le filtrage
+                displayTasks();
+                updateTasksCount(response.tasks.length, response.tasks.length);
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Erreur chargement tâches:', error);
+            showAlert('Erreur lors du chargement des tâches', 'danger');
+        }
+    }
+    
+    // Charger les résultats
+    async function loadResults() {
+        try {
+            const response = await apiCall('/api/sync/results?limit=20');
+            if (response.status === 'success') {
+                results = response.results;
+                displayResults();
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Erreur chargement résultats:', error);
+            showAlert('Erreur lors du chargement des résultats', 'danger');
+        }
+    }
+    
+    // Actualiser le statut
+    async function refreshStatus() {
+        try {
+            const response = await apiCall('/api/sync/status');
+            if (response.status === 'success') {
+                updateStatusDisplay(response);
+            }
+        } catch (error) {
+            console.error('Erreur actualisation statut:', error);
+        }
+    }
+    
+    // Mettre à jour l'affichage du statut
+    function updateStatusDisplay(status) {
+        document.getElementById('totalTasks').textContent = status.total_tasks || 0;
+        document.getElementById('enabledTasks').textContent = status.enabled_tasks || 0;
+        document.getElementById('runningTasks').textContent = Object.keys(status.running_executions || {}).length;
+        
+        // Dernière exécution
+        if (status.recent_results && status.recent_results.length > 0) {
+            const lastResult = status.recent_results[status.recent_results.length - 1];
+            const lastTime = new Date(lastResult.started_at).toLocaleString('fr-FR');
+            document.getElementById('lastExecution').textContent = lastTime;
+        }
+        
+        // Exécutions en cours
+        const runningDiv = document.getElementById('runningExecution');
+        const runningDetailsDiv = document.getElementById('runningDetails');
+        
+        if (Object.keys(status.running_executions || {}).length > 0) {
+            let runningHtml = '';
+            for (const [taskId, execution] of Object.entries(status.running_executions)) {
+                const task = tasks.find(t => t.id === taskId);
+                const taskName = task ? task.name : taskId;
+                const startTime = new Date(execution.started_at).toLocaleString('fr-FR');
+                runningHtml += `<div><strong>${taskName}</strong> - Démarré à ${startTime}</div>`;
+            }
+            runningDetailsDiv.innerHTML = runningHtml;
+            runningDiv.style.display = 'block';
+        } else {
+            runningDiv.style.display = 'none';
+        }
+    }
+    
+    // Afficher les tâches
+    function displayTasks(tasksToShow = tasks) {
+        const container = document.getElementById('tasksList');
+        
+        if (tasksToShow.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-tasks fa-3x mb-3"></i>
+                    <p>Aucune tâche configurée</p>
+                    <p class="small">Créez votre première tâche avec le bouton "Nouvelle Tâche"</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="row">';
+        
+        tasksToShow.forEach(task => {
+            const statusBadge = task.enabled ? 
+                '<span class="badge bg-success">Activée</span>' : 
+                '<span class="badge bg-secondary">Désactivée</span>';
+            
+            const scheduleText = getScheduleText(task.schedule_type, task.schedule_time);
+            const lastRun = task.last_run ? 
+                new Date(task.last_run).toLocaleString('fr-FR') : 'Jamais';
+            const nextRun = task.next_run ? 
+                new Date(task.next_run).toLocaleString('fr-FR') : 'N/A';
+            
+            html += `
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">${task.name}</h6>
+                            ${statusBadge}
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">
+                                <strong>Client:</strong> ${task.client_id}<br>
+                                <strong>Planning:</strong> ${scheduleText}<br>
+                                <strong>Dernière exécution:</strong> ${lastRun}<br>
+                                <strong>Prochaine exécution:</strong> ${nextRun}
+                            </p>
+                        </div>
+                        <div class="card-footer">
+                            <div class="btn-group w-100" role="group">
+                                <button class="btn btn-sm btn-success" onclick="runTask('${task.id}')" 
+                                        title="Exécuter maintenant">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button class="btn btn-sm btn-primary" onclick="editTask('${task.id}')"
+                                        title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="toggleTask('${task.id}')"
+                                        title="${task.enabled ? 'Désactiver' : 'Activer'}">
+                                    <i class="fas fa-${task.enabled ? 'pause' : 'play'}"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteTask('${task.id}')"
+                                        title="Supprimer">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    // Afficher les résultats
+    function displayResults() {
+        const container = document.getElementById('resultsList');
+        
+        if (results.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-history fa-3x mb-3"></i>
+                    <p>Aucun historique disponible</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        
+        // Trier par date décroissante
+        const sortedResults = [...results].sort((a, b) => 
+            new Date(b.started_at) - new Date(a.started_at)
+        );
+        
+        sortedResults.forEach(result => {
+            const statusIcon = getStatusIcon(result.status);
+            const statusClass = getStatusClass(result.status);
+            const duration = result.duration_seconds ? 
+                `${result.duration_seconds.toFixed(1)}s` : 'N/A';
+            
+            html += `
+                <div class="card mb-2">
+                    <div class="card-body py-2">
+                        <div class="row align-items-center">
+                            <div class="col-md-2">
+                                <span class="badge bg-${statusClass}">${statusIcon} ${result.status}</span>
+                            </div>
+                            <div class="col-md-2">
+                                <strong>${result.client_id}</strong>
+                            </div>
+                            <div class="col-md-2">
+                                ${new Date(result.started_at).toLocaleString('fr-FR')}
+                            </div>
+                            <div class="col-md-1 text-center">
+                                <span class="badge bg-info">${result.processed_documents}</span>
+                            </div>
+                            <div class="col-md-1 text-center">
+                                ${duration}
+                            </div>
+                            <div class="col-md-2">
+                                ${result.errors.length > 0 ? 
+                                    `<span class="badge bg-danger">${result.errors.length} erreur(s)</span>` : 
+                                    '<span class="badge bg-success">OK</span>'
+                                }
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button class="btn btn-sm btn-outline-info" onclick="showResultDetails('${result.task_id}', '${result.started_at}')">
+                                    <i class="fas fa-eye"></i> Détails
+                                </button>
+                            </div>
+                        </div>
+                        
+                        ${result.operations.length > 0 ? `
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    ${result.operations.slice(0, 3).join(' • ')}
+                                    ${result.operations.length > 3 ? '...' : ''}
+                                </small>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // Fonctions utilitaires
+    function getScheduleText(type, time) {
+        switch(type) {
+            case 'manual': return 'Manuel uniquement';
+            case 'hourly': return 'Toutes les heures';
+            case 'daily': return `Quotidien à ${time}`;
+            case 'weekly': return `Hebdomadaire (lundi) à ${time}`;
+            default: return 'Inconnu';
+        }
+    }
+    
+    function getStatusIcon(status) {
+        switch(status) {
+            case 'running': return '<i class="fas fa-spinner fa-spin"></i>';
+            case 'completed': return '<i class="fas fa-check"></i>';
+            case 'failed': return '<i class="fas fa-times"></i>';
+            case 'completed_with_errors': return '<i class="fas fa-exclamation-triangle"></i>';
+            default: return '<i class="fas fa-question"></i>';
+        }
+    }
+    
+    function getStatusClass(status) {
+        switch(status) {
+            case 'running': return 'warning';
+            case 'completed': return 'success';
+            case 'failed': return 'danger';
+            case 'completed_with_errors': return 'warning';
+            default: return 'secondary';
+        }
+    }
+    
+    // Gestion des tâches
+    function showCreateTaskModal() {
+        document.getElementById('modalTitle').textContent = 'Nouvelle Tâche';
+        document.getElementById('taskForm').reset();
+        document.getElementById('taskId').value = '';
+        document.getElementById('taskEnabled').checked = true;
+        toggleScheduleTime();
+        new bootstrap.Modal(document.getElementById('taskModal')).show();
+    }
+    
+    function editTask(taskId) {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        document.getElementById('modalTitle').textContent = 'Modifier la Tâche';
+        document.getElementById('taskId').value = task.id;
+        document.getElementById('taskName').value = task.name;
+        document.getElementById('taskClientId').value = task.client_id;
+        document.getElementById('taskScheduleType').value = task.schedule_type;
+        document.getElementById('taskScheduleTime').value = task.schedule_time;
+        document.getElementById('taskEnabled').checked = task.enabled;
+        
+        toggleScheduleTime();
+        new bootstrap.Modal(document.getElementById('taskModal')).show();
+    }
+    
+    function toggleScheduleTime() {
+        const scheduleType = document.getElementById('taskScheduleType').value;
+        const timeGroup = document.getElementById('scheduleTimeGroup');
+        
+        if (scheduleType === 'daily' || scheduleType === 'weekly') {
+            timeGroup.style.display = 'block';
+        } else {
+            timeGroup.style.display = 'none';
+        }
+    }
+    
+    async function saveTask() {
+        const taskId = document.getElementById('taskId').value;
+        const isEdit = !!taskId;
+        
+        const taskData = {
+            name: document.getElementById('taskName').value,
+            client_id: document.getElementById('taskClientId').value,
+            schedule_type: document.getElementById('taskScheduleType').value,
+            schedule_time: document.getElementById('taskScheduleTime').value,
+            enabled: document.getElementById('taskEnabled').checked
+        };
+        
+        try {
+            let response;
+            if (isEdit) {
+                response = await fetch(`/api/sync/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(taskData)
+                });
+            } else {
+                response = await fetch('/api/sync/tasks', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(taskData)
+                });
+            }
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert(`Tâche ${isEdit ? 'modifiée' : 'créée'} avec succès`, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('taskModal')).hide();
+                loadTasks();
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la sauvegarde', 'danger');
+        }
+    }
+    
+    async function runTask(taskId) {
+        try {
+            showLoading('loading');
+            
+            const response = await fetch(`/api/sync/tasks/${taskId}/run`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert('Synchronisation démarrée', 'success');
+                setTimeout(refreshStatus, 2000);
+            } else {
+                showAlert(result.message, 'warning');
+            }
+        } catch (error) {
+            showAlert('Erreur lors du lancement', 'danger');
+        } finally {
+            hideLoading('loading');
+        }
+    }
+    
+    async function toggleTask(taskId) {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        try {
+            const response = await fetch(`/api/sync/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: !task.enabled})
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert(`Tâche ${!task.enabled ? 'activée' : 'désactivée'}`, 'success');
+                loadTasks();
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la modification', 'danger');
+        }
+    }
+    
+    async function deleteTask(taskId) {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task || !confirm(`Supprimer la tâche "${task.name}" ?`)) return;
+        
+        try {
+            const response = await fetch(`/api/sync/tasks/${taskId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert('Tâche supprimée', 'success');
+                loadTasks();
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur lors de la suppression', 'danger');
+        }
+    }
+    
+    function showResultDetails(taskId, startedAt) {
+        const result = results.find(r => r.task_id === taskId && r.started_at === startedAt);
+        if (!result) return;
+        
+        let details = `
+            <div class="modal fade" id="resultModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Détails de la Synchronisation</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong>Client:</strong> ${result.client_id}<br>
+                                    <strong>Statut:</strong> ${result.status}<br>
+                                    <strong>Documents traités:</strong> ${result.processed_documents}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Démarré:</strong> ${new Date(result.started_at).toLocaleString('fr-FR')}<br>
+                                    <strong>Terminé:</strong> ${result.completed_at ? new Date(result.completed_at).toLocaleString('fr-FR') : 'N/A'}<br>
+                                    <strong>Durée:</strong> ${result.duration_seconds ? result.duration_seconds.toFixed(1) + 's' : 'N/A'}
+                                </div>
+                            </div>
+                            
+                            ${result.operations.length > 0 ? `
+                                <h6>Opérations:</h6>
+                                <ul class="list-group mb-3">
+                                    ${result.operations.map(op => `<li class="list-group-item">${op}</li>`).join('')}
+                                </ul>
+                            ` : ''}
+                            
+                            ${result.errors.length > 0 ? `
+                                <h6>Erreurs:</h6>
+                                <div class="alert alert-danger">
+                                    ${result.errors.map(err => `<div>${err}</div>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Supprimer l'ancien modal s'il existe
+        const existingModal = document.getElementById('resultModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Ajouter le nouveau modal
+        document.body.insertAdjacentHTML('beforeend', details);
+        new bootstrap.Modal(document.getElementById('resultModal')).show();
+    }
+    
+    // Filtrer les tâches
+    function filterTasks() {
+        const searchTerm = document.getElementById('tasksSearch').value.toLowerCase().trim();
+        
+        if (!searchTerm) {
+            displayTasks(allTasks);
+            updateTasksCount(allTasks.length, allTasks.length);
+            return;
+        }
+        
+        const filteredTasks = allTasks.filter(task => {
+            return task.name.toLowerCase().includes(searchTerm) ||
+                   task.client_id.toLowerCase().includes(searchTerm) ||
+                   task.schedule_type.toLowerCase().includes(searchTerm);
+        });
+        
+        displayTasks(filteredTasks);
+        updateTasksCount(filteredTasks.length, allTasks.length);
+    }
+    
+    // Vider la recherche tâches  
+    function clearTasksSearch() {
+        document.getElementById('tasksSearch').value = '';
+        displayTasks(allTasks);
+        updateTasksCount(allTasks.length, allTasks.length);
+    }
+    
+    // Mettre à jour les compteurs de tâches
+    function updateTasksCount(visible, total) {
+        document.getElementById('visibleTasksCount').textContent = visible;
+        document.getElementById('totalTasksCount').textContent = total;
+    }
+</script>
+{% endblock %}

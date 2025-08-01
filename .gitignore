@@ -13,3 +13,13 @@ k8s/secret.yaml
 
 # Déploiements clients locaux (pour tests CLI uniquement)
 deployments/clients/
+
+# AskMe Search - Ignorer les fichiers temporaires et données
+askme-search/venv/
+askme-search/.env
+askme-search/.env.local
+askme-search/clients-data/
+askme-search/temp_uploads/
+askme-search/*.log
+askme-search/test_favicon.html
+askme-search/config_optimizations.md

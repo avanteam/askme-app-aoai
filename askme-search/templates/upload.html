@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Documents - {{ client_id }} - AskMe Search{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('clients') }}">Clients</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('client_detail', client_id=client_id) }}">{{ client_id }}</a></li>
+                <li class="breadcrumb-item active">Upload</li>
+            </ol>
+        </nav>
+        
+        <h1 class="mb-4">
+            <i class="fas fa-upload text-primary"></i>
+            Ajouter des Documents à <code>{{ client_id }}</code>
+        </h1>
+    </div>
+</div>
+
+<!-- Instructions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-success">
+            <h6><i class="fas fa-check-circle"></i> Interface d'Upload Opérationnelle</h6>
+            <p>✅ <strong>Upload direct</strong> : Sélectionnez vos fichiers, configurez les métadonnées et uploadez !</p>
+            <p>✅ <strong>Indexation automatique</strong> : Vos documents seront automatiquement indexés et recherchables</p>
+            <p>✅ <strong>Support multi-fichiers</strong> : Uploadez plusieurs documents en une fois</p>
+        </div>
+    </div>
+</div>
+
+<!-- Exemple de structure -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-folder-tree"></i> Exemple de Structure
+            </div>
+            <div class="card-body">
+                <pre><code>clients-data/{{ client_id }}/documents/
+└── 123e4567-e89b-12d3-a456-426614174000/
+    ├── rapport_principal.pdf
+    ├── annexe_financiere.xlsx
+    ├── presentation.pptx
+    └── metadata.json</code></pre>
+                
+                <h6 class="mt-3">Contenu du metadata.json :</h6>
+                <pre><code>{
+  "rapport_principal.pdf": {
+    "securityRights": ["finance", "direction"],
+    "titreDocument": "Rapport Financier Q4 2024",
+    "fieldMetadata": "auteur:Marie Dupont;departement:Finance;version:1.0;type:rapport",
+    "metadata_storage_name": "rapport_principal.pdf",
+    "metadata_storage_path": "/documents/123e4567.../rapport_principal.pdf"
+  },
+  "annexe_financiere.xlsx": {
+    "securityRights": ["finance"],
+    "titreDocument": "Données Financières Détaillées",
+    "fieldMetadata": "auteur:Jean Martin;departement:Finance;version:1.0;type:annexe",
+    "metadata_storage_name": "annexe_financiere.xlsx",
+    "metadata_storage_path": "/documents/123e4567.../annexe_financiere.xlsx"
+  }
+}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Interface d'Upload Active -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-cloud-upload-alt"></i> Upload de Documents
+            </div>
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <!-- Sélection des fichiers -->
+                    <div class="mb-4">
+                        <label for="fileInput" class="form-label">
+                            <i class="fas fa-file"></i> Sélectionnez les fichiers à uploader
+                        </label>
+                        <input type="file" class="form-control form-control-lg" id="fileInput" 
+                               name="files" multiple accept=".pdf,.txt,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.json,.xml,.html,.rtf">
+                        <div class="form-text">
+                            Types supportés: PDF, Word, Excel, PowerPoint, TXT, CSV, JSON, XML, HTML, RTF<br>
+                            Taille max: 16MB par fichier
+                        </div>
+                    </div>
+                    
+                    <!-- Zone de drag & drop -->
+                    <div class="mb-4">
+                        <div id="dropZone" class="border border-dashed border-primary rounded p-4 text-center">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                            <p class="mb-0">Glissez-déposez vos fichiers ici ou cliquez pour sélectionner</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Liste des fichiers sélectionnés -->
+                    <div id="filesList" class="mb-4" style="display: none;">
+                        <h6><i class="fas fa-list"></i> Fichiers sélectionnés</h6>
+                        <div id="filesListContent"></div>
+                    </div>
+                    
+                    <!-- Formulaire de métadonnées -->
+                    <div id="metadataSection" class="mb-4" style="display: none;">
+                        <h6><i class="fas fa-tags"></i> Métadonnées des Documents</h6>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            Configurez les métadonnées pour chaque fichier. Les champs vides utiliseront des valeurs par défaut.
+                        </div>
+                        <div id="metadataForms"></div>
+                    </div>
+                    
+                    <!-- Boutons d'action -->
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearFiles()">
+                                <i class="fas fa-times"></i> Effacer
+                            </button>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('client_detail', client_id=client_id) }}" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-arrow-left"></i> Retour
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg" id="uploadBtn" disabled>
+                                <i class="fas fa-upload"></i> Uploader et Indexer
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="uploadLoading" class="loading">
+    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+    <p>Upload et indexation en cours...</p>
+</div>
+
+<!-- Résultat de l'upload -->
+<div class="row mt-4" id="uploadResultContainer" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-check-circle"></i> Résultat de l'Upload
+            </div>
+            <div class="card-body">
+                <div id="uploadResult"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const clientId = '{{ client_id }}';
+    let selectedFiles = [];
+    
+    // Références DOM - avec vérification
+    let fileInput, dropZone, filesList, filesListContent, metadataSection, metadataForms, uploadBtn, uploadForm;
+    
+    function initializeElements() {
+        fileInput = document.getElementById('fileInput');
+        dropZone = document.getElementById('dropZone');
+        filesList = document.getElementById('filesList');
+        filesListContent = document.getElementById('filesListContent');
+        metadataSection = document.getElementById('metadataSection');
+        metadataForms = document.getElementById('metadataForms');
+        uploadBtn = document.getElementById('uploadBtn');
+        uploadForm = document.getElementById('uploadForm');
+        
+        console.log('Elements initialisés:', {
+            fileInput: !!fileInput,
+            uploadBtn: !!uploadBtn,
+            dropZone: !!dropZone
+        });
+        
+        if (!fileInput || !uploadBtn || !dropZone) {
+            console.error('Éléments DOM manquants!');
+            return false;
+        }
+        return true;
+    }
+    
+    function setupEventListeners() {
+        // Events pour la sélection de fichiers
+        fileInput.addEventListener('change', handleFileSelect);
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        // Drag & Drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('bg-light');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('bg-light');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('bg-light');
+            
+            const files = Array.from(e.dataTransfer.files);
+            handleFilesDrop(files);
+        });
+        
+        // Formulaire d'upload
+        uploadForm.addEventListener('submit', handleUpload);
+    }
+    
+    function handleFileSelect(event) {
+        const files = Array.from(event.target.files);
+        updateSelectedFiles(files);
+        console.log('Fichiers sélectionnés:', files.length);
+    }
+    
+    function handleFilesDrop(files) {
+        // Mettre à jour l'input file
+        const dt = new DataTransfer();
+        files.forEach(file => dt.items.add(file));
+        fileInput.files = dt.files;
+        
+        updateSelectedFiles(files);
+    }
+    
+    function updateSelectedFiles(files) {
+        selectedFiles = files;
+        displayFilesList();
+        generateMetadataForms();
+        updateUploadButton();
+    }
+    
+    function displayFilesList() {
+        if (selectedFiles.length === 0) {
+            filesList.style.display = 'none';
+            return;
+        }
+        
+        filesList.style.display = 'block';
+        filesListContent.innerHTML = '';
+        
+        selectedFiles.forEach((file, index) => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'border rounded p-2 mb-2 d-flex justify-content-between align-items-center';
+            
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            
+            fileItem.innerHTML = `
+                <div>
+                    <i class="fas fa-file text-primary me-2"></i>
+                    <strong>${file.name}</strong>
+                    <span class="text-muted ms-2">(${fileSize} MB)</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" 
+                        onclick="removeFile(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            filesListContent.appendChild(fileItem);
+        });
+    }
+    
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        
+        // Mettre à jour l'input file
+        const dt = new DataTransfer();
+        selectedFiles.forEach(file => dt.items.add(file));
+        fileInput.files = dt.files;
+        
+        displayFilesList();
+        generateMetadataForms();
+        updateUploadButton();
+    }
+    
+    function generateMetadataForms() {
+        if (selectedFiles.length === 0) {
+            metadataSection.style.display = 'none';
+            return;
+        }
+        
+        metadataSection.style.display = 'block';
+        metadataForms.innerHTML = '';
+        
+        selectedFiles.forEach((file, index) => {
+            const formCard = document.createElement('div');
+            formCard.className = 'card mb-3';
+            
+            formCard.innerHTML = `
+                <div class="card-header">
+                    <i class="fas fa-file-alt"></i> ${file.name}
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Titre du Document</label>
+                                <input type="text" class="form-control" 
+                                       id="titre_${index}" 
+                                       value="${file.name.replace(/\.[^/.]+$/, '')}"
+                                       placeholder="Titre descriptif du document">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Droits d'Accès</label>
+                                <input type="text" class="form-control" 
+                                       id="rights_${index}" 
+                                       placeholder="finance,direction,admin"
+                                       title="Séparez les droits par des virgules">
+                                <div class="form-text">Laissez vide pour accès libre</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Métadonnées Supplémentaires</label>
+                        <input type="text" class="form-control" 
+                               id="metadata_${index}" 
+                               placeholder="auteur:Jean Dupont;departement:Finance;version:1.0"
+                               title="Format: clé:valeur;clé2:valeur2">
+                        <div class="form-text">Format: clé:valeur séparées par des points-virgules</div>
+                    </div>
+                </div>
+            `;
+            
+            metadataForms.appendChild(formCard);
+        });
+    }
+    
+    function updateUploadButton() {
+        const hasFiles = selectedFiles.length > 0;
+        uploadBtn.disabled = !hasFiles;
+        console.log('Update button:', hasFiles ? 'enabled' : 'disabled', 'Files:', selectedFiles.length);
+    }
+    
+    function clearFiles() {
+        selectedFiles = [];
+        fileInput.value = '';
+        displayFilesList();
+        generateMetadataForms();
+        updateUploadButton();
+        
+        // Cacher les résultats précédents
+        document.getElementById('uploadResultContainer').style.display = 'none';
+    }
+    
+    async function handleUpload(event) {
+        event.preventDefault();
+        
+        if (selectedFiles.length === 0) {
+            showAlert('Aucun fichier sélectionné', 'warning');
+            return;
+        }
+        
+        try {
+            // Préparer les métadonnées
+            const metadata = {};
+            selectedFiles.forEach((file, index) => {
+                const titre = document.getElementById(`titre_${index}`).value.trim() || file.name;
+                const rightsValue = document.getElementById(`rights_${index}`).value.trim();
+                const rights = rightsValue ? rightsValue.split(',').map(r => r.trim()) : [];
+                const fieldMetadata = document.getElementById(`metadata_${index}`).value.trim();
+                
+                metadata[file.name] = {
+                    titreDocument: titre,
+                    securityRights: rights,
+                    fieldMetadata: fieldMetadata
+                };
+            });
+            
+            // Préparer FormData
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+            formData.append('metadata', JSON.stringify(metadata));
+            
+            // Afficher loading
+            showLoading('uploadLoading');
+            uploadBtn.disabled = true;
+            
+            // Upload
+            const response = await fetch(`/api/clients/${clientId}/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                displayUploadResult(result);
+                clearFiles();
+                showAlert(result.message, 'success');
+            } else {
+                showAlert(result.message, 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Erreur upload:', error);
+            showAlert('Erreur lors de l\'upload', 'danger');
+        } finally {
+            hideLoading('uploadLoading');
+            uploadBtn.disabled = false;
+        }
+    }
+    
+    function displayUploadResult(result) {
+        const container = document.getElementById('uploadResult');
+        const resultContainer = document.getElementById('uploadResultContainer');
+        
+        let html = `
+            <div class="alert alert-success">
+                <h6><i class="fas fa-check-circle"></i> Upload Réussi</h6>
+                <p>${result.message}</p>
+                <p><strong>UUID du document:</strong> <code>${result.document_uuid}</code></p>
+            </div>
+            
+            <h6>Fichiers uploadés:</h6>
+            <ul class="list-group mb-3">
+        `;
+        
+        result.files.forEach(filename => {
+            html += `<li class="list-group-item">
+                <i class="fas fa-file text-primary me-2"></i>${filename}
+            </li>`;
+        });
+        
+        html += '</ul>';
+        
+        if (result.indexing_results) {
+            html += `
+                <h6>Résultats de l'indexation:</h6>
+                <div class="alert alert-info">
+                    <pre>${JSON.stringify(result.indexing_results, null, 2)}</pre>
+                </div>
+            `;
+        }
+        
+        html += `
+            <div class="mt-3">
+                <a href="/client/${clientId}" class="btn btn-primary">
+                    <i class="fas fa-eye"></i> Voir les Documents
+                </a>
+                <a href="/client/${clientId}/search" class="btn btn-outline-primary ms-2">
+                    <i class="fas fa-search"></i> Rechercher
+                </a>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+        resultContainer.style.display = 'block';
+        
+        // Scroll vers le résultat
+        resultContainer.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Initialisation au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Page upload chargée');
+        
+        if (initializeElements()) {
+            setupEventListeners();
+            updateUploadButton();
+            console.log('Interface d\'upload initialisée avec succès');
+        } else {
+            console.error('Échec de l\'initialisation de l\'interface');
+        }
+    });
+</script>
+{% endblock %}
