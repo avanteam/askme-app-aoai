@@ -210,7 +210,7 @@ jobs:
     - name: 📥 Checkout Rancher Catalog Repository
       uses: actions/checkout@v4
       with:
-        repository: avanteam/askme-rancher-catalog-ready
+        repository: avanteam/askme-rancher-catalog
         ref: prod  # Utilisation de la branche prod
         token: ${{ secrets.CATALOG_GITHUB_TOKEN }}
         path: rancher-catalog

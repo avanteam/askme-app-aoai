@@ -772,7 +772,7 @@ git push origin v1.0.2
 
 **🔧 Configuration Requise :**
 - **Secret GitHub** : `CATALOG_GITHUB_TOKEN` (Personal Access Token)
-- **Repository cible** : `askme-rancher-catalog-ready` branche `prod`
+- **Repository cible** : `askme-rancher-catalog` branche `prod`
 - **Format de tag** : `v1.0.0`, `v1.2.3`, etc.
 
 **📦 Synchronisation Automatique :**
@@ -805,7 +805,7 @@ COPY --chown=node:node ./frontend/package*.json ./
 **Vérifications** :
 1. **GitHub Actions** : Vérifier que le workflow s'est déclenché sur le tag
 2. **Secret Token** : Vérifier que `CATALOG_GITHUB_TOKEN` est configuré
-3. **Permissions** : Le token doit avoir accès en écriture au repository `askme-rancher-catalog-ready`
+3. **Permissions** : Le token doit avoir accès en écriture au repository `askme-rancher-catalog`
 4. **Branche cible** : Vérifier que la branche `prod` existe dans le catalog
 
 **Debug** :
@@ -814,8 +814,8 @@ COPY --chown=node:node ./frontend/package*.json ./
 # Repository askme-app-aoai → Actions → [Workflow run]
 
 # Vérifier les changements dans le catalog
-git clone https://github.com/avanteam/askme-rancher-catalog-ready.git
-cd askme-rancher-catalog-ready
+git clone https://github.com/avanteam/askme-rancher-catalog.git
+cd askme-rancher-catalog
 git checkout prod
 git log --oneline -n 5  # Voir les derniers commits automatiques
 ```
@@ -823,7 +823,7 @@ git log --oneline -n 5  # Voir les derniers commits automatiques
 **Solutions** :
 - Régénérer le token GitHub si expiré
 - Vérifier les permissions du token sur le repository catalog
-- Contrôler que la branche `prod` existe dans askme-rancher-catalog-ready
+- Contrôler que la branche `prod` existe dans askme-rancher-catalog
 
 ### Documentation Complète
 - **`CICD_DEPLOYMENT_GUIDE.md`** : Guide complet du pipeline CI/CD
@@ -853,7 +853,7 @@ kubectl rollout undo deployment/askme-app -n askme-app
 echo "🔍 Vérifier : https://github.com/avanteam/askme-app-aoai/actions"
 
 # 2. Vérifier le catalog mis à jour
-git clone https://github.com/avanteam/askme-rancher-catalog-ready.git /tmp/catalog
+git clone https://github.com/avanteam/askme-rancher-catalog.git /tmp/catalog
 cd /tmp/catalog
 git checkout prod
 echo "📦 Dernière version dans le catalog :"
