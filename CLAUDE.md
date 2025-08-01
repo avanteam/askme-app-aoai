@@ -87,6 +87,33 @@ start.cmd   # Builds frontend, installs dependencies, starts backend
 ./start.sh  # Builds frontend, installs dependencies, starts backend
 ```
 
+### Docker Development
+
+#### Local Docker Build and Test
+```powershell
+# Windows PowerShell - Local development
+.\deploy-local.ps1 build    # Build Docker image locally
+.\deploy-local.ps1 run      # Run container on localhost:50505
+.\deploy-local.ps1 stop     # Stop and remove container
+```
+
+#### Production Deployment to OVH Kubernetes avec Helm
+```bash
+# Déploiement client principal
+./deploy-helm-client.sh askme.avanteam-online.com deploy
+
+# Déploiement client QSaaS
+./deploy-helm-client.sh askme-qsaas.avanteam-online.com deploy
+
+# Build local pour tests
+.\deploy-local.ps1 build
+.\deploy-local.ps1 run      # Test sur localhost:50505
+```
+
+#### CI/CD Deployment
+- **Automatic**: Push to `main` or `test-rg2` triggers GitHub Actions
+- **Manual**: GitHub → Actions → "Deploy AskMe to OVH Kubernetes" → Run workflow
+
 ### Testing
 ```bash
 # Frontend tests (from /frontend)
@@ -137,8 +164,9 @@ The application supports multiple data sources configured via environment variab
 
 ### Deployment
 - **Docker**: `WebApp.Dockerfile` for containerized deployment
-- **Azure**: Bicep templates in `/infra` for infrastructure as code
-- **Azure Developer CLI**: Configured via `azure.yaml`
+- **Helm Multi-Client**: Chart Helm dans `/helm-chart` pour déploiement multi-client
+- **OVH Kubernetes**: Architecture Helm multi-client avec Harbor registry integration
+- **GitHub Actions**: Automated deployment workflow (`.github/workflows/deploy.yml`)
 
 ## Key Development Considerations
 
@@ -619,4 +647,241 @@ AskMe: Configuration modifiée avec succès. Les réponses seront maintenant cou
 Utilisateur: Crée une nouvelle conversation
 AskMe: Nouvelle conversation créée avec succès.
 [L'interface se réinitialise avec une conversation vide]
+```
+
+## CI/CD et Déploiement OVH Kubernetes
+
+L'application dispose d'un pipeline CI/CD complet pour déployer automatiquement sur l'infrastructure Kubernetes OVH.
+
+### Infrastructure OVH
+
+#### Cluster Kubernetes
+- **Provider**: OVH Managed Kubernetes
+- **Registry**: Harbor registry privé OVH (`7wpjr0wh.c1.gra9.container-registry.ovh.net`)
+- **Domain**: `askme.avanteam-online.com` avec certificats SSL Let's Encrypt
+- **Namespace**: `askme-app`
+
+### Pipeline GitHub Actions
+
+#### Workflow Principal (`.github/workflows/deploy.yml`)
+**Déclencheurs automatiques :**
+- Push sur `main` → Déploiement production
+- Push sur `test-rg2` → Déploiement staging
+- Pull Request → Tests uniquement
+
+**Pipeline en 4 étapes :**
+1. **🧪 Tests** : Python pytest + Frontend npm test + ESLint
+2. **🐳 Build** : Docker build multi-stage + push vers Harbor
+3. **☸️ Deploy** : Déploiement Kubernetes avec kubectl
+4. **📢 Notify** : Notifications de succès/échec
+
+#### Configuration des Secrets GitHub
+Secrets requis dans GitHub Repository Settings :
+```
+HARBOR_USERNAME     # Username Harbor Registry OVH
+HARBOR_PASSWORD     # Password Harbor Registry OVH  
+KUBE_CONFIG        # Fichier kubeconfig encodé en base64
+```
+
+### Scripts de Déploiement
+
+#### Architecture Helm Multi-Client
+Le projet utilise maintenant Helm pour supporter le déploiement multi-client :
+
+**Scripts de Déploiement :**
+- **`deploy-helm-client.sh`** : Script Linux/WSL pour déploiement Helm multi-client
+- **`deploy-helm-client.ps1`** : Script Windows PowerShell pour déploiement Helm multi-client
+- **`helm-status-all.sh`** : Monitoring global de tous les clients déployés
+- **`deploy-local.ps1`** : Build et test local Docker (conservé)
+
+**Structure Multi-Client :**
+```
+helm-chart/                    # Chart Helm principal
+deployments/clients/           # Configurations spécifiques clients
+├── askme.avanteam-online.com/
+└── askme-qsaas.avanteam-online.com/
+```
+
+**Commandes de Déploiement :**
+```bash
+# Déployer un client spécifique
+./deploy-helm-client.sh <client-domain> deploy
+
+# Mettre à jour un client
+./deploy-helm-client.sh <client-domain> upgrade v1.2.0
+
+# Status de tous les clients
+./helm-status-all.sh
+```
+
+### Workflow de Développement
+
+#### Développement Standard
+```bash
+# 1. Développement local
+git checkout test-rg2
+# ... modifications du code ...
+
+# 2. Build et test local (optionnel)
+.\deploy-local.ps1 build
+.\deploy-local.ps1 run     # Test sur localhost:50505
+
+# 3. Commit et push pour tests
+git add .
+git commit -m "feat: nouvelle fonctionnalité"
+git push origin test-rg2
+# → Tests et build automatique (pas de catalog sync)
+
+# 4. Vérification développement sur environnement staging
+```
+
+#### Workflow Release avec Synchronisation Rancher Catalog
+
+**🎯 Process de Release Automatique :**
+```bash
+# 1. Développement terminé et testé sur test-rg2
+git checkout test-rg2
+git push origin test-rg2  # Derniers tests
+
+# 2. Prêt pour release : merger vers branche prod
+git checkout prod
+git merge test-rg2
+git push origin prod
+
+# 3. Créer tag de version (DÉCLENCHEUR du catalog Rancher)
+git tag v1.0.2
+git push origin v1.0.2
+
+# 4. 🚀 GitHub Actions pipeline automatique :
+# ✅ Tests complets (Python + Frontend + Linting)
+# ✅ Build Docker image avec tag v1.0.2
+# ✅ Push vers Harbor Registry OVH
+# ✅ Deploy sur Kubernetes
+# ✅ 📦 NOUVEAU: Synchronisation Rancher Catalog automatique
+# ✅ Version v1.0.2 disponible dans Rancher UI
+```
+
+**📋 Déclencheurs Workflow GitHub Actions :**
+
+| Action | Branch/Tag | Pipeline Déclenché | Catalog Sync |
+|--------|------------|-------------------|--------------|
+| Push code | `test-rg2` | ✅ Tests + Build + Deploy | ❌ Non |
+| Push code | `main` | ✅ Tests + Build + Deploy | ❌ Non |
+| **Push tag** | **`v*` depuis `prod`** | **✅ Tests + Build + Deploy** | **✅ OUI** |
+| Pull Request | vers `main` | ✅ Tests seulement | ❌ Non |
+
+**🔧 Configuration Requise :**
+- **Secret GitHub** : `CATALOG_GITHUB_TOKEN` (Personal Access Token)
+- **Repository cible** : `askme-rancher-catalog-ready` branche `prod`
+- **Format de tag** : `v1.0.0`, `v1.2.3`, etc.
+
+**📦 Synchronisation Automatique :**
+- Met à jour `charts/askme/Chart.yaml` (version + appVersion)
+- Met à jour `charts/askme/values.yaml` (image tag)
+- Met à jour `index.yaml` (version + timestamp)
+- Commit automatique et push vers branche `prod`
+- Nouvelle version immédiatement disponible dans Rancher UI
+
+### Résolution des Problèmes Courants
+
+#### Images Docker Non Mises à Jour
+**Problème** : Kubernetes utilise l'image en cache même après un nouveau build
+
+**Solutions** :
+1. **Tags avec timestamp** : `./deploy.ps1 deploy` utilise des tags uniques
+2. **Force pull** : `imagePullPolicy: Always` dans les manifestes K8s
+3. **Rollout restart** : `kubectl rollout restart deployment/askme-app -n askme-app`
+
+#### Dockerfile Permissions Issues
+**Correction appliquée** : Ajout de `--chown=node:node` pour les fichiers package.json
+```dockerfile
+COPY --chown=node:node ./frontend/package*.json ./
+```
+
+#### Problèmes de Synchronisation Rancher Catalog
+
+**Problème** : Le catalog Rancher n'est pas mis à jour après un tag de version
+
+**Vérifications** :
+1. **GitHub Actions** : Vérifier que le workflow s'est déclenché sur le tag
+2. **Secret Token** : Vérifier que `CATALOG_GITHUB_TOKEN` est configuré
+3. **Permissions** : Le token doit avoir accès en écriture au repository `askme-rancher-catalog-ready`
+4. **Branche cible** : Vérifier que la branche `prod` existe dans le catalog
+
+**Debug** :
+```bash
+# Vérifier les logs GitHub Actions
+# Repository askme-app-aoai → Actions → [Workflow run]
+
+# Vérifier les changements dans le catalog
+git clone https://github.com/avanteam/askme-rancher-catalog-ready.git
+cd askme-rancher-catalog-ready
+git checkout prod
+git log --oneline -n 5  # Voir les derniers commits automatiques
+```
+
+**Solutions** :
+- Régénérer le token GitHub si expiré
+- Vérifier les permissions du token sur le repository catalog
+- Contrôler que la branche `prod` existe dans askme-rancher-catalog-ready
+
+### Documentation Complète
+- **`CICD_DEPLOYMENT_GUIDE.md`** : Guide complet du pipeline CI/CD
+- **`DOCUMENTATION_DEPLOYMENT_KUBERNETES_OVH.md`** : Infrastructure OVH détaillée
+- **`GITHUB_SECRETS_SETUP.md`** : Configuration des secrets GitHub
+
+### Monitoring et Debug
+
+#### Monitoring Kubernetes
+```bash
+# Status du déploiement
+kubectl get pods -n askme-app
+kubectl get services -n askme-app
+kubectl get ingress -n askme-app
+
+# Logs applicatifs
+kubectl logs deployment/askme-app -n askme-app --tail=50
+
+# Rollback si nécessaire
+kubectl rollout undo deployment/askme-app -n askme-app
+```
+
+#### Monitoring Rancher Catalog
+```bash
+# Vérifier la synchronisation du catalog après un tag
+# 1. Vérifier GitHub Actions
+echo "🔍 Vérifier : https://github.com/avanteam/askme-app-aoai/actions"
+
+# 2. Vérifier le catalog mis à jour
+git clone https://github.com/avanteam/askme-rancher-catalog-ready.git /tmp/catalog
+cd /tmp/catalog
+git checkout prod
+echo "📦 Dernière version dans le catalog :"
+grep "version:" charts/askme/Chart.yaml
+grep "appVersion:" charts/askme/Chart.yaml
+grep "tag:" charts/askme/values.yaml
+
+# 3. Vérifier dans Rancher UI
+echo "🌐 Vérifier dans Rancher : Apps & Marketplace → Charts → AskMe"
+echo "   → Nouvelle version disponible dans le dropdown"
+```
+
+#### Debug Pipeline Release
+```bash
+# En cas de problème de synchronisation
+# 1. Vérifier les secrets GitHub
+echo "🔑 GitHub Secrets nécessaires :"
+echo "- HARBOR_USERNAME (Harbor Registry)"
+echo "- HARBOR_PASSWORD (Harbor Registry)" 
+echo "- KUBE_CONFIG (Kubernetes cluster)"
+echo "- CATALOG_GITHUB_TOKEN (Rancher Catalog sync)"
+
+# 2. Tester manuellement la synchronisation
+git tag v1.0.0-test
+git push origin v1.0.0-test
+echo "🚀 Pipeline déclenché : vérifier dans GitHub Actions"
+
+# 3. Nettoyer le tag de test
+git push --delete origin v1.0.0-test
+git tag -d v1.0.0-test
 ```

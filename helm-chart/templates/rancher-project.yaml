@@ -1,0 +1,31 @@
+{{- if .Values.rancher.enabled }}
+apiVersion: management.cattle.io/v3
+kind: Project
+metadata:
+  name: {{ .Values.client.name }}-project
+  namespace: {{ .Values.rancher.managementNamespace | default "cattle-system" }}
+  labels:
+    app.kubernetes.io/name: {{ include "askme.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    askme.client: {{ .Values.client.name }}
+spec:
+  clusterName: {{ .Values.rancher.clusterName }}
+  displayName: "AskMe - {{ .Values.client.name | title }}"
+  description: "Projet Rancher pour le client {{ .Values.client.domain }}"
+  resourceQuota:
+    limit:
+      limitsCpu: {{ .Values.rancher.resourceQuota.cpu | quote }}
+      limitsMemory: {{ .Values.rancher.resourceQuota.memory | quote }}
+      persistentVolumeClaims: {{ .Values.rancher.resourceQuota.storage | quote }}
+    usedLimit: {}
+  namespaceDefaultResourceQuota:
+    limit:
+      limitsCpu: {{ .Values.rancher.resourceQuota.cpu | quote }}
+      limitsMemory: {{ .Values.rancher.resourceQuota.memory | quote }}
+  containerDefaultResourceLimit:
+    limitsCpu: {{ .Values.resources.limits.cpu | quote }}
+    limitsMemory: {{ .Values.resources.limits.memory | quote }}
+    requestsCpu: {{ .Values.resources.requests.cpu | quote }}
+    requestsMemory: {{ .Values.resources.requests.memory | quote }}
+{{- end }}

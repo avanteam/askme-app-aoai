@@ -91,7 +91,7 @@ def generateFilterStringFromFullDef(fullDef):
     return f"{AZURE_SEARCH_PERMITTED_GROUPS_COLUMN}/any(g:search.in(g, '{group_ids}'))"
 
 
-def format_non_streaming_response(chatCompletion, history_metadata, apim_request_id):
+def format_non_streaming_response(chatCompletion, history_metadata, apim_request_id, provider_name=None):
     response_obj = {
         "id": chatCompletion.id,
         "model": chatCompletion.model,
@@ -110,7 +110,8 @@ def format_non_streaming_response(chatCompletion, history_metadata, apim_request
                 citation_count = 0
                 if hasattr(message.context, 'citations') and message.context.citations:
                     citation_count = len(message.context.citations)
-                print(f"🔍 AZURE_OPENAI_RESPONSE: Received {citation_count} citations from Azure OpenAI")
+                provider_display = provider_name or "AZURE_OPENAI"
+                print(f"🔍 {provider_display}_RESPONSE: Received {citation_count} citations from {provider_display}")
                 
                 response_obj["choices"][0]["messages"].append(
                     {
@@ -128,7 +129,7 @@ def format_non_streaming_response(chatCompletion, history_metadata, apim_request
 
     return {}
 
-def format_stream_response(chatCompletionChunk, history_metadata, apim_request_id):
+def format_stream_response(chatCompletionChunk, history_metadata, apim_request_id, provider_name=None):
     response_obj = {
         "id": chatCompletionChunk.id,
         "model": chatCompletionChunk.model,
@@ -148,7 +149,8 @@ def format_stream_response(chatCompletionChunk, history_metadata, apim_request_i
                 citation_count = 0
                 if hasattr(delta.context, 'citations') and delta.context.citations:
                     citation_count = len(delta.context.citations)
-                print(f"🔍 AZURE_OPENAI_STREAMING: Received {citation_count} citations from Azure OpenAI")
+                provider_display = provider_name or "AZURE_OPENAI"
+                print(f"🔍 {provider_display}_STREAMING: Received {citation_count} citations from {provider_display}")
                 
                 messageObj = {"role": "tool", "content": json.dumps(delta.context)}
                 response_obj["choices"][0]["messages"].append(messageObj)

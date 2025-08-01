@@ -909,8 +909,8 @@ class _BaseSettings(BaseSettings):
     auth_enabled: bool = True
     sanitize_answer: bool = False
     use_promptflow: bool = False
-    llm_provider: str = "AZURE_OPENAI"  # Can be AZURE_OPENAI, CLAUDE, OPENAI_DIRECT, MISTRAL, or GEMINI
-    available_llm_providers: Optional[List[str]] = ["AZURE_OPENAI", "CLAUDE", "OPENAI_DIRECT", "MISTRAL", "GEMINI"]  # List of providers to expose in UI
+    llm_provider: str = "CLAUDE"  # Default provider - can be overridden by env var
+    available_llm_providers: Optional[List[str]] = None  # List of providers to expose in UI - loaded from env var
     citation_content_max_length: int = 1000  # Maximum length for citation content displayed in UI
     
     # Voice Features Configuration
@@ -964,7 +964,23 @@ class _BaseSettings(BaseSettings):
         if isinstance(comma_separated_string, str) and len(comma_separated_string) > 0:
             return parse_multi_columns(comma_separated_string)
         
-        return ["AZURE_OPENAI", "CLAUDE", "OPENAI_DIRECT", "MISTRAL", "GEMINI"]
+        # No fallback - if no config provided, return empty list
+        return []
+    
+    @model_validator(mode="after")
+    def validate_llm_provider_in_available_list(self) -> Self:
+        """Ensure the default LLM provider is in the available providers list."""
+        if not self.available_llm_providers:
+            # No providers configured - log error and keep default
+            logging.error("AVAILABLE_LLM_PROVIDERS is empty or not configured. Please set this environment variable.")
+            return self
+            
+        if self.llm_provider not in self.available_llm_providers:
+            # Default provider not in available list, use the first available one
+            old_provider = self.llm_provider
+            self.llm_provider = self.available_llm_providers[0]
+            logging.warning(f"Default LLM provider '{old_provider}' not in available list {self.available_llm_providers}. Using '{self.llm_provider}' instead.")
+        return self
 
 
 class _AppSettings(BaseModel):

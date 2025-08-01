@@ -75,6 +75,14 @@ class OpenAIDirectProvider(LLMProvider):
             
         try:
             # Check if we have OpenAI settings
+            self.logger.debug(f"Checking OpenAI Direct configuration...")
+            self.logger.debug(f"Has openai_direct attr: {hasattr(app_settings, 'openai_direct')}")
+            
+            if hasattr(app_settings, 'openai_direct'):
+                self.logger.debug(f"openai_direct.api_key exists: {hasattr(app_settings.openai_direct, 'api_key')}")
+                if hasattr(app_settings.openai_direct, 'api_key'):
+                    self.logger.debug(f"API key value: {'***' if app_settings.openai_direct.api_key else 'None'}")
+            
             if not hasattr(app_settings, 'openai_direct') or not app_settings.openai_direct.api_key:
                 raise ValueError("OpenAI Direct API key not configured")
             
