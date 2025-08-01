@@ -726,23 +726,61 @@ git checkout test-rg2
 .\deploy-local.ps1 build
 .\deploy-local.ps1 run     # Test sur localhost:50505
 
-# 3. Commit et push
+# 3. Commit et push pour tests
 git add .
 git commit -m "feat: nouvelle fonctionnalité"
 git push origin test-rg2
-# → Déclenchement automatique du pipeline GitHub Actions
+# → Tests et build automatique (pas de catalog sync)
 
-# 4. Vérification sur https://askme.avanteam-online.com
+# 4. Vérification développement sur environnement staging
 ```
 
-#### Mise en Production
+#### Workflow Release avec Synchronisation Rancher Catalog
+
+**🎯 Process de Release Automatique :**
 ```bash
-# Après validation sur test-rg2
-git checkout main
+# 1. Développement terminé et testé sur test-rg2
+git checkout test-rg2
+git push origin test-rg2  # Derniers tests
+
+# 2. Prêt pour release : merger vers branche prod
+git checkout prod
 git merge test-rg2
-git push origin main
-# → Déploiement automatique en production
+git push origin prod
+
+# 3. Créer tag de version (DÉCLENCHEUR du catalog Rancher)
+git tag v1.0.2
+git push origin v1.0.2
+
+# 4. 🚀 GitHub Actions pipeline automatique :
+# ✅ Tests complets (Python + Frontend + Linting)
+# ✅ Build Docker image avec tag v1.0.2
+# ✅ Push vers Harbor Registry OVH
+# ✅ Deploy sur Kubernetes
+# ✅ 📦 NOUVEAU: Synchronisation Rancher Catalog automatique
+# ✅ Version v1.0.2 disponible dans Rancher UI
 ```
+
+**📋 Déclencheurs Workflow GitHub Actions :**
+
+| Action | Branch/Tag | Pipeline Déclenché | Catalog Sync |
+|--------|------------|-------------------|--------------|
+| Push code | `test-rg2` | ✅ Tests + Build + Deploy | ❌ Non |
+| Push code | `main` | ✅ Tests + Build + Deploy | ❌ Non |
+| **Push tag** | **`v*` depuis `prod`** | **✅ Tests + Build + Deploy** | **✅ OUI** |
+| Pull Request | vers `main` | ✅ Tests seulement | ❌ Non |
+
+**🔧 Configuration Requise :**
+- **Secret GitHub** : `CATALOG_GITHUB_TOKEN` (Personal Access Token)
+- **Repository cible** : `askme-rancher-catalog-ready` branche `prod`
+- **Format de tag** : `v1.0.0`, `v1.2.3`, etc.
+
+**📦 Synchronisation Automatique :**
+- Met à jour `charts/askme/Chart.yaml` (version + appVersion)
+- Met à jour `charts/askme/values.yaml` (image tag)
+- Met à jour `index.yaml` (version + timestamp)
+- Commit automatique et push vers branche `prod`
+- Nouvelle version immédiatement disponible dans Rancher UI
 
 ### Résolution des Problèmes Courants
 
@@ -760,12 +798,41 @@ git push origin main
 COPY --chown=node:node ./frontend/package*.json ./
 ```
 
+#### Problèmes de Synchronisation Rancher Catalog
+
+**Problème** : Le catalog Rancher n'est pas mis à jour après un tag de version
+
+**Vérifications** :
+1. **GitHub Actions** : Vérifier que le workflow s'est déclenché sur le tag
+2. **Secret Token** : Vérifier que `CATALOG_GITHUB_TOKEN` est configuré
+3. **Permissions** : Le token doit avoir accès en écriture au repository `askme-rancher-catalog-ready`
+4. **Branche cible** : Vérifier que la branche `prod` existe dans le catalog
+
+**Debug** :
+```bash
+# Vérifier les logs GitHub Actions
+# Repository askme-app-aoai → Actions → [Workflow run]
+
+# Vérifier les changements dans le catalog
+git clone https://github.com/avanteam/askme-rancher-catalog-ready.git
+cd askme-rancher-catalog-ready
+git checkout prod
+git log --oneline -n 5  # Voir les derniers commits automatiques
+```
+
+**Solutions** :
+- Régénérer le token GitHub si expiré
+- Vérifier les permissions du token sur le repository catalog
+- Contrôler que la branche `prod` existe dans askme-rancher-catalog-ready
+
 ### Documentation Complète
 - **`CICD_DEPLOYMENT_GUIDE.md`** : Guide complet du pipeline CI/CD
 - **`DOCUMENTATION_DEPLOYMENT_KUBERNETES_OVH.md`** : Infrastructure OVH détaillée
 - **`GITHUB_SECRETS_SETUP.md`** : Configuration des secrets GitHub
 
 ### Monitoring et Debug
+
+#### Monitoring Kubernetes
 ```bash
 # Status du déploiement
 kubectl get pods -n askme-app
@@ -777,4 +844,44 @@ kubectl logs deployment/askme-app -n askme-app --tail=50
 
 # Rollback si nécessaire
 kubectl rollout undo deployment/askme-app -n askme-app
+```
+
+#### Monitoring Rancher Catalog
+```bash
+# Vérifier la synchronisation du catalog après un tag
+# 1. Vérifier GitHub Actions
+echo "🔍 Vérifier : https://github.com/avanteam/askme-app-aoai/actions"
+
+# 2. Vérifier le catalog mis à jour
+git clone https://github.com/avanteam/askme-rancher-catalog-ready.git /tmp/catalog
+cd /tmp/catalog
+git checkout prod
+echo "📦 Dernière version dans le catalog :"
+grep "version:" charts/askme/Chart.yaml
+grep "appVersion:" charts/askme/Chart.yaml
+grep "tag:" charts/askme/values.yaml
+
+# 3. Vérifier dans Rancher UI
+echo "🌐 Vérifier dans Rancher : Apps & Marketplace → Charts → AskMe"
+echo "   → Nouvelle version disponible dans le dropdown"
+```
+
+#### Debug Pipeline Release
+```bash
+# En cas de problème de synchronisation
+# 1. Vérifier les secrets GitHub
+echo "🔑 GitHub Secrets nécessaires :"
+echo "- HARBOR_USERNAME (Harbor Registry)"
+echo "- HARBOR_PASSWORD (Harbor Registry)" 
+echo "- KUBE_CONFIG (Kubernetes cluster)"
+echo "- CATALOG_GITHUB_TOKEN (Rancher Catalog sync)"
+
+# 2. Tester manuellement la synchronisation
+git tag v1.0.0-test
+git push origin v1.0.0-test
+echo "🚀 Pipeline déclenché : vérifier dans GitHub Actions"
+
+# 3. Nettoyer le tag de test
+git push --delete origin v1.0.0-test
+git tag -d v1.0.0-test
 ```
