@@ -13,29 +13,28 @@ env:
   KUBERNETES_NAMESPACE: askme-app
 
 jobs:
-  # Job 1: Tests et validation
+  # Job 1: Frontend Tests et Linting
   test:
-    name: 🧪 Tests et Linting
+    name: 🧪 Frontend Tests & Linting
     runs-on: ubuntu-latest
     
     steps:
     - name: 📥 Checkout du code
       uses: actions/checkout@v4
 
-    - name: 🐍 Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-
-    - name: 📦 Installation des dépendances Python
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r requirements-dev.txt
-
-    - name: 🧪 Tests Python
-      run: |
-        python -m pytest tests/ -v
+    # Python setup supprimé - non nécessaire pour frontend tests/linting uniquement
+    # Les tests Python nécessitent des clés API LLM et doivent être exécutés localement
+    # - name: 🐍 Setup Python
+    #   uses: actions/setup-python@v4
+    #   with:
+    #     python-version: '3.11'
+    # - name: 📦 Installation des dépendances Python
+    #   run: |
+    #     python -m pip install --upgrade pip
+    #     pip install -r requirements.txt
+    # - name: 🧪 Tests Python
+    #   run: |
+    #     python -m pytest tests/ -v
 
     - name: 📱 Setup Node.js
       uses: actions/setup-node@v4
