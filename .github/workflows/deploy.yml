@@ -103,97 +103,7 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-  # Job 3: Déploiement sur Kubernetes
-  deploy:
-    name: ☸️ Deploy to Kubernetes
-    runs-on: ubuntu-latest
-    needs: build
-    # Seulement sur prod (staging) et tags (production) - PAS sur test-rg2
-    if: github.ref == 'refs/heads/prod' || startsWith(github.ref, 'refs/tags/v')
-    environment: 
-      name: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
-      url: https://askme.avanteam-online.com
-    
-    steps:
-    - name: 📥 Checkout du code
-      uses: actions/checkout@v4
-
-    - name: ☸️ Configuration de kubectl
-      uses: azure/setup-kubectl@v3
-      with:
-        version: 'latest'
-
-    - name: 🔐 Configuration du cluster Kubernetes
-      run: |
-        mkdir -p ~/.kube
-        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
-        chmod 600 ~/.kube/config
-
-    - name: 🔍 Vérification de la connexion
-      run: |
-        kubectl cluster-info
-        kubectl get nodes
-
-    - name: 🏷️ Extraction du tag d'image
-      id: image
-      run: |
-        # Prendre le premier tag de la liste (le plus récent)
-        IMAGE_TAG=$(echo "${{ needs.build.outputs.image-tag }}" | head -n1)
-        echo "tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
-        echo "🏷️ Tag sélectionné: ${IMAGE_TAG}"
-
-    - name: 🚀 Déploiement des manifestes Kubernetes
-      run: |
-        # Application des manifestes de base
-        kubectl apply -f k8s/namespace.yaml
-        kubectl apply -f k8s/configmap.yaml
-        
-        # Note: secret.yaml n'est pas appliqué car il contient des clés réelles
-        # Les secrets doivent être gérés séparément et appliqués manuellement
-        
-        kubectl apply -f k8s/deployment.yaml
-        kubectl apply -f k8s/service.yaml
-        kubectl apply -f k8s/ingress.yaml
-        kubectl apply -f k8s/letsencrypt-issuer.yaml
-
-    - name: 🔄 Mise à jour de l'image du déploiement
-      run: |
-        kubectl set image deployment/askme-app \
-          askme-app=${{ steps.image.outputs.tag }} \
-          -n ${{ env.KUBERNETES_NAMESPACE }}
-
-    - name: ⏳ Attente du déploiement
-      run: |
-        kubectl rollout status deployment/askme-app \
-          -n ${{ env.KUBERNETES_NAMESPACE }} \
-          --timeout=300s
-
-    - name: ✅ Vérification du déploiement
-      run: |
-        echo "📊 État des pods:"
-        kubectl get pods -n ${{ env.KUBERNETES_NAMESPACE }}
-        
-        echo "🌐 État des services:"
-        kubectl get services -n ${{ env.KUBERNETES_NAMESPACE }}
-        
-        echo "🚪 État de l'ingress:"
-        kubectl get ingress -n ${{ env.KUBERNETES_NAMESPACE }}
-
-    - name: 🧪 Test de santé de l'application
-      run: |
-        # Attendre que l'application soit prête
-        sleep 30
-        
-        # Test HTTP
-        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://askme.avanteam-online.com || echo "000")
-        if [ "$HTTP_CODE" = "200" ]; then
-          echo "✅ Application accessible (HTTP $HTTP_CODE)"
-        else
-          echo "❌ Application non accessible (HTTP $HTTP_CODE)"
-          exit 1
-        fi
-
-  # Job 4: Synchronisation du Rancher Catalog
+  # Job 3: Synchronisation du Rancher Catalog
   update-catalog:
     name: 📦 Update Rancher Catalog
     runs-on: ubuntu-latest
@@ -281,32 +191,33 @@ jobs:
         
         echo "✅ Catalog Rancher mis à jour avec la version ${{ steps.version.outputs.version }}"
 
-  # Job 5: Notification de déploiement
+  # Job 4: Notification de build
   notify:
     name: 📢 Notification
     runs-on: ubuntu-latest
-    needs: [test, build, deploy, update-catalog]
-    # Seulement si des jobs build/deploy ont été exécutés
-    if: always() && (needs.build.result != 'skipped' || needs.deploy.result != 'skipped')
+    needs: [test, build, update-catalog]
+    # Seulement si des jobs build ont été exécutés
+    if: always() && needs.build.result != 'skipped'
     
     steps:
     - name: 📧 Notification de succès
-      if: needs.deploy.result == 'success'
+      if: needs.build.result == 'success'
       run: |
-        echo "✅ Déploiement réussi !"
-        echo "🌐 Application disponible : https://askme.avanteam-online.com"
-        echo "🏷️ Image : ${{ needs.build.outputs.image-tag }}"
+        echo "✅ Build réussi !"
+        echo "🐳 Image Docker : ${{ needs.build.outputs.image-tag }}"
+        echo "📦 Image disponible dans Harbor Registry"
         
         if [[ "${{ needs.update-catalog.result }}" == "success" ]]; then
           echo "📦 Catalog Rancher synchronisé avec succès"
+          echo "🌐 Nouvelle version disponible dans Rancher UI"
         elif [[ "${{ needs.update-catalog.result }}" == "skipped" ]]; then
-          echo "📦 Synchronisation catalog ignorée (conditions non remplies)"
+          echo "📦 Synchronisation catalog ignorée (push sur branche, pas tag)"
         else
           echo "⚠️ Problème avec la synchronisation du catalog"
         fi
 
     - name: 📧 Notification d'échec
-      if: needs.deploy.result == 'failure'
+      if: needs.build.result == 'failure'
       run: |
-        echo "❌ Déploiement échoué !"
+        echo "❌ Build échoué !"
         echo "🔍 Vérifiez les logs des étapes précédentes"
