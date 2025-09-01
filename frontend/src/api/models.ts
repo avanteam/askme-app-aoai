@@ -40,10 +40,7 @@ export type AzureSqlServerExecResults = {
 export type ChatMessage = {
   id: string
   role: string
-  content: string | Array<
-    | { type: "text"; text: string }
-    | { type: "image_url"; image_url: { url: string } }
-  >
+  content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>
   end_turn?: boolean
   date: string
   feedback?: Feedback
@@ -147,7 +144,7 @@ export type UI = {
   chat_logo?: string
   show_share_button?: boolean
   show_chat_history_button?: boolean
-  show_export_button?: boolean 
+  show_export_button?: boolean
 }
 
 export type FrontendSettings = {

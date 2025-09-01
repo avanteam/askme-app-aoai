@@ -15,12 +15,12 @@ import styles from './Chat.module.css'
 import Contoso from '../../assets/Contoso.svg'
 import { XSSAllowTags } from '../../constants/sanatizeAllowables'
 
-import {encryptString} from '../../utils/encryptAES'
+import { encryptString } from '../../utils/encryptAES'
 
-import Snackbar from '@mui/material/Snackbar';
-import Alert from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar'
+import Alert from '@mui/material/Alert'
 
-import LocalizedStrings from 'react-localization';
+import LocalizedStrings from 'react-localization'
 
 import {
   ChatMessage,
@@ -41,12 +41,12 @@ import {
   ExecResults,
   authenticate,
   getTokenStatus
-} from "../../api";
-import { Answer } from "../../components/Answer";
-import { QuestionInput } from "../../components/QuestionInput";
-import { ChatHistoryPanel } from "../../components/ChatHistory/ChatHistoryPanel";
-import { AppStateContext } from "../../state/AppProvider";
-import { useBoolean } from "@fluentui/react-hooks";
+} from '../../api'
+import { Answer } from '../../components/Answer'
+import { QuestionInput } from '../../components/QuestionInput'
+import { ChatHistoryPanel } from '../../components/ChatHistory/ChatHistoryPanel'
+import { AppStateContext } from '../../state/AppProvider'
+import { useBoolean } from '@fluentui/react-hooks'
 
 const enum messageStatus {
   NotRunning = 'Not Running',
@@ -75,21 +75,20 @@ const Chat = () => {
   const [logo, setLogo] = useState('')
   const [answerId, setAnswerId] = useState<string>('')
 
+  const [token, setToken] = useState<string>('')
 
-  const [token, setToken] = useState<string>("");
+  const [alertWarnTokens, setAlertWarnTokens] = useState(false)
+  const [alertErrTokens, setAlertErrTokens] = useState(false)
+  const [shouldDisplayInput, setShouldDisplayInput] = useState(false)
+  const [errAlertMsg, setErrAlertMsg] = useState<string>('')
+  const [currentUser, setCurrentUser] = useState<string>('')
+  const [encryptedCurrentUser, setEncryptedCurrentUser] = useState<string>('')
+  const [userFullDef, setUserFullDef] = useState<string>('')
+  const [appReady, setAppReady] = useState(false)
 
-  const [alertWarnTokens, setAlertWarnTokens] = useState(false);
-  const [alertErrTokens, setAlertErrTokens] = useState(false);
-  const [shouldDisplayInput, setShouldDisplayInput] = useState(false);
-  const [errAlertMsg, setErrAlertMsg] = useState<string>("");
-  const [currentUser, setCurrentUser] = useState<string>("");
-  const [encryptedCurrentUser, setEncryptedCurrentUser] = useState<string>("");
-  const [userFullDef, setUserFullDef] = useState<string>("");
-  const [appReady, setAppReady] = useState(false);
-  
   // Voice recognition functions from QuestionInput
   const [pauseVoiceRecognition, setPauseVoiceRecognition] = useState<(() => void) | undefined>(undefined)
-  const [resumeVoiceRecognition, setResumeVoiceRecognition] = useState<(() => void) | undefined>(undefined) 
+  const [resumeVoiceRecognition, setResumeVoiceRecognition] = useState<(() => void) | undefined>(undefined)
 
   const handleVoiceRecognitionReady = (pause: () => void, resume: () => void) => {
     setPauseVoiceRecognition(() => pause)
@@ -97,13 +96,12 @@ const Chat = () => {
   }
 
   const handleCloseAlert = (event?: React.SyntheticEvent | Event, reason?: string) => {
-      if (reason == "clickaway"){
-          return;
-      }
-      setAlertWarnTokens(false);
+    if (reason == 'clickaway') {
+      return
+    }
+    setAlertWarnTokens(false)
   }
 
-  
   const errorDialogContentProps = {
     type: DialogType.close,
     title: errorMsg?.title,
@@ -121,20 +119,16 @@ const Chat = () => {
   const [ASSISTANT, TOOL, ERROR] = ['assistant', 'tool', 'error']
   const NO_CONTENT_ERROR = 'No content in messages object.'
 
-
-
   // Notification à l'application parent qu'on est prêt
   useEffect(() => {
-    if(appReady){
-
+    if (appReady) {
       const message = {
-        action: "AskMeReady",
-      };
-      console.log("AskMe prêt, notification.");
-      window.parent.postMessage(message, "*");
+        action: 'AskMeReady'
+      }
+      console.log('AskMe prêt, notification.')
+      window.parent.postMessage(message, '*')
     }
-      
-  }, [appReady]);
+  }, [appReady])
 
   useEffect(() => {
     if (
@@ -172,71 +166,68 @@ const Chat = () => {
   /* Gestion de l'auth */
   useEffect(() => {
     const handleMessage = async (event: any) => {
-      
-      if (event.data.InitialQuestion){
-        appStateContext?.dispatch({ type: 'SET_INITIAL_QUESTION', payload: event.data.InitialQuestion });
+      if (event.data.InitialQuestion) {
+        appStateContext?.dispatch({ type: 'SET_INITIAL_QUESTION', payload: event.data.InitialQuestion })
       }
 
       if (event.data.AuthToken) {
         // Définition de la langue de l'appli
-        localizedStrings.setLanguage((event.data.Language) ? event.data.Language : 'FR');
-        
+        localizedStrings.setLanguage(event.data.Language ? event.data.Language : 'FR')
+
         // Set du language dans le contexte pour le réutiliser dans d'autres composants
-        appStateContext?.dispatch({ type: 'SET_USER_LANGUAGE', payload: (event.data.Language) ? event.data.Language : 'FR' });
+        appStateContext?.dispatch({
+          type: 'SET_USER_LANGUAGE',
+          payload: event.data.Language ? event.data.Language : 'FR'
+        })
 
-        setCurrentUser((event.data.UserNameDN) ? event.data.UserNameDN : "Anonyme (WEB)");
-        appStateContext?.dispatch({ type: 'SET_USERNAME', payload: (event.data.UserNameDN) ? event.data.UserNameDN : '' });
-        setEncryptedCurrentUser((event.data.UserNameDN) ? encryptString(event.data.UserNameDN) : '');
-        appStateContext?.dispatch({ type: 'SET_ENCRYPTED_USERNAME', payload: (event.data.UserNameDN) ? encryptString(event.data.UserNameDN) : '' });
-        
-
-
-
-
+        setCurrentUser(event.data.UserNameDN ? event.data.UserNameDN : 'Anonyme (WEB)')
+        appStateContext?.dispatch({ type: 'SET_USERNAME', payload: event.data.UserNameDN ? event.data.UserNameDN : '' })
+        setEncryptedCurrentUser(event.data.UserNameDN ? encryptString(event.data.UserNameDN) : '')
+        appStateContext?.dispatch({
+          type: 'SET_ENCRYPTED_USERNAME',
+          payload: event.data.UserNameDN ? encryptString(event.data.UserNameDN) : ''
+        })
 
         /* Si la full definition n'est pas renseigné, on met *, qui montrera les docs accessibles à tout le monde*/
-        setUserFullDef((event.data.FullDefinition) ? event.data.FullDefinition : "*");
-
+        setUserFullDef(event.data.FullDefinition ? event.data.FullDefinition : '*')
 
         // Est-ce que le token pour accéder à l'appli est OK ?
-        const resp = await authenticate(event.data.AuthToken);
-        if (resp){
-          setShowAuthMessage(false);
-          appStateContext?.dispatch({ type: 'SET_AUTHENTICATION_STATUS', payload: true }); // Mise à jour du contexte global
-          setToken(event.data.AuthToken);
+        const resp = await authenticate(event.data.AuthToken)
+        if (resp) {
+          setShowAuthMessage(false)
+          appStateContext?.dispatch({ type: 'SET_AUTHENTICATION_STATUS', payload: true }) // Mise à jour du contexte global
+          setToken(event.data.AuthToken)
           // Set le token au niveau du context (utile pour l'utiliser sur l'historique par ex)
-          appStateContext?.dispatch({ type: 'SET_AUTH_TOKEN', payload: event.data.AuthToken });
+          appStateContext?.dispatch({ type: 'SET_AUTH_TOKEN', payload: event.data.AuthToken })
 
           // vérifier le nombre de crédits restants au client
-          const tokenStatus = await getTokenStatus();
-          if (tokenStatus == "ERR"){
-            setAlertErrTokens(true);
-            setErrAlertMsg(localizedStrings.tokenRetrievalError);
-            setShouldDisplayInput(false);
-          } else if (tokenStatus == "KO"){
-            setAlertErrTokens(true);
-            setErrAlertMsg(localizedStrings.tokensExpired);
-            setShouldDisplayInput(false);
-          } else if (tokenStatus == "WARN"){
-            setAlertWarnTokens(true);
-            setShouldDisplayInput(true);
+          const tokenStatus = await getTokenStatus()
+          if (tokenStatus == 'ERR') {
+            setAlertErrTokens(true)
+            setErrAlertMsg(localizedStrings.tokenRetrievalError)
+            setShouldDisplayInput(false)
+          } else if (tokenStatus == 'KO') {
+            setAlertErrTokens(true)
+            setErrAlertMsg(localizedStrings.tokensExpired)
+            setShouldDisplayInput(false)
+          } else if (tokenStatus == 'WARN') {
+            setAlertWarnTokens(true)
+            setShouldDisplayInput(true)
           } else {
-            setShouldDisplayInput(true);
+            setShouldDisplayInput(true)
           }
         }
       }
-
-    };
+    }
 
     // Ajout du listener
-    window.addEventListener('message', handleMessage);
-    setAppReady(true);
+    window.addEventListener('message', handleMessage)
+    setAppReady(true)
     // Cleanup
     return () => {
-      window.removeEventListener('message', handleMessage);
-    };
-  }, [appStateContext]);
-
+      window.removeEventListener('message', handleMessage)
+    }
+  }, [appStateContext])
 
   let assistantMessage = {} as ChatMessage
   let toolMessage = {} as ChatMessage
@@ -247,11 +238,14 @@ const Chat = () => {
   const parseExecResults = (exec_results_: any): void => {
     if (exec_results_ == undefined) return
     const exec_results = exec_results_.length === 2 ? exec_results_ : exec_results_.splice(2)
-    appStateContext?.dispatch({ type: 'SET_ANSWER_EXEC_RESULT', payload: { answerId: answerId, exec_result: exec_results } })
+    appStateContext?.dispatch({
+      type: 'SET_ANSWER_EXEC_RESULT',
+      payload: { answerId: answerId, exec_result: exec_results }
+    })
   }
 
   const processResultMessage = (resultMessage: ChatMessage, userMessage: ChatMessage, conversationId?: string) => {
-    if (typeof resultMessage.content === "string" && resultMessage.content.includes('all_exec_results')) {
+    if (typeof resultMessage.content === 'string' && resultMessage.content.includes('all_exec_results')) {
       const parsedExecResults = JSON.parse(resultMessage.content) as AzureSqlServerExecResults
       setExecResults(parsedExecResults.all_exec_results)
       assistantMessage.context = JSON.stringify({
@@ -299,13 +293,13 @@ const Chat = () => {
       }, 100)
       return
     }
-    
+
     if (result.command_result?.action === 'clear_conversation') {
       // Appeler la même fonction que le bouton balai
       clearChat()
       return
     }
-    
+
     // Mettre à jour les préférences si la commande a modifié des paramètres
     if (result.command_result?.user_session) {
       const session = result.command_result.user_session
@@ -314,44 +308,44 @@ const Chat = () => {
         documentsCount: 5,
         llmProvider: 'AZURE_OPENAI'
       }
-      
+
       const updatedPreferences = { ...currentPreferences }
-      
+
       if (session.llm_provider) {
         updatedPreferences.llmProvider = session.llm_provider
       }
-      
+
       if (session.documents_count) {
         updatedPreferences.documentsCount = session.documents_count
       }
-      
+
       if (session.response_length) {
         // Mapper les valeurs du backend vers les valeurs du frontend
         const responseMapping: { [key: string]: 'veryShort' | 'medium' | 'comprehensive' } = {
-          'VERY_SHORT': 'veryShort',
-          'NORMAL': 'medium',
-          'COMPREHENSIVE': 'comprehensive'
+          VERY_SHORT: 'veryShort',
+          NORMAL: 'medium',
+          COMPREHENSIVE: 'comprehensive'
         }
         const mappedSize = responseMapping[session.response_length]
         if (mappedSize) {
           updatedPreferences.responseSize = mappedSize
         }
       }
-      
+
       // Sauvegarder dans localStorage (comme le fait le menu de personnalisation)
       try {
         localStorage.setItem('userCustomizationPreferences', JSON.stringify(updatedPreferences))
       } catch (error) {
         console.warn('Failed to save customization preferences to localStorage:', error)
       }
-      
+
       // Mettre à jour le state global
-      appStateContext?.dispatch({ 
-        type: 'UPDATE_CUSTOMIZATION_PREFERENCES', 
+      appStateContext?.dispatch({
+        type: 'UPDATE_CUSTOMIZATION_PREFERENCES',
         payload: updatedPreferences
       })
     }
-    
+
     // Traiter le message de réponse normalement, sauf pour les actions qui appellent les fonctions existantes
     const actionCommands = ['new_conversation', 'clear_conversation']
     if (!actionCommands.includes(result.command_result?.action)) {
@@ -373,27 +367,43 @@ const Chat = () => {
   }
 
   const getToken = () => {
-    return token;
+    return token
   }
 
-  const makeApiRequestWithoutCosmosDB = async (question: ChatMessage["content"], conversationId?: string) => {
+  const makeApiRequestWithoutCosmosDB = async (question: ChatMessage['content'], conversationId?: string) => {
     setIsLoading(true)
     setShowLoadingMessage(true)
     const abortController = new AbortController()
     abortFuncs.current.unshift(abortController)
-  
-    const textPart = typeof question === 'string' ? question : Array.isArray(question) ? question.find((part): part is { type: "text"; text: string } => part.type === "text")?.text || "" : ""
-    const imagePart = typeof question !== 'string' && Array.isArray(question) ? question.find((part): part is { type: "image_url"; image_url: { url: string } } => part.type === "image_url") : null
-    const questionContent = typeof question === 'string' ? question : imagePart ? [{ type: "text", text: textPart }, { type: "image_url", image_url: imagePart.image_url }] : textPart
+
+    const textPart =
+      typeof question === 'string'
+        ? question
+        : Array.isArray(question)
+          ? question.find((part): part is { type: 'text'; text: string } => part.type === 'text')?.text || ''
+          : ''
+    const imagePart =
+      typeof question !== 'string' && Array.isArray(question)
+        ? question.find((part): part is { type: 'image_url'; image_url: { url: string } } => part.type === 'image_url')
+        : null
+    const questionContent =
+      typeof question === 'string'
+        ? question
+        : imagePart
+          ? [
+              { type: 'text', text: textPart },
+              { type: 'image_url', image_url: imagePart.image_url }
+            ]
+          : textPart
     question = textPart || question
-  
+
     const userMessage: ChatMessage = {
       id: uuid(),
       role: 'user',
       content: questionContent as string,
       date: new Date().toISOString()
     }
-  
+
     let conversation: Conversation | null | undefined
     if (!conversationId) {
       conversation = {
@@ -414,38 +424,38 @@ const Chat = () => {
         conversation.messages.push(userMessage)
       }
     }
-  
+
     appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CHAT', payload: conversation })
     setMessages(conversation.messages)
-  
+
     const request: ConversationRequest = {
       messages: [...conversation.messages.filter(answer => answer.role !== ERROR)]
     }
-  
+
     let result = {} as ChatResponse
     try {
       // Récupérer les préférences de personnalisation
-      const customizationPreferences = appStateContext?.state.customizationPreferences;
-      
+      const customizationPreferences = appStateContext?.state.customizationPreferences
+
       // Passer les préférences à l'API
       const response = await conversationApi(
-        request, 
-        abortController.signal, 
-        getToken(), 
-        currentUser, 
-        userFullDef, 
+        request,
+        abortController.signal,
+        getToken(),
+        currentUser,
+        userFullDef,
         customizationPreferences
       )
-      
+
       if (response?.body) {
         const reader = response.body.getReader()
-  
+
         let runningText = ''
         while (true) {
           setProcessMessages(messageStatus.Processing)
           const { done, value } = await reader.read()
           if (done) break
-  
+
           var text = new TextDecoder('utf-8').decode(value)
           const objects = text.split('\n')
           objects.forEach(obj => {
@@ -461,7 +471,7 @@ const Chat = () => {
                   if (result.choices[0].messages?.some(m => m.role === ASSISTANT)) {
                     setShowLoadingMessage(false)
                   }
-                  
+
                   // Vérifier si c'est une réponse de commande
                   if (result.command_result) {
                     processCommandResult(result, userMessage, conversationId)
@@ -498,9 +508,9 @@ const Chat = () => {
         } else if (typeof result.error === 'string') {
           errorMessage = result.error
         }
-  
+
         errorMessage = parseErrorMessage(errorMessage)
-  
+
         let errorChatMsg: ChatMessage = {
           id: uuid(),
           role: ERROR,
@@ -519,27 +529,43 @@ const Chat = () => {
       abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
       setProcessMessages(messageStatus.Done)
     }
-  
+
     return abortController.abort()
   }
 
-  const makeApiRequestWithCosmosDB = async (question: ChatMessage["content"], conversationId?: string) => {
+  const makeApiRequestWithCosmosDB = async (question: ChatMessage['content'], conversationId?: string) => {
     setIsLoading(true)
     setShowLoadingMessage(true)
     const abortController = new AbortController()
     abortFuncs.current.unshift(abortController)
-    const textPart = typeof question === 'string' ? question : Array.isArray(question) ? question.find((part): part is { type: "text"; text: string } => part.type === "text")?.text || "" : ""
-    const imagePart = typeof question !== 'string' && Array.isArray(question) ? question.find((part): part is { type: "image_url"; image_url: { url: string } } => part.type === "image_url") : null
-    const questionContent = typeof question === 'string' ? question : imagePart ? [{ type: "text", text: textPart }, { type: "image_url", image_url: imagePart.image_url }] : textPart
+    const textPart =
+      typeof question === 'string'
+        ? question
+        : Array.isArray(question)
+          ? question.find((part): part is { type: 'text'; text: string } => part.type === 'text')?.text || ''
+          : ''
+    const imagePart =
+      typeof question !== 'string' && Array.isArray(question)
+        ? question.find((part): part is { type: 'image_url'; image_url: { url: string } } => part.type === 'image_url')
+        : null
+    const questionContent =
+      typeof question === 'string'
+        ? question
+        : imagePart
+          ? [
+              { type: 'text', text: textPart },
+              { type: 'image_url', image_url: imagePart.image_url }
+            ]
+          : textPart
     question = textPart || question
-  
+
     const userMessage: ChatMessage = {
       id: uuid(),
       role: 'user',
       content: questionContent as string,
       date: new Date().toISOString()
     }
-  
+
     let request: ConversationRequest
     let conversation
     if (conversationId) {
@@ -566,27 +592,27 @@ const Chat = () => {
     var errorResponseMessage = 'Please try again. If the problem persists, please contact the site administrator.'
     try {
       // Récupérer les préférences de personnalisation
-      const customizationPreferences = appStateContext?.state.customizationPreferences;
-      
+      const customizationPreferences = appStateContext?.state.customizationPreferences
+
       const response = conversationId
         ? await historyGenerate(
-            token, 
-            encryptedCurrentUser, 
-            request, 
-            abortController.signal, 
-            userFullDef, 
-            customizationPreferences, 
+            token,
+            encryptedCurrentUser,
+            request,
+            abortController.signal,
+            userFullDef,
+            customizationPreferences,
             conversationId
           )
         : await historyGenerate(
-            token, 
-            encryptedCurrentUser, 
-            request, 
-            abortController.signal, 
-            userFullDef, 
+            token,
+            encryptedCurrentUser,
+            request,
+            abortController.signal,
+            userFullDef,
             customizationPreferences
           )
-          
+
       if (!response?.ok) {
         const responseJson = await response.json()
         errorResponseMessage =
@@ -619,16 +645,16 @@ const Chat = () => {
         setMessages([...resultConversation.messages])
         return
       }
-      
+
       if (response?.body) {
         const reader = response.body.getReader()
-  
+
         let runningText = ''
         while (true) {
           setProcessMessages(messageStatus.Processing)
           const { done, value } = await reader.read()
           if (done) break
-  
+
           var text = new TextDecoder('utf-8').decode(value)
           const objects = text.split('\n')
           objects.forEach(obj => {
@@ -640,7 +666,7 @@ const Chat = () => {
                 // Only validate if there are messages but no content and no context
                 if (result.choices?.[0]?.messages?.length > 0) {
                   const firstMessage = result.choices[0].messages[0]
-                  if (!firstMessage.content && !firstMessage.context && firstMessage.role !== "tool") {
+                  if (!firstMessage.content && !firstMessage.context && firstMessage.role !== 'tool') {
                     errorResponseMessage = NO_CONTENT_ERROR
                     throw Error()
                   }
@@ -653,7 +679,7 @@ const Chat = () => {
                   if (result.choices[0].messages?.some(m => m.role === ASSISTANT)) {
                     setShowLoadingMessage(false)
                   }
-                  
+
                   // Vérifier si c'est une réponse de commande
                   if (result.command_result) {
                     // Skip processing in streaming section for commands - will be handled in non-streaming
@@ -678,7 +704,7 @@ const Chat = () => {
             }
           })
         }
-  
+
         let resultConversation
         if (conversationId) {
           resultConversation = appStateContext?.state?.chatHistory?.find(conv => conv.id === conversationId)
@@ -722,9 +748,9 @@ const Chat = () => {
         } else if (typeof result.error === 'string') {
           errorMessage = result.error
         }
-  
+
         errorMessage = parseErrorMessage(errorMessage)
-  
+
         let errorChatMsg: ChatMessage = {
           id: uuid(),
           role: ERROR,
@@ -751,7 +777,7 @@ const Chat = () => {
             abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
             return
           }
-          
+
           if (!result.history_metadata) {
             console.error('Error retrieving data.', result)
             let errorChatMsg: ChatMessage = {
@@ -856,11 +882,13 @@ const Chat = () => {
 
   const parseErrorMessage = (errorMessage: string) => {
     // If this is already a user-friendly message from our error handler, return as-is
-    if (typeof errorMessage === 'string' && 
-        (errorMessage.includes('Trop de requêtes') || 
-         errorMessage.includes('Problème d\'authentification') ||
-         errorMessage.includes('Erreur temporaire') ||
-         errorMessage.includes('Problème de connexion'))) {
+    if (
+      typeof errorMessage === 'string' &&
+      (errorMessage.includes('Trop de requêtes') ||
+        errorMessage.includes("Problème d'authentification") ||
+        errorMessage.includes('Erreur temporaire') ||
+        errorMessage.includes('Problème de connexion'))
+    ) {
       return errorMessage
     }
 
@@ -920,7 +948,7 @@ const Chat = () => {
           return
         }
         const noContentError = appStateContext.state.currentChat.messages.find(m => m.role === ERROR)
-        
+
         // Vérifier qu'il y a au moins un message d'assistant à sauvegarder
         const hasAssistantMessage = appStateContext.state.currentChat.messages.some(m => m.role === 'assistant')
 
@@ -965,7 +993,6 @@ const Chat = () => {
     }
   }, [processMessages])
 
-
   useLayoutEffect(() => {
     chatMessageStreamEnd.current?.scrollIntoView({ behavior: 'smooth' })
   }, [showLoadingMessage, processMessages])
@@ -986,7 +1013,7 @@ const Chat = () => {
   }
 
   const parseCitationFromMessage = (message: ChatMessage) => {
-    if (message?.role && message?.role === 'tool' && typeof message?.content === "string") {
+    if (message?.role && message?.role === 'tool' && typeof message?.content === 'string') {
       try {
         const toolMessage = JSON.parse(message.content) as ToolMessageContent
         return toolMessage.citations
@@ -998,39 +1025,38 @@ const Chat = () => {
   }
 
   const parsePlotFromMessage = (message: ChatMessage) => {
-    if (message?.role && message?.role === "tool" && typeof message?.content === "string") {
+    if (message?.role && message?.role === 'tool' && typeof message?.content === 'string') {
       try {
-        const execResults = JSON.parse(message.content) as AzureSqlServerExecResults;
-        const codeExecResult = execResults.all_exec_results.at(-1)?.code_exec_result;
+        const execResults = JSON.parse(message.content) as AzureSqlServerExecResults
+        const codeExecResult = execResults.all_exec_results.at(-1)?.code_exec_result
 
         if (codeExecResult === undefined) {
-          return null;
+          return null
         }
-        return codeExecResult.toString();
-      }
-      catch {
-        return null;
+        return codeExecResult.toString()
+      } catch {
+        return null
       }
       // const execResults = JSON.parse(message.content) as AzureSqlServerExecResults;
       // return execResults.all_exec_results.at(-1)?.code_exec_result;
     }
-    return null;
+    return null
   }
 
   const toggleGlobalAutoAudio = () => {
     const newState = !appStateContext?.state.isAutoAudioEnabled
-    
+
     // Mettre à jour l'état global
     appStateContext?.dispatch({
       type: 'TOGGLE_AUTO_AUDIO',
       payload: newState
     })
-    
+
     // Si on ACTIVE l'auto-lecture, déclencher la lecture du dernier message
     if (newState && messages && messages.length > 0) {
       // Trouver le dernier message assistant
       const lastAssistantMessage = [...messages].reverse().find(msg => msg.role === 'assistant')
-      
+
       if (lastAssistantMessage?.content && typeof lastAssistantMessage.content === 'string') {
         // Déclencher le clic sur le bouton audio du dernier message via le DOM
         setTimeout(() => {
@@ -1045,7 +1071,7 @@ const Chat = () => {
         }, 100)
       }
     }
-    
+
     // Si on DÉSACTIVE l'auto-lecture, arrêter toute lecture en cours
     if (!newState) {
       // Arrêter tous les audios sur la page
@@ -1056,7 +1082,7 @@ const Chat = () => {
           audio.currentTime = 0
         }
       })
-      
+
       // Arrêter la synthèse vocale du navigateur
       if (window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel()
@@ -1068,28 +1094,26 @@ const Chat = () => {
   const getQuestionImageForAnswer = (answerIndex: number): string | undefined => {
     let userMessagesChecked = 0
     const maxUserMessagesToCheck = 5
-    
+
     // Remonter les messages depuis l'index de la réponse vers le début
     for (let i = answerIndex - 1; i >= 0 && userMessagesChecked < maxUserMessagesToCheck; i--) {
       const message = messages[i]
-      
+
       // Ne traiter que les messages de type 'user'
       if (message.role === 'user') {
         userMessagesChecked++
-        
+
         // Vérifier si le contenu est un tableau (multimodal avec image)
         if (Array.isArray(message.content)) {
-          const imageContent = message.content.find(
-            (content) => content.type === 'image_url'
-          )
-          
+          const imageContent = message.content.find(content => content.type === 'image_url')
+
           if (imageContent && 'image_url' in imageContent) {
             return imageContent.image_url.url
           }
         }
       }
     }
-    
+
     return undefined
   }
 
@@ -1111,30 +1135,23 @@ const Chat = () => {
             style={{ color: 'darkorange', height: '200px', width: '200px' }}
           />
           <h1 className={styles.chatEmptyStateTitle}>{localizedStrings.accesDenied}</h1>
-          <h2 className={styles.chatEmptyStateSubtitle} style={{ fontSize: "20px" }}>
-              <strong>{localizedStrings.unauthentifiedConnection}</strong>
+          <h2 className={styles.chatEmptyStateSubtitle} style={{ fontSize: '20px' }}>
+            <strong>{localizedStrings.unauthentifiedConnection}</strong>
           </h2>
           <h2 className={styles.chatEmptyStateSubtitle}>{localizedStrings.unauthentifiedConnectionPrecisions}</h2>
-
         </Stack>
       ) : (
         <Stack horizontal className={styles.chatRoot}>
           <div className={styles.chatContainer}>
-          <Snackbar 
-            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-            open={alertWarnTokens} 
-            onClose={handleCloseAlert} >
-            <Alert severity="warning">
-              {localizedStrings.tokenExpirationWarning}
-            </Alert>
-          </Snackbar>
-          <Snackbar 
-            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-            open={alertErrTokens} >
-            <Alert severity="error">
-              {errAlertMsg}
-            </Alert>
-          </Snackbar>
+            <Snackbar
+              anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+              open={alertWarnTokens}
+              onClose={handleCloseAlert}>
+              <Alert severity="warning">{localizedStrings.tokenExpirationWarning}</Alert>
+            </Snackbar>
+            <Snackbar anchorOrigin={{ vertical: 'top', horizontal: 'center' }} open={alertErrTokens}>
+              <Alert severity="error">{errAlertMsg}</Alert>
+            </Snackbar>
             {!messages || messages.length < 1 ? (
               <Stack className={styles.chatEmptyState}>
                 <img src={logo} className={styles.chatIcon} aria-hidden="true" />
@@ -1148,36 +1165,54 @@ const Chat = () => {
                     {answer.role === 'user' ? (
                       <div className={styles.chatMessageUser} tabIndex={0}>
                         <div className={styles.chatMessageUserMessage}>
-                          {typeof answer.content === "string" && answer.content ? answer.content : Array.isArray(answer.content) ? (
+                          {typeof answer.content === 'string' && answer.content ? (
+                            answer.content
+                          ) : Array.isArray(answer.content) ? (
                             <>
-                              {answer.content.find((part): part is { type: "text"; text: string } => part.type === "text")?.text}
-                              {answer.content.filter((part): part is { type: "image_url"; image_url: { url: string } } => part.type === "image_url").map((imagePart, imgIndex) => (
-                                <img key={imgIndex} className={styles.uploadedImageChat} src={imagePart.image_url.url} alt="Uploaded Preview" />
-                              ))}
+                              {
+                                answer.content.find(
+                                  (part): part is { type: 'text'; text: string } => part.type === 'text'
+                                )?.text
+                              }
+                              {answer.content
+                                .filter(
+                                  (part): part is { type: 'image_url'; image_url: { url: string } } =>
+                                    part.type === 'image_url'
+                                )
+                                .map((imagePart, imgIndex) => (
+                                  <img
+                                    key={imgIndex}
+                                    className={styles.uploadedImageChat}
+                                    src={imagePart.image_url.url}
+                                    alt="Uploaded Preview"
+                                  />
+                                ))}
                             </>
                           ) : null}
                         </div>
                       </div>
                     ) : answer.role === 'assistant' ? (
                       <div className={styles.chatMessageGpt}>
-                        {typeof answer.content === "string" && <Answer
-                          answer={{
-                            answer: answer.content,
-                            citations: parseCitationFromMessage(messages[index - 1]),
-                            generated_chart: parsePlotFromMessage(messages[index - 1]),
-                            message_id: answer.id,
-                            feedback: answer.feedback,
-                            exec_results: execResults
-                          }}
-                          onCitationClicked={c => onShowCitation(c)}
-                          onExectResultClicked={() => onShowExecResult(answerId)}
-                          language={localizedStrings.getLanguage()}
-                          pauseVoiceRecognition={pauseVoiceRecognition}
-                          resumeVoiceRecognition={resumeVoiceRecognition}
-                          isStreaming={isLoading}
-                          questionImage={getQuestionImageForAnswer(index)}
-                          messageDate={answer.date}
-                        />}
+                        {typeof answer.content === 'string' && (
+                          <Answer
+                            answer={{
+                              answer: answer.content,
+                              citations: parseCitationFromMessage(messages[index - 1]),
+                              generated_chart: parsePlotFromMessage(messages[index - 1]),
+                              message_id: answer.id,
+                              feedback: answer.feedback,
+                              exec_results: execResults
+                            }}
+                            onCitationClicked={c => onShowCitation(c)}
+                            onExectResultClicked={() => onShowExecResult(answerId)}
+                            language={localizedStrings.getLanguage()}
+                            pauseVoiceRecognition={pauseVoiceRecognition}
+                            resumeVoiceRecognition={resumeVoiceRecognition}
+                            isStreaming={isLoading}
+                            questionImage={getQuestionImageForAnswer(index)}
+                            messageDate={answer.date}
+                          />
+                        )}
                       </div>
                     ) : answer.role === ERROR ? (
                       <div className={styles.chatMessageError}>
@@ -1185,7 +1220,9 @@ const Chat = () => {
                           <ErrorCircleRegular className={styles.errorIcon} style={{ color: 'rgba(182, 52, 67, 1)' }} />
                           <span>Error</span>
                         </Stack>
-                        <span className={styles.chatMessageErrorContent}>{typeof answer.content === "string" && answer.content}</span>
+                        <span className={styles.chatMessageErrorContent}>
+                          {typeof answer.content === 'string' && answer.content}
+                        </span>
                       </div>
                     ) : null}
                   </>
@@ -1214,23 +1251,50 @@ const Chat = () => {
                 <div ref={chatMessageStreamEnd} />
               </div>
             )}
-            { shouldDisplayInput && (
-            <Stack horizontal className={styles.chatInput}>
-              {isLoading && messages.length > 0 && (
-                <Stack
-                  horizontal
-                  className={styles.stopGeneratingContainer}
-                  role="button"
-                  aria-label="Interrompre"
-                  tabIndex={0}
-                  onClick={stopGenerating}
-                  onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? stopGenerating() : null)}>
-                  <SquareRegular className={styles.stopGeneratingIcon} aria-hidden="true" />
-                  <span className={styles.stopGeneratingText} aria-hidden="true">{localizedStrings.stopGenerationButton}</span>
-                </Stack>
-              )}
-              <Stack>
-                {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && (
+            {shouldDisplayInput && (
+              <Stack horizontal className={styles.chatInput}>
+                {isLoading && messages.length > 0 && (
+                  <Stack
+                    horizontal
+                    className={styles.stopGeneratingContainer}
+                    role="button"
+                    aria-label="Interrompre"
+                    tabIndex={0}
+                    onClick={stopGenerating}
+                    onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? stopGenerating() : null)}>
+                    <SquareRegular className={styles.stopGeneratingIcon} aria-hidden="true" />
+                    <span className={styles.stopGeneratingText} aria-hidden="true">
+                      {localizedStrings.stopGenerationButton}
+                    </span>
+                  </Stack>
+                )}
+                <Stack>
+                  {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && (
+                    <CommandBarButton
+                      role="button"
+                      styles={{
+                        icon: {
+                          color: '#FFFFFF'
+                        },
+                        iconDisabled: {
+                          color: '#BDBDBD !important'
+                        },
+                        root: {
+                          color: '#FFFFFF',
+                          background:
+                            'radial-gradient(109.81% 107.82% at 100.1% 90.19%, #0F6CBD 33.63%, #2D87C3 70.31%, #8DDDD8 100%)'
+                        },
+                        rootDisabled: {
+                          background: '#F0F0F0'
+                        }
+                      }}
+                      className={styles.newChatIcon}
+                      iconProps={{ iconName: 'Add' }}
+                      onClick={newChat}
+                      disabled={disabledButton()}
+                      aria-label="start a new chat button"
+                    />
+                  )}
                   <CommandBarButton
                     role="button"
                     styles={{
@@ -1249,66 +1313,41 @@ const Chat = () => {
                         background: '#F0F0F0'
                       }
                     }}
-                    className={styles.newChatIcon}
-                    iconProps={{ iconName: 'Add' }}
-                    onClick={newChat}
-                    disabled={disabledButton()}
-                    aria-label="start a new chat button"
-                  />
-                )}
-                <CommandBarButton
-                  role="button"
-                  styles={{
-                    icon: {
-                      color: '#FFFFFF'
-                    },
-                    iconDisabled: {
-                      color: '#BDBDBD !important'
-                    },
-                    root: {
-                      color: '#FFFFFF',
-                      background:
-                        'radial-gradient(109.81% 107.82% at 100.1% 90.19%, #0F6CBD 33.63%, #2D87C3 70.31%, #8DDDD8 100%)'
-                    },
-                    rootDisabled: {
-                      background: '#F0F0F0'
+                    className={
+                      appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured
+                        ? styles.clearChatBroom
+                        : styles.clearChatBroomNoCosmos
                     }
+                    iconProps={{ iconName: 'Broom' }}
+                    onClick={
+                      appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured
+                        ? clearChat
+                        : newChat
+                    }
+                    disabled={disabledButton()}
+                    aria-label="clear chat button"
+                  />
+                  <Dialog
+                    hidden={hideErrorDialog}
+                    onDismiss={handleErrorDialogClose}
+                    dialogContentProps={errorDialogContentProps}
+                    modalProps={modalProps}></Dialog>
+                </Stack>
+                <QuestionInput
+                  clearOnSend
+                  placeholder={localizedStrings.yourQuestionPlaceholder}
+                  disabled={isLoading}
+                  onSend={(question, id) => {
+                    appStateContext?.state.isCosmosDBAvailable?.cosmosDB
+                      ? makeApiRequestWithCosmosDB(question, id)
+                      : makeApiRequestWithoutCosmosDB(question, id)
                   }}
-                  className={
-                    appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured
-                      ? styles.clearChatBroom
-                      : styles.clearChatBroomNoCosmos
+                  conversationId={
+                    appStateContext?.state.currentChat?.id ? appStateContext?.state.currentChat?.id : undefined
                   }
-                  iconProps={{ iconName: 'Broom' }}
-                  onClick={
-                    appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured
-                      ? clearChat
-                      : newChat
-                  }
-                  disabled={disabledButton()}
-                  aria-label="clear chat button"
+                  onVoiceRecognitionReady={handleVoiceRecognitionReady}
                 />
-                <Dialog
-                  hidden={hideErrorDialog}
-                  onDismiss={handleErrorDialogClose}
-                  dialogContentProps={errorDialogContentProps}
-                  modalProps={modalProps}></Dialog>
               </Stack>
-              <QuestionInput
-                clearOnSend
-                placeholder={localizedStrings.yourQuestionPlaceholder}
-                disabled={isLoading}
-                onSend={(question, id) => {
-                  appStateContext?.state.isCosmosDBAvailable?.cosmosDB
-                    ? makeApiRequestWithCosmosDB(question, id)
-                    : makeApiRequestWithoutCosmosDB(question, id)
-                }}
-                conversationId={
-                  appStateContext?.state.currentChat?.id ? appStateContext?.state.currentChat?.id : undefined
-                }
-                onVoiceRecognitionReady={handleVoiceRecognitionReady}
-              />
-            </Stack>
             )}
           </div>
           {/* Citation Panel */}
@@ -1335,7 +1374,7 @@ const Chat = () => {
                 title={
                   activeCitation.url && !activeCitation.url.includes('blob.core')
                     ? activeCitation.url
-                    : activeCitation.title ?? ''
+                    : (activeCitation.title ?? '')
                 }
                 onClick={() => onViewSource(activeCitation)}>
                 {activeCitation.title}
@@ -1371,27 +1410,40 @@ const Chat = () => {
               <Stack horizontalAlign="space-between">
                 {appStateContext?.state?.answerExecResult[answerId]?.map((execResult: ExecResults, index) => (
                   <Stack className={styles.exectResultList} verticalAlign="space-between">
-                    <><span>Intent:</span> <p>{execResult.intent}</p></>
-                    {execResult.search_query && <><span>Search Query:</span>
-                      <SyntaxHighlighter
-                        style={nord}
-                        wrapLines={true}
-                        lineProps={{ style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } }}
-                        language="sql"
-                        PreTag="p">
-                        {execResult.search_query}
-                      </SyntaxHighlighter></>}
-                    {execResult.search_result && <><span>Search Result:</span> <p>{execResult.search_result}</p></>}
-                    {execResult.code_generated && <><span>Code Generated:</span>
-                      <SyntaxHighlighter
-                        style={nord}
-                        wrapLines={true}
-                        lineProps={{ style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } }}
-                        language="python"
-                        PreTag="p">
-                        {execResult.code_generated}
-                      </SyntaxHighlighter>
-                    </>}
+                    <>
+                      <span>Intent:</span> <p>{execResult.intent}</p>
+                    </>
+                    {execResult.search_query && (
+                      <>
+                        <span>Search Query:</span>
+                        <SyntaxHighlighter
+                          style={nord}
+                          wrapLines={true}
+                          lineProps={{ style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } }}
+                          language="sql"
+                          PreTag="p">
+                          {execResult.search_query}
+                        </SyntaxHighlighter>
+                      </>
+                    )}
+                    {execResult.search_result && (
+                      <>
+                        <span>Search Result:</span> <p>{execResult.search_result}</p>
+                      </>
+                    )}
+                    {execResult.code_generated && (
+                      <>
+                        <span>Code Generated:</span>
+                        <SyntaxHighlighter
+                          style={nord}
+                          wrapLines={true}
+                          lineProps={{ style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } }}
+                          language="python"
+                          PreTag="p">
+                          {execResult.code_generated}
+                        </SyntaxHighlighter>
+                      </>
+                    )}
                   </Stack>
                 ))}
               </Stack>
@@ -1405,37 +1457,39 @@ const Chat = () => {
   )
 }
 
-
 let localizedStrings = new LocalizedStrings({
   FR: {
-      tokensExpired : "Votre solde de tokens AskMe est expiré. Rapprochez-vous de votre administrateur pour pouvoir utiliser AskMe à nouveau.",
-      tokenRetrievalError : "Erreur lors de la récupération du solde de tokens. Merci de vous rapprocher d'un adminsitrateur.",
-      tokenExpirationWarning : "Votre solde de tokens AskMe est sur le point d'expirer. Rapprochez-vous de votre administrateur pour pouvoir continuer à utiliser AskMe.",
-      yourQuestionPlaceholder: "Votre question ...",
-      stopGenerationButton : "Interrompre",
-      answerGenerationText : "Génération de la réponse...",
-      unauthentifiedConnection : "Votre connexion n'est pas authentifiée. Accès interdit.",
-      unauthentifiedConnectionPrecisions : "Si vous pensez que ceci est une erreur, merci de prendre contact avec votre administrateur.",
-      uiChatTitle : "Commençons à discuter !",
-      uiChatDescription : "Cet assistant est configuré pour répondre à vos questions.",
-      accesDenied : "Accès refusé",
+    tokensExpired:
+      'Votre solde de tokens AskMe est expiré. Rapprochez-vous de votre administrateur pour pouvoir utiliser AskMe à nouveau.',
+    tokenRetrievalError:
+      "Erreur lors de la récupération du solde de tokens. Merci de vous rapprocher d'un adminsitrateur.",
+    tokenExpirationWarning:
+      "Votre solde de tokens AskMe est sur le point d'expirer. Rapprochez-vous de votre administrateur pour pouvoir continuer à utiliser AskMe.",
+    yourQuestionPlaceholder: 'Votre question ...',
+    stopGenerationButton: 'Interrompre',
+    answerGenerationText: 'Génération de la réponse...',
+    unauthentifiedConnection: "Votre connexion n'est pas authentifiée. Accès interdit.",
+    unauthentifiedConnectionPrecisions:
+      'Si vous pensez que ceci est une erreur, merci de prendre contact avec votre administrateur.',
+    uiChatTitle: 'Commençons à discuter !',
+    uiChatDescription: 'Cet assistant est configuré pour répondre à vos questions.',
+    accesDenied: 'Accès refusé'
   },
-  EN:{
-      tokensExpired : "Your AskMe token balance has expired. Please contact your administrator to be able to use AskMe again.",
-      tokenRetrievalError : "Error retrieving token balance. Please contact an administrator.",
-      tokenExpirationWarning : "Your AskMe token balance is about to expire. Please contact your administrator to continue using AskMe.",
-      yourQuestionPlaceholder: "Your question ...",
-      stopGenerationButton : "Stop generation",
-      answerGenerationText : "Answer generation...",
-      unauthentifiedConnection : "Your connection is not authenticated. Access denied.",
-      unauthentifiedConnectionPrecisions : "If you believe this is an error, please contact your administrator.",
-      uiChatTitle : "Let's chat !",
-      uiChatDescription : "This assistant is configured to answer your questions.",
-      accesDenied : "Acces denied",
-
+  EN: {
+    tokensExpired:
+      'Your AskMe token balance has expired. Please contact your administrator to be able to use AskMe again.',
+    tokenRetrievalError: 'Error retrieving token balance. Please contact an administrator.',
+    tokenExpirationWarning:
+      'Your AskMe token balance is about to expire. Please contact your administrator to continue using AskMe.',
+    yourQuestionPlaceholder: 'Your question ...',
+    stopGenerationButton: 'Stop generation',
+    answerGenerationText: 'Answer generation...',
+    unauthentifiedConnection: 'Your connection is not authenticated. Access denied.',
+    unauthentifiedConnectionPrecisions: 'If you believe this is an error, please contact your administrator.',
+    uiChatTitle: "Let's chat !",
+    uiChatDescription: 'This assistant is configured to answer your questions.',
+    accesDenied: 'Acces denied'
   }
-  
- });
+})
 
- 
 export default Chat

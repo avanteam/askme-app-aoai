@@ -26,7 +26,7 @@ import ChatHistoryList from './ChatHistoryList'
 
 import styles from './ChatHistoryPanel.module.css'
 
-import LocalizedStrings from 'react-localization';
+import LocalizedStrings from 'react-localization'
 
 interface ChatHistoryPanelProps {}
 
@@ -47,8 +47,8 @@ const commandBarButtonStyle: Partial<IStackStyles> = { root: { height: '50px' } 
 
 const localizedStrings = new LocalizedStrings({
   FR: {
-    clearAllConfirmation : "Etes-vous sûr de vouloir effacer tout l'historique ?",
-    cleaningAllError : "Erreur lors de la suppression de l'historique",
+    clearAllConfirmation: "Etes-vous sûr de vouloir effacer tout l'historique ?",
+    cleaningAllError: "Erreur lors de la suppression de l'historique",
     close: 'Fermer',
     historyWillBeRemoved: "Tout l'historique sera effacé définitivement.",
     pleaseTryAgain: 'Veuillez réessayer. Si le problème persiste, merci de contacter un administrateur.',
@@ -59,11 +59,10 @@ const localizedStrings = new LocalizedStrings({
     loadingHistory: "Chargement de l'historique",
     clearAll: 'Tout nettoyer',
     cancel: 'Annuler'
-
   },
   EN: {
-    clearAllConfirmation : 'Are you sure you want to clear all chat history?',
-    cleaningAllError : 'Error deleting all of chat history',
+    clearAllConfirmation: 'Are you sure you want to clear all chat history?',
+    cleaningAllError: 'Error deleting all of chat history',
     close: 'Close',
     historyWillBeRemoved: 'All chat history will be permanently removed.',
     pleaseTryAgain: 'Please try again. If the problem persists, please contact the site administrator.',
@@ -74,10 +73,8 @@ const localizedStrings = new LocalizedStrings({
     loadingHistory: 'Loading chat history',
     clearAll: 'Clear all',
     cancel: 'Cancel'
-
-},
-  
- });
+  }
+})
 
 export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
   const appStateContext = useContext(AppStateContext)
@@ -90,16 +87,12 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
     type: DialogType.close,
     title: !clearingError ? localizedStrings.clearAllConfirmation : localizedStrings.cleaningAllError,
     closeButtonAriaLabel: localizedStrings.close,
-    subText: !clearingError
-      ? localizedStrings.historyWillBeRemoved
-      : localizedStrings.pleaseTryAgain
+    subText: !clearingError ? localizedStrings.historyWillBeRemoved : localizedStrings.pleaseTryAgain
   }
 
   useEffect(() => {
-    localizedStrings.setLanguage((appStateContext?.state.userLanguage) ? appStateContext?.state.userLanguage : 'FR');
-
+    localizedStrings.setLanguage(appStateContext?.state.userLanguage ? appStateContext?.state.userLanguage : 'FR')
   }, [appStateContext?.state.userLanguage])
-
 
   const modalProps = {
     titleAriaId: 'labelId',
@@ -125,9 +118,11 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
 
   const onClearAllChatHistory = async () => {
     setClearing(true)
-    if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != "" ){
-
-      const response = await historyDeleteAll(appStateContext?.state.authToken, appStateContext?.state.encryptedUsername)
+    if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != '') {
+      const response = await historyDeleteAll(
+        appStateContext?.state.authToken,
+        appStateContext?.state.encryptedUsername
+      )
       if (!response.ok) {
         setClearingError(true)
       } else {
@@ -224,7 +219,9 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
                         {appStateContext?.state.isCosmosDBAvailable?.status && (
                           <span>{appStateContext?.state.isCosmosDBAvailable?.status}</span>
                         )}
-                        {!appStateContext?.state.isCosmosDBAvailable?.status && <span>{localizedStrings.loadError}</span>}
+                        {!appStateContext?.state.isCosmosDBAvailable?.status && (
+                          <span>{localizedStrings.loadError}</span>
+                        )}
                       </Text>
                     </StackItem>
                     <StackItem>
@@ -267,7 +264,9 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
         dialogContentProps={clearAllDialogContentProps}
         modalProps={modalProps}>
         <DialogFooter>
-          {!clearingError && <PrimaryButton onClick={onClearAllChatHistory} disabled={clearing} text={localizedStrings.clearAll} />}
+          {!clearingError && (
+            <PrimaryButton onClick={onClearAllChatHistory} disabled={clearing} text={localizedStrings.clearAll} />
+          )}
           <DefaultButton
             onClick={onHideClearAllDialog}
             disabled={clearing}

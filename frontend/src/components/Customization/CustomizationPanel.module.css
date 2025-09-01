@@ -3,7 +3,8 @@
   font-size: 12px;
   background-color: #fff4ce;
   border-left-color: #ffd335;
-}.container {
+}
+.container {
   position: fixed;
   top: 0;
   right: 0;
@@ -34,7 +35,9 @@
   z-index: 999;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+  transition:
+    opacity 0.3s ease-in-out,
+    visibility 0.3s ease-in-out;
 }
 
 .overlayVisible {
@@ -149,7 +152,8 @@
   margin-top: 4px;
 }
 
-.sliderMin, .sliderMax {
+.sliderMin,
+.sliderMax {
   padding: 0 4px;
 }
 
@@ -239,8 +243,12 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Responsive */
@@ -255,12 +263,12 @@
   .container {
     width: 100%;
   }
-  
+
   .actionButtons {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .resetButton {
     width: 100%;
   }

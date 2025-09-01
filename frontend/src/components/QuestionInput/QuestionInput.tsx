@@ -1,6 +1,12 @@
 import { useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { FontIcon, Stack, TextField } from '@fluentui/react'
-import { SendRegular, Mic20Regular, MicOff20Regular, Speaker220Regular, SpeakerOff20Regular } from '@fluentui/react-icons'
+import {
+  SendRegular,
+  Mic20Regular,
+  MicOff20Regular,
+  Speaker220Regular,
+  SpeakerOff20Regular
+} from '@fluentui/react-icons'
 
 import Send from '../../assets/Send.svg'
 
@@ -18,35 +24,47 @@ interface Props {
   onVoiceRecognitionReady?: (pause: () => void, resume: () => void) => void
 }
 
-export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conversationId, onVoiceRecognitionReady }: Props) => {
+export const QuestionInput = ({
+  onSend,
+  disabled,
+  placeholder,
+  clearOnSend,
+  conversationId,
+  onVoiceRecognitionReady
+}: Props) => {
   const [base64Image, setBase64Image] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState<boolean>(false)
   const [userTypedQuestion, setUserTypedQuestion] = useState<string>('')
   const [isInitialQuestionSet, setIsInitialQuestionSet] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  
+
   // History management for arrow key navigation
   const [history, setHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState<number>(-1)
   const [tempQuestion, setTempQuestion] = useState<string>('')
-  
+
   // Drag & drop state
   const [isDragging, setIsDragging] = useState<boolean>(false)
-  
+
   const autoSendTimeoutRef = useRef<number | null>(null)
 
   const appStateContext = useContext(AppStateContext)
-  
+
   // Configuration vocale depuis les paramètres
   const voiceInputEnabled = appStateContext?.state.frontendSettings?.voice_input_enabled ?? true
   const canUseWakeWord = appStateContext?.state.frontendSettings?.wake_word_enabled ?? true
   const wakeWordEnabled = appStateContext?.state.frontendSettings?.wake_word_enabled ?? true
-  const wakeWordPhrases = appStateContext?.state.frontendSettings?.wake_word_phrases ?? ['asmi', 'askme', 'askmi', 'asqmi']
+  const wakeWordPhrases = appStateContext?.state.frontendSettings?.wake_word_phrases ?? [
+    'asmi',
+    'askme',
+    'askmi',
+    'asqmi'
+  ]
   const wakeWordVariants = appStateContext?.state.frontendSettings?.wake_word_variants ?? {}
-  
+
   // Configuration pour les images
   const imageMaxSizeMb = appStateContext?.state.frontendSettings?.image_max_size_mb ?? 10.0
-  
+
   // Use voice recognition hook
   const voiceRecognition = useVoiceRecognition({
     voiceInputEnabled,
@@ -58,7 +76,7 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
 
   // Sync question state with voice recognition
   const [question, setQuestion] = useState<string>('')
-  
+
   useEffect(() => {
     if (voiceRecognition.question !== question) {
       setQuestion(voiceRecognition.question)
@@ -74,41 +92,37 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
   // Expose voice recognition functions to parent
   useEffect(() => {
     if (onVoiceRecognitionReady) {
-      onVoiceRecognitionReady(
-        voiceRecognition.pauseVoiceRecognition,
-        voiceRecognition.resumeVoiceRecognition
-      )
+      onVoiceRecognitionReady(voiceRecognition.pauseVoiceRecognition, voiceRecognition.resumeVoiceRecognition)
     }
   }, [onVoiceRecognitionReady, voiceRecognition.pauseVoiceRecognition, voiceRecognition.resumeVoiceRecognition])
 
-  
   // Auto-audio functionality
   const toggleGlobalAutoAudio = () => {
     const newState = !appStateContext?.state.isAutoAudioEnabled
-    
+
     appStateContext?.dispatch({
       type: 'TOGGLE_AUTO_AUDIO',
       payload: newState
     })
-    
+
     // Si on DÉSACTIVE l'auto-lecture, arrêter la lecture en cours
     if (!newState) {
       const allAudioElements = document.querySelectorAll('audio')
-      allAudioElements.forEach((audio) => {
+      allAudioElements.forEach(audio => {
         if (!audio.paused) {
           audio.pause()
           audio.currentTime = 0
           audio.src = ''
         }
       })
-      
+
       if (window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel()
       }
     }
     // Si on ACTIVE l'auto-lecture, ne rien faire - laisse l'auto-lecture se déclencher naturellement sur le prochain nouveau message
   }
-  
+
   // Load history from localStorage on component mount
   useEffect(() => {
     const savedHistory = localStorage.getItem('questionHistory')
@@ -126,7 +140,7 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
 
   const OYD_ENABLED = appStateContext?.state.frontendSettings?.oyd_enabled || false
   const currentProvider = appStateContext?.state.customizationPreferences?.llmProvider || 'AZURE_OPENAI'
-  
+
   // Seuls Claude, Gemini et OpenAI Direct supportent les images
   const supportsImages = ['CLAUDE', 'GEMINI', 'OPENAI_DIRECT'].includes(currentProvider)
 
@@ -137,20 +151,20 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
       setBase64Image(null)
     }
   }, [currentProvider, supportsImages, base64Image])
-  
+
   // Messages d'info bulle par provider
   const getImageTooltip = () => {
     if (supportsImages) {
-      return "Télécharger une image"
+      return 'Télécharger une image'
     }
-    
+
     switch (currentProvider) {
       case 'MISTRAL':
-        return "Les images ne sont pas supportées par Mistral"
+        return 'Les images ne sont pas supportées par Mistral'
       case 'AZURE_OPENAI':
-        return "Les images ne sont pas supportées par ce provider Azure OpenAI"
+        return 'Les images ne sont pas supportées par ce provider Azure OpenAI'
       default:
-        return "Les images ne sont pas supportées par ce provider"
+        return 'Les images ne sont pas supportées par ce provider'
     }
   }
 
@@ -168,33 +182,33 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
     // Rechercher une image dans le presse-papier
     for (let i = 0; i < clipboardData.items.length; i++) {
       const item = clipboardData.items[i]
-      
+
       if (item.type.startsWith('image/')) {
         ev.preventDefault() // Empêcher le comportement par défaut du collage
-        
+
         console.log('Image détectée dans le presse-papier:', item.type)
-        
+
         // Récupérer le fichier depuis le presse-papier
         const file = item.getAsFile()
         if (file) {
           console.log('Fichier image récupéré du presse-papier:', file.name || 'clipboard-image', file.type, file.size)
-          
+
           // Réinitialiser les états précédents
           setBase64Image(null)
-          
+
           // Utiliser la même logique que pour l'upload de fichier
           convertToBase64(file)
             .then(() => {
               console.log('Image du presse-papier traitée avec succès')
             })
-            .catch((error) => {
-              console.error('Erreur lors du traitement de l\'image du presse-papier:', error)
+            .catch(error => {
+              console.error("Erreur lors du traitement de l'image du presse-papier:", error)
               if (error instanceof Error) {
                 setErrorMessage(error.message)
               }
             })
         }
-        
+
         return // Sortir de la boucle une fois qu'une image est trouvée
       }
     }
@@ -216,21 +230,23 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    
+
     try {
       if (file) {
         console.log('File selected:', file.name, file.type, file.size)
-        
+
         // Vérifier si le provider actuel supporte les images
         if (!supportsImages) {
-          alert(`Les images ne sont pas supportées par ${currentProvider}. Veuillez changer de fournisseur pour utiliser cette fonctionnalité.`)
+          alert(
+            `Les images ne sont pas supportées par ${currentProvider}. Veuillez changer de fournisseur pour utiliser cette fonctionnalité.`
+          )
           event.target.value = ''
           return
         }
-        
+
         // Réinitialiser les états précédents
         setBase64Image(null)
-        
+
         // Seules les images sont autorisées
         if (file.type.startsWith('image/')) {
           console.log('Processing image file...')
@@ -242,14 +258,14 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
             if (conversionError instanceof Error) {
               setErrorMessage(conversionError.message)
             } else {
-              setErrorMessage('Erreur lors du traitement de l\'image. Veuillez réessayer.')
+              setErrorMessage("Erreur lors du traitement de l'image. Veuillez réessayer.")
             }
           }
         } else {
           console.log('Non-image file selected, skipping...')
           alert('Seules les images sont supportées.')
         }
-        
+
         // Reset file input value pour permettre de sélectionner le même fichier
         event.target.value = ''
       }
@@ -267,12 +283,12 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     // Vérifier si les images sont supportées par le provider actuel
     if (!supportsImages) {
       return
     }
-    
+
     // Vérifier si l'élément glissé contient des fichiers
     if (e.dataTransfer.types.includes('Files')) {
       setIsDragging(true)
@@ -282,7 +298,7 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     // Ne désactiver le dragging que si on quitte vraiment la zone (pas un élément enfant)
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragging(false)
@@ -298,24 +314,26 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(false)
-    
+
     // Vérifier si les images sont supportées par le provider actuel
     if (!supportsImages) {
-      alert(`Les images ne sont pas supportées par ${currentProvider}. Veuillez changer de fournisseur pour utiliser cette fonctionnalité.`)
+      alert(
+        `Les images ne sont pas supportées par ${currentProvider}. Veuillez changer de fournisseur pour utiliser cette fonctionnalité.`
+      )
       return
     }
-    
+
     const files = Array.from(e.dataTransfer.files)
     if (files.length === 0) return
-    
+
     const file = files[0] // Prendre seulement le premier fichier
-    
+
     try {
       console.log('File dropped:', file.name, file.type, file.size)
-      
+
       // Réinitialiser les états précédents
       setBase64Image(null)
-      
+
       // Seules les images sont autorisées
       if (file.type.startsWith('image/')) {
         console.log('Processing dropped image file...')
@@ -327,7 +345,7 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
           if (conversionError instanceof Error) {
             setErrorMessage(conversionError.message)
           } else {
-            setErrorMessage('Erreur lors du traitement de l\'image. Veuillez réessayer.')
+            setErrorMessage("Erreur lors du traitement de l'image. Veuillez réessayer.")
           }
         }
       } else {
@@ -348,7 +366,7 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
     return new Promise<void>((resolve, reject) => {
       try {
         console.log('convertToBase64 called with file:', file.size, 'bytes')
-        
+
         // Vérification de la taille d'image selon la configuration backend
         const maxSizeBytes = imageMaxSizeMb * 1024 * 1024
         if (file.size > maxSizeBytes) {
@@ -358,12 +376,12 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
           reject(new Error(errorMsg))
           return
         }
-        
+
         console.log(`${currentProvider} provider: converting image to base64`)
-        
+
         // Conversion directe sans redimensionnement - le backend s'occupe de tout
         const reader = new FileReader()
-        
+
         reader.onloadend = () => {
           try {
             const originalBase64 = reader.result as string
@@ -372,14 +390,14 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
               reject(new Error('Erreur lors de la lecture du fichier'))
               return
             }
-            
+
             console.log(`Base64 conversion successful, length:`, originalBase64.length)
             console.log(`File details:`, {
               name: (file as File).name || 'unknown',
               size: file.size,
               type: file.type
             })
-            
+
             setBase64Image(originalBase64)
             console.log('Image state updated successfully')
             resolve()
@@ -388,20 +406,19 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
             reject(error)
           }
         }
-        
-        reader.onerror = (error) => {
+
+        reader.onerror = error => {
           console.error('FileReader error:', error)
           reject(new Error('Erreur lors de la lecture du fichier'))
         }
-        
+
         reader.onabort = () => {
           console.error('FileReader aborted')
           reject(new Error('Lecture du fichier interrompue'))
         }
-        
+
         console.log('Starting FileReader.readAsDataURL...')
         reader.readAsDataURL(file)
-        
       } catch (error) {
         console.error('Error in convertToBase64:', error)
         reject(error)
@@ -415,15 +432,15 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
     }
 
     const questionText = question.trim()
-    
+
     // Build the content for the message - images only for now
-    const questionTest: ChatMessage["content"] = base64Image ? 
-      [
-        { type: "text" as const, text: questionText },
-        { type: "image_url" as const, image_url: { url: base64Image } }
-      ] : 
-      questionText
-    
+    const questionTest: ChatMessage['content'] = base64Image
+      ? [
+          { type: 'text' as const, text: questionText },
+          { type: 'image_url' as const, image_url: { url: base64Image } }
+        ]
+      : questionText
+
     // DEBUG: Log what we're sending
     console.log('DEBUG: questionTest content:', questionTest)
     if (Array.isArray(questionTest)) {
@@ -446,7 +463,7 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
       // Add to beginning
       const newHistory = [questionText, ...filteredHistory].slice(0, 50) // Keep last 50 questions
       setHistory(newHistory)
-      
+
       // Save to localStorage
       try {
         localStorage.setItem('questionHistory', JSON.stringify(newHistory))
@@ -454,7 +471,7 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
         console.warn('Failed to save question history to localStorage:', error)
       }
     }
-    
+
     // Reset history navigation
     setHistoryIndex(-1)
     setTempQuestion('')
@@ -484,7 +501,7 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
         autoSendTimeoutRef.current = null
       }, 2000)
     }
-    
+
     return () => {
       if (autoSendTimeoutRef.current) {
         clearTimeout(autoSendTimeoutRef.current)
@@ -499,18 +516,18 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
       sendQuestion()
     } else if (ev.key === 'ArrowUp' && history.length > 0) {
       ev.preventDefault()
-      
+
       // First time navigating up: save current question
       if (historyIndex === -1) {
         setTempQuestion(question)
       }
-      
+
       const newIndex = Math.min(historyIndex + 1, history.length - 1)
       setHistoryIndex(newIndex)
       setQuestion(history[newIndex])
     } else if (ev.key === 'ArrowDown' && historyIndex >= 0) {
       ev.preventDefault()
-      
+
       if (historyIndex === 0) {
         // Return to original question
         setHistoryIndex(-1)
@@ -525,19 +542,16 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
     }
   }
 
-
-
   const disableRequiredAccessControl = false
 
   return (
-    <Stack 
-      horizontal 
+    <Stack
+      horizontal
       className={`${styles.questionInputContainer} ${isDragging ? styles.dragging : ''}`}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
-      onDrop={handleDrop}
-    >
+      onDrop={handleDrop}>
       <TextField
         className={styles.questionInputTextArea}
         placeholder={placeholder}
@@ -554,9 +568,7 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
       />
       {isDragging && supportsImages && (
         <div className={styles.dragOverlay}>
-          <div className={styles.dragMessage}>
-            📷 Déposez votre image ici
-          </div>
+          <div className={styles.dragMessage}>📷 Déposez votre image ici</div>
         </div>
       )}
       <div className={styles.fileInputContainer}>
@@ -568,12 +580,11 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
           className={styles.fileInput}
           disabled={!supportsImages || isUploading}
         />
-        <label 
-          htmlFor="fileInput" 
+        <label
+          htmlFor="fileInput"
           className={`${styles.fileLabel} ${!supportsImages ? styles.disabled : ''}`}
           aria-label="Upload Image"
-          title={getImageTooltip()}
-        >
+          title={getImageTooltip()}>
           <FontIcon
             className={supportsImages ? styles.fileIcon : styles.fileIconDisabled}
             iconName={isUploading ? 'ProgressRingDots' : 'Attach'}
@@ -587,9 +598,16 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
           type="button"
           className={`${styles.voiceButton} ${appStateContext?.state.isAutoAudioEnabled ? styles.autoAudioActive : ''}`}
           onClick={toggleGlobalAutoAudio}
-          aria-label={appStateContext?.state.isAutoAudioEnabled ? "Désactiver la lecture automatique" : "Activer la lecture automatique"}
-          title={appStateContext?.state.isAutoAudioEnabled ? "Désactiver la lecture automatique" : "Activer la lecture automatique"}
-        >
+          aria-label={
+            appStateContext?.state.isAutoAudioEnabled
+              ? 'Désactiver la lecture automatique'
+              : 'Activer la lecture automatique'
+          }
+          title={
+            appStateContext?.state.isAutoAudioEnabled
+              ? 'Désactiver la lecture automatique'
+              : 'Activer la lecture automatique'
+          }>
           {appStateContext?.state.isAutoAudioEnabled ? (
             <Speaker220Regular className={styles.voiceIcon} />
           ) : (
@@ -606,23 +624,22 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
             disabled={!voiceRecognition.speechSupported}
             aria-label={
               voiceRecognition.isListeningAfterWakeWord
-                ? "Écoute de la commande après détection du mot-clé..."
-                : voiceRecognition.isWakeWordListening 
-                  ? "Mode écoute active (double-clic pour désactiver)" 
-                  : voiceRecognition.isListening 
-                    ? "Reconnaissance vocale en cours..." 
-                    : "Clic simple: reconnaissance vocale / Double-clic: mode écoute"
+                ? 'Écoute de la commande après détection du mot-clé...'
+                : voiceRecognition.isWakeWordListening
+                  ? 'Mode écoute active (double-clic pour désactiver)'
+                  : voiceRecognition.isListening
+                    ? 'Reconnaissance vocale en cours...'
+                    : 'Clic simple: reconnaissance vocale / Double-clic: mode écoute'
             }
             title={
               voiceRecognition.isListeningAfterWakeWord
-                ? "Écoute de la commande après détection du mot-clé..."
-                : voiceRecognition.isWakeWordListening 
-                  ? "Mode écoute active (double-clic pour désactiver)" 
-                  : voiceRecognition.isListening 
-                    ? "Reconnaissance vocale en cours..." 
-                    : "Clic simple: reconnaissance vocale / Double-clic: mode écoute"
-            }
-          >
+                ? 'Écoute de la commande après détection du mot-clé...'
+                : voiceRecognition.isWakeWordListening
+                  ? 'Mode écoute active (double-clic pour désactiver)'
+                  : voiceRecognition.isListening
+                    ? 'Reconnaissance vocale en cours...'
+                    : 'Clic simple: reconnaissance vocale / Double-clic: mode écoute'
+            }>
             <div className={styles.microphoneContainer}>
               {voiceRecognition.isListening ? (
                 <MicOff20Regular className={styles.voiceIcon} />
@@ -639,12 +656,11 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
       {base64Image && (
         <div className={styles.uploadedImageContainer}>
           <img className={styles.uploadedImage} src={base64Image} alt="Uploaded Preview" />
-          <button 
+          <button
             className={styles.removeImageButton}
             onClick={() => setBase64Image(null)}
             aria-label="Supprimer l'image"
-            title="Supprimer l'image"
-          >
+            title="Supprimer l'image">
             <FontIcon iconName="Cancel" />
           </button>
         </div>
@@ -667,12 +683,11 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, conv
           <div className={styles.errorMessage}>
             <FontIcon iconName="ErrorBadge" className={styles.errorIcon} />
             <span>{errorMessage}</span>
-            <button 
+            <button
               className={styles.errorCloseButton}
               onClick={() => setErrorMessage(null)}
               aria-label="Fermer le message d'erreur"
-              title="Fermer"
-            >
+              title="Fermer">
               <FontIcon iconName="Cancel" />
             </button>
           </div>

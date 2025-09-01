@@ -6,8 +6,8 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
     case 'TOGGLE_CHAT_HISTORY':
       // Si le panneau d'aide ou de personnalisation est ouvert, le fermer quand l'historique des chats est ouvert
-      return { 
-        ...state, 
+      return {
+        ...state,
         isChatHistoryOpen: !state.isChatHistoryOpen,
         // Fermer les autres panneaux si on ouvre l'historique
         isHelpPanelOpen: !state.isChatHistoryOpen ? false : state.isHelpPanelOpen,
@@ -15,8 +15,8 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
       }
     case 'TOGGLE_HELP_PANEL':
       // Si l'historique des chats ou le panneau de personnalisation est ouvert, le fermer quand le panneau d'aide est ouvert
-      return { 
-        ...state, 
+      return {
+        ...state,
         isHelpPanelOpen: !state.isHelpPanelOpen,
         // Fermer les autres panneaux si on ouvre l'aide
         isChatHistoryOpen: !state.isHelpPanelOpen ? false : state.isChatHistoryOpen,
@@ -24,8 +24,8 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
       }
     case 'TOGGLE_CUSTOMIZATION_PANEL':
       // Si l'historique des chats ou le panneau d'aide est ouvert, le fermer quand le panneau de personnalisation est ouvert
-      return { 
-        ...state, 
+      return {
+        ...state,
         isCustomizationPanelOpen: !state.isCustomizationPanelOpen,
         // Fermer les autres panneaux si on ouvre la personnalisation
         isChatHistoryOpen: !state.isCustomizationPanelOpen ? false : state.isChatHistoryOpen,
@@ -116,28 +116,28 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
     case 'SET_AUTH_TOKEN':
       return {
         ...state,
-        authToken: action.payload, 
-      };
+        authToken: action.payload
+      }
     case 'SET_USER_LANGUAGE':
       return {
         ...state,
-        userLanguage: action.payload, 
-      };
+        userLanguage: action.payload
+      }
     case 'SET_USERNAME':
       return {
         ...state,
-        username: action.payload, 
-      };
+        username: action.payload
+      }
     case 'SET_ENCRYPTED_USERNAME':
       return {
         ...state,
-        encryptedUsername: action.payload, 
-      };
+        encryptedUsername: action.payload
+      }
     case 'SET_INITIAL_QUESTION':
       return {
         ...state,
-        initialQuestion: action.payload, 
-      };
+        initialQuestion: action.payload
+      }
     case 'SET_AUTHENTICATION_STATUS':
       return { ...state, isAuthenticated: action.payload }
     case 'TOGGLE_AUTO_AUDIO':

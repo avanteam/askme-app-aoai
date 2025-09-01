@@ -10,3 +10,6 @@ __pycache__/
 
 # Kubernetes secrets with real values
 k8s/secret.yaml
+
+# Déploiements clients locaux (pour tests CLI uniquement)
+deployments/clients/

@@ -1,28 +1,28 @@
-import CryptoJS from 'crypto-js';
+import CryptoJS from 'crypto-js'
 
 // Fonction pour obtenir la clé de chiffrement
 function getEncryptionKey() {
-  const keyBase64 = '+gSxYLZWesSFOppNJg1v7K7VvK4JzbxrLGPH+C6Ettc=';
-  return CryptoJS.enc.Base64.parse(keyBase64);
+  const keyBase64 = '+gSxYLZWesSFOppNJg1v7K7VvK4JzbxrLGPH+C6Ettc='
+  return CryptoJS.enc.Base64.parse(keyBase64)
 }
 
 // Fonction de chiffrement
-export function encryptString(plainText:string) {
-  const key = getEncryptionKey();
-  const iv = CryptoJS.lib.WordArray.random(16); // Générer un IV de 16 octets
+export function encryptString(plainText: string) {
+  const key = getEncryptionKey()
+  const iv = CryptoJS.lib.WordArray.random(16) // Générer un IV de 16 octets
 
   // Chiffrement avec AES
   const encrypted = CryptoJS.AES.encrypt(plainText, key, {
     iv: iv,
     mode: CryptoJS.mode.CBC,
-    padding: CryptoJS.pad.Pkcs7,
-  });
+    padding: CryptoJS.pad.Pkcs7
+  })
 
   // Combiner IV et données chiffrées
-  const combined = iv.concat(encrypted.ciphertext);
+  const combined = iv.concat(encrypted.ciphertext)
 
   // Convertir en Base64
-  return CryptoJS.enc.Base64.stringify(combined);
+  return CryptoJS.enc.Base64.stringify(combined)
 }
 
 // // Fonction de déchiffrement

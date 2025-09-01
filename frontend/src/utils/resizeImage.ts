@@ -1,4 +1,10 @@
-export const resizeImage = (file: Blob, maxWidth: number, maxHeight: number, quality: number = 0.8, useHighQuality: boolean = false): Promise<string> => {
+export const resizeImage = (
+  file: Blob,
+  maxWidth: number,
+  maxHeight: number,
+  quality: number = 0.8,
+  useHighQuality: boolean = false
+): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image()
     const reader = new FileReader()
@@ -35,9 +41,10 @@ export const resizeImage = (file: Blob, maxWidth: number, maxHeight: number, qua
         }
 
         // Convert the canvas to a base64 string with optimal format
-        const resizedBase64 = useHighQuality && (width * height) < 1000000 ? 
-          canvas.toDataURL('image/png') :  // PNG sans perte pour petites images
-          canvas.toDataURL('image/jpeg', quality)
+        const resizedBase64 =
+          useHighQuality && width * height < 1000000
+            ? canvas.toDataURL('image/png') // PNG sans perte pour petites images
+            : canvas.toDataURL('image/jpeg', quality)
         resolve(resizedBase64)
       }
 

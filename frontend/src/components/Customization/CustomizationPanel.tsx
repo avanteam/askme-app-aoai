@@ -17,9 +17,9 @@ import styles from './CustomizationPanel.module.css'
 
 // Types pour les préférences de personnalisation
 export interface CustomizationPreferences {
-  responseSize: 'veryShort' | 'medium' | 'comprehensive';
-  documentsCount: number;
-  llmProvider: string;
+  responseSize: 'veryShort' | 'medium' | 'comprehensive'
+  documentsCount: number
+  llmProvider: string
 }
 
 // Fonction utilitaire pour charger les préférences depuis localStorage (définie en dehors du composant)
@@ -49,50 +49,47 @@ export function CustomizationPanel() {
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const [currentLanguage, setCurrentLanguage] = useState('FR')
-  
+
   // États pour les préférences utilisateur - initialisés avec les valeurs sauvegardées ou par défaut
   const getInitialPreferences = () => {
     const saved = loadPreferencesFromStorage()
-    return saved || {
-      responseSize: appStateContext?.state.customizationPreferences?.responseSize || 'medium',
-      documentsCount: appStateContext?.state.customizationPreferences?.documentsCount || 5,
-      llmProvider: appStateContext?.state.customizationPreferences?.llmProvider || 'AZURE_OPENAI'
-    }
+    return (
+      saved || {
+        responseSize: appStateContext?.state.customizationPreferences?.responseSize || 'medium',
+        documentsCount: appStateContext?.state.customizationPreferences?.documentsCount || 5,
+        llmProvider: appStateContext?.state.customizationPreferences?.llmProvider || 'AZURE_OPENAI'
+      }
+    )
   }
 
   const initialPrefs = getInitialPreferences()
-  
+
   const [responseSize, setResponseSize] = useState<'veryShort' | 'medium' | 'comprehensive'>(
     initialPrefs.responseSize as 'veryShort' | 'medium' | 'comprehensive'
   )
-  
-  const [documentsCount, setDocumentsCount] = useState<number>(
-    initialPrefs.documentsCount
-  )
-  
-  const [llmProvider, setLlmProvider] = useState<string>(
-    initialPrefs.llmProvider || 'AZURE_OPENAI'
-  )
-  
+
+  const [documentsCount, setDocumentsCount] = useState<number>(initialPrefs.documentsCount)
+
+  const [llmProvider, setLlmProvider] = useState<string>(initialPrefs.llmProvider || 'AZURE_OPENAI')
+
   const panelRef = useRef<HTMLDivElement>(null)
-  
+
   // Options pour le choix de la taille de réponse
   const responseSizeOptions: IChoiceGroupOption[] = [
     { key: 'veryShort', text: currentLanguage === 'FR' ? 'Très courte' : 'Very short' },
     { key: 'medium', text: currentLanguage === 'FR' ? 'Moyenne' : 'Medium' },
     { key: 'comprehensive', text: currentLanguage === 'FR' ? 'Très complète' : 'Comprehensive' }
   ]
-  
+
   // Récupérer la liste des providers disponibles depuis les settings frontend
   const availableProviders = appStateContext?.state.frontendSettings?.available_llm_providers || ['AZURE_OPENAI']
-  
+
   // Options pour le choix du provider LLM (basées sur la configuration backend)
   const llmProviderOptions: IChoiceGroupOption[] = availableProviders.map(provider => ({
     key: provider,
     text: provider
   }))
-  
-  
+
   // Fonction pour sauvegarder les préférences dans localStorage
   const savePreferencesToStorage = (preferences: CustomizationPreferences) => {
     try {
@@ -102,55 +99,64 @@ export function CustomizationPanel() {
     }
   }
 
-
   // Fonction pour mettre à jour les préférences
-  const updatePreferences = (newResponseSize?: 'veryShort' | 'medium' | 'comprehensive', newDocumentsCount?: number, newLlmProvider?: string) => {
+  const updatePreferences = (
+    newResponseSize?: 'veryShort' | 'medium' | 'comprehensive',
+    newDocumentsCount?: number,
+    newLlmProvider?: string
+  ) => {
     const updatedPreferences: CustomizationPreferences = {
       responseSize: newResponseSize || responseSize,
       documentsCount: newDocumentsCount !== undefined ? newDocumentsCount : documentsCount,
       llmProvider: newLlmProvider || llmProvider
     }
-    
+
     // Sauvegarder dans localStorage
     savePreferencesToStorage(updatedPreferences)
-    
+
     // Mise à jour des préférences dans le contexte global sans afficher de toast
     appStateContext?.dispatch({ type: 'UPDATE_CUSTOMIZATION_PREFERENCES', payload: updatedPreferences })
   }
-  
+
   // Gestionnaires d'événements pour les changements
-  const handleResponseSizeChange = (_: React.FormEvent<HTMLElement | HTMLInputElement> | undefined, option?: IChoiceGroupOption) => {
+  const handleResponseSizeChange = (
+    _: React.FormEvent<HTMLElement | HTMLInputElement> | undefined,
+    option?: IChoiceGroupOption
+  ) => {
     if (option) {
       const newValue = option.key as 'veryShort' | 'medium' | 'comprehensive'
       setResponseSize(newValue)
       updatePreferences(newValue, undefined, undefined)
     }
   }
-  
+
   const handleDocumentsCountChange = (value: number) => {
     setDocumentsCount(value)
     updatePreferences(undefined, value, undefined)
   }
-  
-  const handleLlmProviderChange = (_: React.FormEvent<HTMLElement | HTMLInputElement> | undefined, option?: IChoiceGroupOption) => {
+
+  const handleLlmProviderChange = (
+    _: React.FormEvent<HTMLElement | HTMLInputElement> | undefined,
+    option?: IChoiceGroupOption
+  ) => {
     if (option) {
       const newValue = option.key as string
       setLlmProvider(newValue)
       updatePreferences(undefined, undefined, newValue)
     }
   }
-  
+
   // Fermeture du panneau de personnalisation
   const handleCloseCustomization = () => {
     // Animer la fermeture du panneau
     setIsVisible(false)
-    
+
     // Délai avant de réellement masquer le panneau (pour permettre l'animation)
     setTimeout(() => {
       appStateContext?.dispatch({ type: 'TOGGLE_CUSTOMIZATION_PANEL' })
     }, 300)
   }
-  
+
   // Gestion du clic sur l'overlay (fond semi-transparent)
   const handleOverlayClick = (e: React.MouseEvent) => {
     // S'assurer que le clic était bien sur l'overlay et pas sur le panneau
@@ -158,7 +164,7 @@ export function CustomizationPanel() {
       handleCloseCustomization()
     }
   }
-  
+
   // Réinitialiser les paramètres par défaut
   const resetToDefaults = () => {
     const defaultProvider = availableProviders[0] || 'AZURE_OPENAI'
@@ -167,26 +173,26 @@ export function CustomizationPanel() {
       documentsCount: 5,
       llmProvider: defaultProvider
     }
-    
+
     // Mettre à jour l'état local
     setResponseSize('medium')
     setDocumentsCount(5)
     setLlmProvider(defaultProvider)
-    
+
     // Supprimer les préférences du localStorage
     try {
       localStorage.removeItem('userCustomizationPreferences')
     } catch (error) {
       console.warn('Failed to remove customization preferences from localStorage:', error)
     }
-    
+
     // Mettre à jour l'état global
     appStateContext?.dispatch({ type: 'UPDATE_CUSTOMIZATION_PREFERENCES', payload: defaultPreferences })
-    
+
     // Afficher un toast de confirmation
     setToastMessage(currentLanguage === 'FR' ? 'Préférences réinitialisées' : 'Preferences reset to defaults')
     setShowToast(true)
-    
+
     // Masquer après 2 secondes
     setTimeout(() => {
       setShowToast(false)
@@ -202,7 +208,7 @@ export function CustomizationPanel() {
       setResponseSize(savedPreferences.responseSize)
       setDocumentsCount(savedPreferences.documentsCount)
       setLlmProvider(savedPreferences.llmProvider || 'AZURE_OPENAI')
-      
+
       // Mettre à jour l'état global
       appStateContext?.dispatch({ type: 'UPDATE_CUSTOMIZATION_PREFERENCES', payload: savedPreferences })
     }
@@ -213,27 +219,27 @@ export function CustomizationPanel() {
     setTimeout(() => {
       setIsVisible(true)
     }, 50)
-    
+
     // Déterminer la langue en fonction du contexte de l'application
-    const userLang = appStateContext?.state.userLanguage || 'FR';
-    setCurrentLanguage(userLang);
-    
+    const userLang = appStateContext?.state.userLanguage || 'FR'
+    setCurrentLanguage(userLang)
+
     // Synchroniser l'état local avec les préférences globales à chaque ouverture du panneau
     if (appStateContext?.state.customizationPreferences) {
-      setResponseSize(appStateContext.state.customizationPreferences.responseSize);
-      setDocumentsCount(appStateContext.state.customizationPreferences.documentsCount);
-      setLlmProvider(appStateContext.state.customizationPreferences.llmProvider);
+      setResponseSize(appStateContext.state.customizationPreferences.responseSize)
+      setDocumentsCount(appStateContext.state.customizationPreferences.documentsCount)
+      setLlmProvider(appStateContext.state.customizationPreferences.llmProvider)
     }
-    
+
     // Ajouter l'écouteur pour la touche Escape
     const handleEscapeKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleCloseCustomization()
       }
     }
-    
+
     document.addEventListener('keydown', handleEscapeKey)
-    
+
     // Nettoyage lors du démontage
     return () => {
       document.removeEventListener('keydown', handleEscapeKey)
@@ -243,18 +249,17 @@ export function CustomizationPanel() {
   return (
     <>
       {/* Overlay semi-transparent */}
-      <div 
+      <div
         className={`${styles.overlay} ${isVisible ? styles.overlayVisible : ''}`}
         onClick={handleOverlayClick}
         aria-hidden="true"
       />
-      
+
       {/* Panneau de personnalisation */}
-      <div 
+      <div
         ref={panelRef}
-        className={`${styles.container} ${isVisible ? styles.visible : ''}`} 
-        aria-label="panneau de personnalisation"
-      >
+        className={`${styles.container} ${isVisible ? styles.visible : ''}`}
+        aria-label="panneau de personnalisation">
         {/* Toast de notification */}
         {showToast && (
           <div className={styles.toastContainer}>
@@ -264,27 +269,25 @@ export function CustomizationPanel() {
               isMultiline={false}
               onDismiss={() => setShowToast(false)}
               dismissButtonAriaLabel={currentLanguage === 'FR' ? 'Fermer' : 'Dismiss'}
-              aria-live="polite"
-            >
+              aria-live="polite">
               {toastMessage}
             </MessageBar>
           </div>
         )}
-        
+
         <div className={styles.customizationHeader}>
           <h2 className={styles.customizationTitle}>
             <Icon iconName="Settings" className={styles.titleIcon} />
             {currentLanguage === 'FR' ? 'Personnalisation' : 'Customization'}
           </h2>
-          <button 
-            className={styles.closeButton} 
+          <button
+            className={styles.closeButton}
             onClick={handleCloseCustomization}
-            aria-label={currentLanguage === 'FR' ? 'Fermer' : 'Close'}
-          >
+            aria-label={currentLanguage === 'FR' ? 'Fermer' : 'Close'}>
             <Icon iconName="Cancel" />
           </button>
         </div>
-        
+
         <div className={styles.customizationContent}>
           {/* Section de la taille de réponse */}
           <div className={styles.settingSection}>
@@ -293,19 +296,19 @@ export function CustomizationPanel() {
               {currentLanguage === 'FR' ? 'Taille de la réponse' : 'Response Size'}
             </h3>
             <p className={styles.settingDescription}>
-              {currentLanguage === 'FR' 
-                ? 'Choisissez la longueur des réponses générées par l\'assistant.' 
+              {currentLanguage === 'FR'
+                ? "Choisissez la longueur des réponses générées par l'assistant."
                 : 'Choose the length of responses generated by the assistant.'}
             </p>
-            
-            <ChoiceGroup 
+
+            <ChoiceGroup
               selectedKey={responseSize}
               options={responseSizeOptions}
               onChange={handleResponseSizeChange}
               className={styles.choiceGroup}
             />
           </div>
-          
+
           {/* Section du nombre de documents */}
           <div className={styles.settingSection}>
             <h3 className={styles.settingTitle}>
@@ -313,11 +316,11 @@ export function CustomizationPanel() {
               {currentLanguage === 'FR' ? 'Nombre de documents' : 'Number of Documents'}
             </h3>
             <p className={styles.settingDescription}>
-              {currentLanguage === 'FR' 
-                ? 'Définissez combien de documents l\'assistant doit consulter pour répondre à vos questions.' 
+              {currentLanguage === 'FR'
+                ? "Définissez combien de documents l'assistant doit consulter pour répondre à vos questions."
                 : 'Set how many documents the assistant should consult to answer your questions.'}
             </p>
-            
+
             <div className={styles.sliderContainer}>
               <Slider
                 label={`${documentsCount} ${currentLanguage === 'FR' ? 'documents' : 'documents'}`}
@@ -334,17 +337,14 @@ export function CustomizationPanel() {
                 <span className={styles.sliderMax}>20</span>
               </div>
             </div>
-            
-            <MessageBar 
-              className={styles.warningMessage}
-              messageBarType={MessageBarType.warning}
-            >
-              {currentLanguage === 'FR' 
+
+            <MessageBar className={styles.warningMessage} messageBarType={MessageBarType.warning}>
+              {currentLanguage === 'FR'
                 ? 'Attention : Un nombre élevé de documents peut diminuer la précision des réponses et augmenter le temps de traitement.'
                 : 'Warning: A higher number of documents may decrease answer precision and increase processing time.'}
             </MessageBar>
           </div>
-          
+
           {/* Section du choix du provider LLM - seulement si plusieurs providers disponibles */}
           {availableProviders.length > 1 && (
             <div className={styles.settingSection}>
@@ -353,12 +353,12 @@ export function CustomizationPanel() {
                 {currentLanguage === 'FR' ? 'Modèle de langage' : 'Language Model'}
               </h3>
               <p className={styles.settingDescription}>
-                {currentLanguage === 'FR' 
-                  ? 'Choisissez le modèle de langage à utiliser pour générer les réponses.' 
+                {currentLanguage === 'FR'
+                  ? 'Choisissez le modèle de langage à utiliser pour générer les réponses.'
                   : 'Choose the language model to use for generating responses.'}
               </p>
-              
-              <ChoiceGroup 
+
+              <ChoiceGroup
                 selectedKey={llmProvider}
                 options={llmProviderOptions}
                 onChange={handleLlmProviderChange}
@@ -366,7 +366,7 @@ export function CustomizationPanel() {
               />
             </div>
           )}
-          
+
           {/* Bouton de réinitialisation uniquement */}
           <div className={styles.actionButtons}>
             <DefaultButton
@@ -379,7 +379,7 @@ export function CustomizationPanel() {
 
           {/* Note informative */}
           <MessageBar className={styles.infoMessage}>
-            {currentLanguage === 'FR' 
+            {currentLanguage === 'FR'
               ? 'Vos préférences sont automatiquement appliquées lorsque vous les modifiez.'
               : 'Your preferences are automatically applied when you change them.'}
           </MessageBar>

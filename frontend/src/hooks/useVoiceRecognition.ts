@@ -37,7 +37,7 @@ export const useVoiceRecognition = (
   const [question, setQuestion] = useState<string>('')
   const [voiceInputComplete, setVoiceInputComplete] = useState<boolean>(false)
   const [wakeWordMode, setWakeWordMode] = useState<boolean>(false)
-  
+
   // État pour mémoriser si l'écoute était active avant la pause audio
   const wasWakeWordActiveBeforePause = useRef<boolean>(false)
 
@@ -54,7 +54,7 @@ export const useVoiceRecognition = (
 
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       setSpeechSupported(true)
-      
+
       // Initialize main speech recognition
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
       const recognition = new SpeechRecognition()
@@ -70,7 +70,7 @@ export const useVoiceRecognition = (
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript
         setQuestion(transcript)
-        
+
         if (event.results[0].isFinal) {
           setVoiceInputComplete(true)
         }
@@ -111,21 +111,22 @@ export const useVoiceRecognition = (
         wakeWordRecognition.onresult = (event: any) => {
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript.toLowerCase().trim()
-            
+
             // Fonction pour normaliser le texte (enlever les accents)
             const normalizeText = (text: string) => {
-              return text.toLowerCase()
+              return text
+                .toLowerCase()
                 .normalize('NFD')
                 .replace(/[\u0300-\u036f]/g, '') // Enlever les accents
                 .trim()
             }
-            
+
             const normalizedTranscript = normalizeText(transcript)
-            
+
             // Vérifier la détection avec les variantes phonétiques
             let detectedPhrase = ''
             let detectedVariant = ''
-            
+
             // D'abord vérifier les variantes phonétiques
             for (const [mainPhrase, variants] of Object.entries(wakeWordVariants)) {
               for (const variant of variants) {
@@ -138,7 +139,7 @@ export const useVoiceRecognition = (
               }
               if (detectedPhrase) break
             }
-            
+
             // Si pas trouvé dans les variantes, vérifier les phrases principales
             if (!detectedPhrase) {
               for (const phrase of wakeWordPhrases) {
@@ -150,24 +151,24 @@ export const useVoiceRecognition = (
                 }
               }
             }
-            
+
             // Activer l'indicateur dès que le wake word est détecté (même en intermédiaire)
             // Cela permet d'afficher le point rouge clignotant instantanément
             if (detectedPhrase) {
               setIsListeningAfterWakeWord(true)
             }
-            
+
             if (detectedPhrase && event.results[i].isFinal) {
               console.log(`Wake word detected! Phrase: "${detectedPhrase}", Variant: "${detectedVariant}"`)
               console.log('Original transcript:', transcript)
               console.log('Normalized transcript:', normalizedTranscript)
-              
+
               wakeWordRecognition.stop()
               setIsWakeWordListening(false)
-              
+
               // Activer l'indicateur que le wake word a été détecté et qu'on écoute la commande
               setIsListeningAfterWakeWord(true)
-              
+
               // Extract question part after wake word
               let questionPart = ''
               const normalizedVariant = normalizeText(detectedVariant)
@@ -176,27 +177,34 @@ export const useVoiceRecognition = (
                 // Utiliser l'index dans le transcript original pour préserver la casse
                 const originalWords = transcript.split(' ')
                 const normalizedWords = normalizedTranscript.split(' ')
-                
+
                 let wordCount = 0
                 for (let j = 0; j < normalizedWords.length; j++) {
-                  if (normalizedTranscript.substring(0, normalizedWords.slice(0, j + 1).join(' ').length).includes(normalizedVariant)) {
+                  if (
+                    normalizedTranscript
+                      .substring(0, normalizedWords.slice(0, j + 1).join(' ').length)
+                      .includes(normalizedVariant)
+                  ) {
                     wordCount = j + 1
                     break
                   }
                 }
-                
+
                 if (wordCount > 0 && wordCount < originalWords.length) {
                   questionPart = originalWords.slice(wordCount).join(' ').trim()
                 } else {
                   // Fallback: utiliser l'approche basique
                   questionPart = transcript.substring(index + normalizedVariant.length).trim()
                 }
-                
-                console.log(`Wake word "${detectedPhrase}" (variant "${detectedVariant}") detected, extracted question:`, questionPart)
+
+                console.log(
+                  `Wake word "${detectedPhrase}" (variant "${detectedVariant}") detected, extracted question:`,
+                  questionPart
+                )
               }
-              
+
               console.log('Question extraite:', questionPart)
-              
+
               if (questionPart && questionPart.length > 0) {
                 setQuestion(questionPart)
                 setVoiceInputComplete(true)
@@ -217,7 +225,7 @@ export const useVoiceRecognition = (
                   }
                 }
               }
-              
+
               break
             }
           }
@@ -227,12 +235,12 @@ export const useVoiceRecognition = (
           console.error('Wake word recognition error:', event.error)
           console.log('Wake word error context:', { wakeWordMode, speechSupported, isListening, isWakeWordListening })
           setIsWakeWordListening(false)
-          
-          // Redémarrer automatiquement le wake word listening sauf si permission refusée - comme dans le backup  
+
+          // Redémarrer automatiquement le wake word listening sauf si permission refusée - comme dans le backup
           // Utiliser les valeurs de config au lieu des états internes pour éviter les problèmes de synchronisation
           if (event.error !== 'not-allowed' && event.error !== 'audio-capture' && canUseWakeWord && voiceInputEnabled) {
             let restartDelay = 2000
-            
+
             switch (event.error) {
               case 'no-speech':
                 restartDelay = 500
@@ -247,18 +255,24 @@ export const useVoiceRecognition = (
               default:
                 restartDelay = 2000
             }
-            
+
             console.log('Scheduling wake word restart in', restartDelay, 'ms...')
             setTimeout(() => {
-              console.log('Wake word restart attempt:', { 
-                hasRef: !!wakeWordRecognitionRef.current, 
-                canUseWakeWord, 
+              console.log('Wake word restart attempt:', {
+                hasRef: !!wakeWordRecognitionRef.current,
+                canUseWakeWord,
                 voiceInputEnabled,
-                wakeWordMode, 
-                isWakeWordListening, 
-                isListening 
+                wakeWordMode,
+                isWakeWordListening,
+                isListening
               })
-              if (wakeWordRecognitionRef.current && canUseWakeWord && voiceInputEnabled && !isWakeWordListening && !isListening) {
+              if (
+                wakeWordRecognitionRef.current &&
+                canUseWakeWord &&
+                voiceInputEnabled &&
+                !isWakeWordListening &&
+                !isListening
+              ) {
                 try {
                   setIsWakeWordListening(true)
                   wakeWordRecognitionRef.current.start()
@@ -272,8 +286,8 @@ export const useVoiceRecognition = (
               }
             }, restartDelay)
           } else {
-            console.log('Wake word not restarting due to conditions:', { 
-              errorType: event.error, 
+            console.log('Wake word not restarting due to conditions:', {
+              errorType: event.error,
               canUseWakeWord,
               voiceInputEnabled,
               wakeWordMode
@@ -284,12 +298,18 @@ export const useVoiceRecognition = (
         wakeWordRecognition.onend = () => {
           setIsWakeWordListening(false)
           console.log('Wake word recognition ended')
-          
+
           // Redémarrer automatiquement le wake word listening si activé - comme dans le backup
           if (wakeWordMode && canUseWakeWord && voiceInputEnabled && !isListening) {
             console.log('Restarting wake word listening after normal end...')
             setTimeout(() => {
-              if (wakeWordRecognitionRef.current && speechSupported && wakeWordMode && !isWakeWordListening && !isListening) {
+              if (
+                wakeWordRecognitionRef.current &&
+                speechSupported &&
+                wakeWordMode &&
+                !isWakeWordListening &&
+                !isListening
+              ) {
                 try {
                   setIsWakeWordListening(true)
                   wakeWordRecognitionRef.current.start()
@@ -305,12 +325,11 @@ export const useVoiceRecognition = (
 
         wakeWordRecognitionRef.current = wakeWordRecognition
       }
-      
     } else {
       setSpeechSupported(false)
       console.warn('Speech recognition not supported in this browser')
     }
-    
+
     return () => {
       if (recognitionRef.current) {
         recognitionRef.current.stop()
@@ -367,21 +386,21 @@ export const useVoiceRecognition = (
 
     const currentTime = Date.now()
     const timeSinceLastClick = currentTime - lastClickTimeRef.current
-    
+
     // Annuler le timeout du simple clic s'il existe
     if (singleClickTimeoutRef.current) {
       clearTimeout(singleClickTimeoutRef.current)
       singleClickTimeoutRef.current = null
     }
-    
+
     // Détection du double-clic (moins de 300ms entre les clics)
     if (timeSinceLastClick < 300 && timeSinceLastClick > 0) {
       // Double-clic : toggle wake word mode
       console.log('Double-clic détecté : toggle wake word mode')
-      
+
       const newWakeWordMode = !wakeWordMode
       setWakeWordMode(newWakeWordMode)
-      
+
       if (newWakeWordMode) {
         console.log('Wake word mode activé')
         if (wakeWordRecognitionRef.current && speechSupported && canUseWakeWord) {
@@ -406,17 +425,17 @@ export const useVoiceRecognition = (
           setIsWakeWordListening(false)
         }
       }
-      
+
       lastClickTimeRef.current = 0 // Reset pour éviter les triples clics
       return
     }
-    
+
     lastClickTimeRef.current = currentTime
 
     // Programmer l'action du simple clic avec un délai
     singleClickTimeoutRef.current = setTimeout(() => {
       console.log('Single click detected - current state:', { isListening, isWakeWordListening })
-      
+
       // Single click logic - simplified like in backup
       if (isListening) {
         // Si on est en train d'écouter, arrêter immédiatement
@@ -437,7 +456,7 @@ export const useVoiceRecognition = (
             console.error('Failed to stop wake word recognition:', error)
           }
         }
-        
+
         // Commencer l'écoute manuelle directement comme dans le backup
         console.log('Starting manual speech recognition from single click...')
         if (recognitionRef.current) {
@@ -482,11 +501,11 @@ export const useVoiceRecognition = (
   // Pause l'écoute vocale (pendant la lecture audio par exemple)
   const pauseVoiceRecognition = useCallback(() => {
     console.log('Pausing voice recognition for audio playback')
-    
+
     // Mémoriser l'état actuel du wake word avant de l'arrêter
     wasWakeWordActiveBeforePause.current = isWakeWordListening
     console.log('Wake word was active before pause:', wasWakeWordActiveBeforePause.current)
-    
+
     // Arrêter la reconnaissance manuelle si en cours
     if (recognitionRef.current && isListening) {
       try {
@@ -495,7 +514,7 @@ export const useVoiceRecognition = (
         console.error('Error stopping manual recognition:', error)
       }
     }
-    
+
     // Arrêter le wake word si en cours
     if (wakeWordRecognitionRef.current && isWakeWordListening) {
       try {
@@ -509,7 +528,7 @@ export const useVoiceRecognition = (
   // Reprendre l'écoute vocale après la lecture audio
   const resumeVoiceRecognition = useCallback(() => {
     console.log('Resuming voice recognition after audio playback')
-    
+
     // Utiliser un délai pour permettre aux états de se synchroniser
     setTimeout(() => {
       console.log('Current state before resume check:', {
@@ -521,7 +540,7 @@ export const useVoiceRecognition = (
         isWakeWordListening,
         hasWakeWordRef: !!wakeWordRecognitionRef.current
       })
-      
+
       // Redémarrer le wake word SEULEMENT s'il était actif avant la pause ET que le mode est toujours activé
       // Ignorer l'état isWakeWordListening car il peut être incohérent après la pause
       if (wasWakeWordActiveBeforePause.current && wakeWordMode && canUseWakeWord && voiceInputEnabled && !isListening) {
@@ -534,7 +553,7 @@ export const useVoiceRecognition = (
               wakeWordRecognitionRef.current.stop()
               setIsWakeWordListening(false)
             }
-            
+
             // Petit délai pour s'assurer que l'arrêt est effectif
             setTimeout(() => {
               try {
@@ -561,12 +580,11 @@ export const useVoiceRecognition = (
           notListening: !isListening
         })
       }
-      
+
       // Réinitialiser l'état mémorisé après usage
       wasWakeWordActiveBeforePause.current = false
     }, 800) // Délai principal
   }, [canUseWakeWord, voiceInputEnabled, isListening, isWakeWordListening, wakeWordMode])
-
 
   return {
     // State
@@ -576,7 +594,7 @@ export const useVoiceRecognition = (
     speechSupported,
     question,
     voiceInputComplete,
-    
+
     // Actions
     startListening,
     stopListening,

@@ -26,7 +26,7 @@ import { GroupedChatHistory } from './ChatHistoryList'
 
 import styles from './ChatHistoryPanel.module.css'
 
-import LocalizedStrings from 'react-localization';
+import LocalizedStrings from 'react-localization'
 
 interface ChatHistoryListItemCellProps {
   item?: Conversation
@@ -83,8 +83,7 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
   }
 
   useEffect(() => {
-    localizedStrings.setLanguage((appStateContext?.state.userLanguage) ? appStateContext?.state.userLanguage : 'FR');
-
+    localizedStrings.setLanguage(appStateContext?.state.userLanguage ? appStateContext?.state.userLanguage : 'FR')
   }, [appStateContext?.state.userLanguage])
 
   useEffect(() => {
@@ -102,9 +101,12 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
   }, [appStateContext?.state.currentChat?.id, item?.id])
 
   const onDelete = async () => {
-    if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != ""){
-
-      const response = await historyDelete(item.id, appStateContext?.state.authToken, appStateContext?.state.encryptedUsername)
+    if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != '') {
+      const response = await historyDelete(
+        item.id,
+        appStateContext?.state.authToken,
+        appStateContext?.state.encryptedUsername
+      )
       if (!response.ok) {
         setErrorDelete(true)
         setTimeout(() => {
@@ -131,7 +133,7 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
   const truncatedTitle = item?.title?.length > 28 ? `${item.title.substring(0, 28)} ...` : item.title
 
   const handleSaveEdit = async (e: any) => {
-    if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != ""){
+    if (appStateContext?.state.authToken != undefined && appStateContext?.state.authToken != '') {
       e.preventDefault()
       if (errorRename || renameLoading) {
         return
@@ -148,7 +150,12 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
         return
       }
       setRenameLoading(true)
-      const response = await historyRename(item.id, editTitle, appStateContext?.state.authToken, appStateContext?.state.encryptedUsername)
+      const response = await historyRename(
+        item.id,
+        editTitle,
+        appStateContext?.state.authToken,
+        appStateContext?.state.encryptedUsername
+      )
       if (!response.ok) {
         setErrorRename(localizedStrings.errorRename)
         setTimeout(() => {
@@ -305,31 +312,28 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
 
 let localizedStrings = new LocalizedStrings({
   FR: {
-    deleteConfirmation : 'Etes vous sûr de vouloir supprimer cet élément ?',
+    deleteConfirmation: 'Etes vous sûr de vouloir supprimer cet élément ?',
     close: 'Fermer',
-    warningDeletion: "Cet historique de chat sera supprimé définitivement",
+    warningDeletion: 'Cet historique de chat sera supprimé définitivement',
     enterNewTitle: "Erreur : Merci d'entrer un nouveau titre.",
     errorRename: "Erreur : impossible de renommer l'élément",
-    delete: "Supprimer",
-    rename: "Renommer",
+    delete: 'Supprimer',
+    rename: 'Renommer',
     errorDeletion: "Erreur : impossible de supprimer l'élément",
     cancel: 'Annuler'
-
   },
   EN: {
-    deleteConfirmation : 'Are you sure you want to delete this item?',
+    deleteConfirmation: 'Are you sure you want to delete this item?',
     close: 'Close',
     warningDeletion: 'The history of this chat session will permanently removed.',
     enterNewTitle: 'Error: Enter a new title to proceed.',
     errorRename: 'Error: could not rename item',
     delete: 'Delete',
     rename: 'Rename',
-    errorDeletion: "Error: could not delete item",
+    errorDeletion: 'Error: could not delete item',
     cancel: 'Cancel'
-},
-  
- });
-
+  }
+})
 
 export const ChatHistoryListItemGroups: React.FC<ChatHistoryListItemGroupsProps> = ({ groupedChatHistory }) => {
   const appStateContext = useContext(AppStateContext)
@@ -362,18 +366,19 @@ export const ChatHistoryListItemGroups: React.FC<ChatHistoryListItemGroupsProps>
   const handleFetchHistory = async () => {
     const currentChatHistory = appStateContext?.state.chatHistory
     setShowSpinner(true)
-    if (appStateContext?.state.authToken != undefined && appStateContext?.state?.authToken != ""){
-
-      await historyList(offset, appStateContext?.state?.authToken, appStateContext?.state?.encryptedUsername).then(response => {
-        const concatenatedChatHistory = currentChatHistory && response && currentChatHistory.concat(...response)
-        if (response) {
-          appStateContext?.dispatch({ type: 'FETCH_CHAT_HISTORY', payload: concatenatedChatHistory || response })
-        } else {
-          appStateContext?.dispatch({ type: 'FETCH_CHAT_HISTORY', payload: null })
+    if (appStateContext?.state.authToken != undefined && appStateContext?.state?.authToken != '') {
+      await historyList(offset, appStateContext?.state?.authToken, appStateContext?.state?.encryptedUsername).then(
+        response => {
+          const concatenatedChatHistory = currentChatHistory && response && currentChatHistory.concat(...response)
+          if (response) {
+            appStateContext?.dispatch({ type: 'FETCH_CHAT_HISTORY', payload: concatenatedChatHistory || response })
+          } else {
+            appStateContext?.dispatch({ type: 'FETCH_CHAT_HISTORY', payload: null })
+          }
+          setShowSpinner(false)
+          return response
         }
-        setShowSpinner(false)
-        return response
-      })
+      )
     }
   }
 

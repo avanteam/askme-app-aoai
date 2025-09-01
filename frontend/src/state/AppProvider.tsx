@@ -1,9 +1,4 @@
-import React, {
-  createContext,
-  ReactNode,
-  useEffect,
-  useReducer
-} from 'react'
+import React, { createContext, ReactNode, useEffect, useReducer } from 'react'
 
 import {
   ChatHistoryLoadingState,
@@ -31,16 +26,16 @@ export interface AppState {
   currentChat: Conversation | null
   frontendSettings: FrontendSettings | null
   feedbackState: { [answerId: string]: Feedback.Neutral | Feedback.Positive | Feedback.Negative }
-  isLoading: boolean;
+  isLoading: boolean
   answerExecResult: { [answerId: string]: [] }
-  authToken: string;
-  userLanguage: string;
-  username: string;
-  encryptedUsername: string;
-  initialQuestion: string;
-  isAuthenticated: boolean;
-  customizationPreferences: CustomizationPreferences;
-  isAutoAudioEnabled: boolean;
+  authToken: string
+  userLanguage: string
+  username: string
+  encryptedUsername: string
+  initialQuestion: string
+  isAuthenticated: boolean
+  customizationPreferences: CustomizationPreferences
+  isAutoAudioEnabled: boolean
 }
 
 export type Action =
@@ -59,11 +54,11 @@ export type Action =
   | { type: 'FETCH_CHAT_HISTORY'; payload: Conversation[] | null }
   | { type: 'FETCH_FRONTEND_SETTINGS'; payload: FrontendSettings | null }
   | {
-    type: 'SET_FEEDBACK_STATE'
-    payload: { answerId: string; feedback: Feedback.Positive | Feedback.Negative | Feedback.Neutral }
-  }
+      type: 'SET_FEEDBACK_STATE'
+      payload: { answerId: string; feedback: Feedback.Positive | Feedback.Negative | Feedback.Neutral }
+    }
   | { type: 'GET_FEEDBACK_STATE'; payload: string }
-  | { type: 'SET_ANSWER_EXEC_RESULT'; payload: { answerId: string, exec_result: [] } }
+  | { type: 'SET_ANSWER_EXEC_RESULT'; payload: { answerId: string; exec_result: [] } }
   | { type: 'SET_AUTH_TOKEN'; payload: string }
   | { type: 'SET_USER_LANGUAGE'; payload: string }
   | { type: 'SET_USERNAME'; payload: string }
@@ -89,11 +84,11 @@ const initialState: AppState = {
   feedbackState: {},
   isLoading: true,
   answerExecResult: {},
-  authToken: "",
-  userLanguage: "FR",
-  username: "",
-  encryptedUsername: "",
-  initialQuestion: "",
+  authToken: '',
+  userLanguage: 'FR',
+  username: '',
+  encryptedUsername: '',
+  initialQuestion: '',
   isAuthenticated: false,
   customizationPreferences: {
     responseSize: 'medium',
@@ -105,9 +100,9 @@ const initialState: AppState = {
 
 export const AppStateContext = createContext<
   | {
-    state: AppState
-    dispatch: React.Dispatch<Action>
-  }
+      state: AppState
+      dispatch: React.Dispatch<Action>
+    }
   | undefined
 >(undefined)
 
@@ -186,46 +181,45 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
       return result
     }
 
-    const getHistoryEnsure = async (token:string) => {
-      if (!state.authToken) return; // Ne rien faire si le token n'est pas défini
+    const getHistoryEnsure = async (token: string) => {
+      if (!state.authToken) return // Ne rien faire si le token n'est pas défini
 
       dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Loading })
       historyEnsure(token)
-      .then(response => {
-        if (response?.cosmosDB) {
-          fetchChatHistory()
-            .then(res => {
-              if (res) {
-                dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Success })
-                dispatch({ type: 'SET_COSMOSDB_STATUS', payload: response })
-              } else {
+        .then(response => {
+          if (response?.cosmosDB) {
+            fetchChatHistory()
+              .then(res => {
+                if (res) {
+                  dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Success })
+                  dispatch({ type: 'SET_COSMOSDB_STATUS', payload: response })
+                } else {
+                  dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
+                  dispatch({
+                    type: 'SET_COSMOSDB_STATUS',
+                    payload: { cosmosDB: false, status: CosmosDBStatus.NotWorking }
+                  })
+                }
+              })
+              .catch(_err => {
                 dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
                 dispatch({
                   type: 'SET_COSMOSDB_STATUS',
                   payload: { cosmosDB: false, status: CosmosDBStatus.NotWorking }
                 })
-              }
-            })
-            .catch(_err => {
-              dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
-              dispatch({
-                type: 'SET_COSMOSDB_STATUS',
-                payload: { cosmosDB: false, status: CosmosDBStatus.NotWorking }
               })
-            })
-        } else {
+          } else {
+            dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
+            dispatch({ type: 'SET_COSMOSDB_STATUS', payload: response })
+          }
+        })
+        .catch(_err => {
           dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
-          dispatch({ type: 'SET_COSMOSDB_STATUS', payload: response })
-        }
-      })
-      .catch(_err => {
-        dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
-        dispatch({ type: 'SET_COSMOSDB_STATUS', payload: { cosmosDB: false, status: CosmosDBStatus.NotConfigured } })
-      })
+          dispatch({ type: 'SET_COSMOSDB_STATUS', payload: { cosmosDB: false, status: CosmosDBStatus.NotConfigured } })
+        })
     }
 
     getHistoryEnsure(state.authToken)
-    
   }, [state.authToken])
 
   useEffect(() => {

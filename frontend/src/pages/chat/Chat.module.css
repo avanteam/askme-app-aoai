@@ -209,7 +209,7 @@
   position: absolute;
   /* width: 161px; */
   height: 32px;
-  left: calc(50% - 190px/2);
+  left: calc(50% - 190px / 2);
   bottom: 116px;
   border: 1px solid #d1d1d1;
   border-radius: 16px;

@@ -3,10 +3,10 @@ import { chatHistorySampleData } from '../constants/chatHistory'
 import { ChatMessage, Conversation, ConversationRequest, CosmosDBHealth, CosmosDBStatus, UserInfo } from './models'
 
 export async function conversationApi(
-  options: ConversationRequest, 
-  abortSignal: AbortSignal, 
-  token: string, 
-  username: string, 
+  options: ConversationRequest,
+  abortSignal: AbortSignal,
+  token: string,
+  username: string,
   userFullDefinition: string,
   customizationPreferences?: any
 ): Promise<Response> {
@@ -14,7 +14,7 @@ export async function conversationApi(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      "AuthToken": token
+      AuthToken: token
     },
     body: JSON.stringify({
       messages: options.messages,
@@ -29,34 +29,31 @@ export async function conversationApi(
   return response
 }
 
-export async function authenticate(authToken:string): Promise<boolean> {
-  const response = await fetch("/authenticate", {
-      method: "POST",
-      headers: {
-          "Content-Type": "application/json",
-          "AuthToken":authToken
-      }
+export async function authenticate(authToken: string): Promise<boolean> {
+  const response = await fetch('/authenticate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      AuthToken: authToken
+    }
   })
-  var resJson = await response.json();
-  return ("status" in resJson && resJson.status == "ok")
-  
+  var resJson = await response.json()
+  return 'status' in resJson && resJson.status == 'ok'
 }
 
 export async function getTokenStatus(): Promise<string> {
-  const response = await fetch("/check-tokens", {
-      method: "POST",
-      headers: {
-          "Content-Type": "application/json"
-      }
+  const response = await fetch('/check-tokens', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    }
   })
-  var resJson = await response.json();
-  if ("details" in resJson){
-      console.log("Erreur lors de la récupération des tokens restants : " + resJson.details);
+  var resJson = await response.json()
+  if ('details' in resJson) {
+    console.log('Erreur lors de la récupération des tokens restants : ' + resJson.details)
   }
-  return ("status" in resJson) ? resJson.status : "ERR";
-  
+  return 'status' in resJson ? resJson.status : 'ERR'
 }
-
 
 export async function getUserInfo(): Promise<UserInfo[]> {
   const response = await fetch('/.auth/me')
@@ -76,13 +73,17 @@ export const fetchChatHistoryInit = (): Conversation[] | null => {
   return chatHistorySampleData
 }
 
-export const historyList = async (offset = 0, authToken:string, encryptedUsername:string): Promise<Conversation[] | null> => {
+export const historyList = async (
+  offset = 0,
+  authToken: string,
+  encryptedUsername: string
+): Promise<Conversation[] | null> => {
   const response = await fetch(`/history/list?offset=${offset}`, {
     method: 'GET',
     headers: {
-      "AuthToken":authToken,
-      "EncodedUsername":encryptedUsername
-    },
+      AuthToken: authToken,
+      EncodedUsername: encryptedUsername
+    }
   })
     .then(async res => {
       const payload = await res.json()
@@ -120,7 +121,11 @@ export const historyList = async (offset = 0, authToken:string, encryptedUsernam
   return response
 }
 
-export const historyRead = async (convId: string, authToken: string, encryptedUsername:string): Promise<ChatMessage[]> => {
+export const historyRead = async (
+  convId: string,
+  authToken: string,
+  encryptedUsername: string
+): Promise<ChatMessage[]> => {
   const response = await fetch('/history/read', {
     method: 'POST',
     body: JSON.stringify({
@@ -128,8 +133,8 @@ export const historyRead = async (convId: string, authToken: string, encryptedUs
     }),
     headers: {
       'Content-Type': 'application/json',
-      "AuthToken":authToken,
-      "EncodedUsername":encryptedUsername
+      AuthToken: authToken,
+      EncodedUsername: encryptedUsername
     }
   })
     .then(async res => {
@@ -160,13 +165,13 @@ export const historyRead = async (convId: string, authToken: string, encryptedUs
 }
 
 export const historyGenerate = async (
-  authToken:string,
+  authToken: string,
   encryptedUsername: string,
   options: ConversationRequest,
   abortSignal: AbortSignal,
   userFullDefinition: string,
   customizationPreferences?: any,
-  convId?: string,
+  convId?: string
 ): Promise<Response> => {
   let body
   if (convId) {
@@ -189,8 +194,8 @@ export const historyGenerate = async (
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      "AuthToken":authToken,
-      "EncodedUsername":encryptedUsername
+      AuthToken: authToken,
+      EncodedUsername: encryptedUsername
     },
     body: body,
     signal: abortSignal
@@ -205,7 +210,12 @@ export const historyGenerate = async (
   return response
 }
 
-export const historyUpdate = async (messages: ChatMessage[], convId: string, authToken:string, encryptedUsername:string): Promise<Response> => {
+export const historyUpdate = async (
+  messages: ChatMessage[],
+  convId: string,
+  authToken: string,
+  encryptedUsername: string
+): Promise<Response> => {
   const response = await fetch('/history/update', {
     method: 'POST',
     body: JSON.stringify({
@@ -214,8 +224,8 @@ export const historyUpdate = async (messages: ChatMessage[], convId: string, aut
     }),
     headers: {
       'Content-Type': 'application/json',
-      "AuthToken": authToken,
-      "EncodedUsername":encryptedUsername
+      AuthToken: authToken,
+      EncodedUsername: encryptedUsername
     }
   })
     .then(async res => {
@@ -233,7 +243,11 @@ export const historyUpdate = async (messages: ChatMessage[], convId: string, aut
   return response
 }
 
-export const historyDelete = async (convId: string, authToken :string, encryptedUsername:string): Promise<Response> => {
+export const historyDelete = async (
+  convId: string,
+  authToken: string,
+  encryptedUsername: string
+): Promise<Response> => {
   const response = await fetch('/history/delete', {
     method: 'DELETE',
     body: JSON.stringify({
@@ -241,8 +255,8 @@ export const historyDelete = async (convId: string, authToken :string, encrypted
     }),
     headers: {
       'Content-Type': 'application/json',
-      "AuthToken": authToken,
-      "EncodedUsername":encryptedUsername
+      AuthToken: authToken,
+      EncodedUsername: encryptedUsername
     }
   })
     .then(res => {
@@ -260,14 +274,14 @@ export const historyDelete = async (convId: string, authToken :string, encrypted
   return response
 }
 
-export const historyDeleteAll = async (authToken: string, encryptedUsername:string): Promise<Response> => {
+export const historyDeleteAll = async (authToken: string, encryptedUsername: string): Promise<Response> => {
   const response = await fetch('/history/delete_all', {
     method: 'DELETE',
     body: JSON.stringify({}),
     headers: {
       'Content-Type': 'application/json',
-      "AuthToken": authToken,
-      "EncodedUsername":encryptedUsername
+      AuthToken: authToken,
+      EncodedUsername: encryptedUsername
     }
   })
     .then(res => {
@@ -285,7 +299,7 @@ export const historyDeleteAll = async (authToken: string, encryptedUsername:stri
   return response
 }
 
-export const historyClear = async (convId: string, authToken: string, encryptedUsername:string): Promise<Response> => {
+export const historyClear = async (convId: string, authToken: string, encryptedUsername: string): Promise<Response> => {
   const response = await fetch('/history/clear', {
     method: 'POST',
     body: JSON.stringify({
@@ -293,8 +307,8 @@ export const historyClear = async (convId: string, authToken: string, encryptedU
     }),
     headers: {
       'Content-Type': 'application/json',
-      "AuthToken": authToken,
-      "EncodedUsername":encryptedUsername
+      AuthToken: authToken,
+      EncodedUsername: encryptedUsername
     }
   })
     .then(res => {
@@ -312,7 +326,12 @@ export const historyClear = async (convId: string, authToken: string, encryptedU
   return response
 }
 
-export const historyRename = async (convId: string, title: string, authToken: string, encryptedUsername:string): Promise<Response> => {
+export const historyRename = async (
+  convId: string,
+  title: string,
+  authToken: string,
+  encryptedUsername: string
+): Promise<Response> => {
   const response = await fetch('/history/rename', {
     method: 'POST',
     body: JSON.stringify({
@@ -321,8 +340,8 @@ export const historyRename = async (convId: string, title: string, authToken: st
     }),
     headers: {
       'Content-Type': 'application/json',
-      "AuthToken": authToken,
-      "EncodedUsername":encryptedUsername
+      AuthToken: authToken,
+      EncodedUsername: encryptedUsername
     }
   })
     .then(res => {
@@ -340,12 +359,12 @@ export const historyRename = async (convId: string, title: string, authToken: st
   return response
 }
 
-export const historyEnsure = async (token:string): Promise<CosmosDBHealth> => {
+export const historyEnsure = async (token: string): Promise<CosmosDBHealth> => {
   const response = await fetch('/history/ensure', {
     method: 'GET',
     headers: {
-      "AuthToken":token
-    },
+      AuthToken: token
+    }
   })
     .then(async res => {
       const respJson = await res.json()
@@ -399,7 +418,12 @@ export const frontendSettings = async (): Promise<Response | null> => {
 
   return response
 }
-export const historyMessageFeedback = async (messageId: string, feedback: string, authToken: string, encryptedUsername:string): Promise<Response> => {
+export const historyMessageFeedback = async (
+  messageId: string,
+  feedback: string,
+  authToken: string,
+  encryptedUsername: string
+): Promise<Response> => {
   const response = await fetch('/history/message_feedback', {
     method: 'POST',
     body: JSON.stringify({
@@ -408,8 +432,8 @@ export const historyMessageFeedback = async (messageId: string, feedback: string
     }),
     headers: {
       'Content-Type': 'application/json',
-      "AuthToken":authToken,
-      "EncodedUsername":encryptedUsername
+      AuthToken: authToken,
+      EncodedUsername: encryptedUsername
     }
   })
     .then(res => {
@@ -427,11 +451,11 @@ export const historyMessageFeedback = async (messageId: string, feedback: string
   return response
 }
 
-export const getHelpContent = async (lang: string = "FR"): Promise<any> => {
+export const getHelpContent = async (lang: string = 'FR'): Promise<any> => {
   const response = await fetch(`/help_content?lang=${lang}`, {
-    method: "GET",
+    method: 'GET',
     headers: {
-      "Content-Type": "application/json"
+      'Content-Type': 'application/json'
     }
   })
 
@@ -467,7 +491,10 @@ export const uploadDocument = async (file: File): Promise<DocumentUploadResponse
   return await response.json()
 }
 
-export async function azureSpeechSynthesize(text: string, language: string = 'FR'): Promise<{
+export async function azureSpeechSynthesize(
+  text: string,
+  language: string = 'FR'
+): Promise<{
   success: boolean
   audio_data?: string
   audio_segments?: string[]

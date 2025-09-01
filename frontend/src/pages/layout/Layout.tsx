@@ -5,15 +5,21 @@ import { CopyRegular } from '@fluentui/react-icons'
 
 import { CosmosDBStatus } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
-import { CustomizationButton, ExportButton, HistoryButton, ShareButton, HelpButton } from '../../components/common/Button'
-import { HelpPanel } from '../../components/Help/HelpPanel' 
+import {
+  CustomizationButton,
+  ExportButton,
+  HistoryButton,
+  ShareButton,
+  HelpButton
+} from '../../components/common/Button'
+import { HelpPanel } from '../../components/Help/HelpPanel'
 import { CustomizationPanel } from '../../components/Customization/CustomizationPanel'
 import { AppStateContext } from '../../state/AppProvider'
 import { exportToPdf } from '../../utils/exportToPdf'
 
 import styles from './Layout.module.css'
 
-import LocalizedStrings from 'react-localization';
+import LocalizedStrings from 'react-localization'
 
 const Layout = () => {
   const [isSharePanelOpen, setIsSharePanelOpen] = useState<boolean>(false)
@@ -39,42 +45,42 @@ const Layout = () => {
         // Filter out non-user and non-assistant messages
         const filteredMessages = appStateContext.state.currentChat.messages.filter(
           msg => msg.role === 'user' || msg.role === 'assistant'
-        );
-        
+        )
+
         if (filteredMessages.length === 0) {
-          console.error("No valid messages to export");
-          return;
+          console.error('No valid messages to export')
+          return
         }
-        
+
         // Générer un titre intelligent basé sur la date de la conversation
-        const isUserLangFrench = appStateContext?.state.userLanguage?.toLowerCase().startsWith('fr');
-        
+        const isUserLangFrench = appStateContext?.state.userLanguage?.toLowerCase().startsWith('fr')
+
         // Formater la date selon la locale
         const chatDate = new Date(appStateContext.state.currentChat.date).toLocaleDateString(
           appStateContext?.state.userLanguage?.toLowerCase() || 'fr-fr',
           { year: 'numeric', month: 'long', day: 'numeric' }
-        );
-        
+        )
+
         // Créer un titre approprié selon la langue
-        let title;
+        let title
         if (isUserLangFrench) {
-          title = `Conversation du ${chatDate}`;
+          title = `Conversation du ${chatDate}`
         } else {
-          title = `Conversation - ${chatDate}`;
+          title = `Conversation - ${chatDate}`
         }
-        
+
         // Générer un nom de fichier propre
-        const date = new Date().toISOString().split('T')[0];
-        const filename = `conversation-${date}.pdf`;
-        
+        const date = new Date().toISOString().split('T')[0]
+        const filename = `conversation-${date}.pdf`
+
         exportToPdf(filteredMessages, {
           filename,
           title,
           locale: appStateContext?.state.userLanguage?.toLowerCase() || 'fr-fr',
-          singlePage: true 
-        });
+          singlePage: true
+        })
       } catch (error) {
-        console.error("Error generating PDF:", error);
+        console.error('Error generating PDF:', error)
       }
     }
   }
@@ -117,16 +123,16 @@ const Layout = () => {
   }, [copyClicked])
 
   useEffect(() => {
-    localizedStrings.setLanguage((appStateContext?.state.userLanguage) ? appStateContext?.state.userLanguage : 'FR');
+    localizedStrings.setLanguage(appStateContext?.state.userLanguage ? appStateContext?.state.userLanguage : 'FR')
     setShareLabel(localizedStrings.share)
     setExportLabel(localizedStrings.export)
     setHideHistoryLabel(localizedStrings.hideHistory)
     setShowHistoryLabel(localizedStrings.showHistory)
     setHelpLabel(localizedStrings.help)
     setCustomizeLabel(localizedStrings.customize)
-   }, [appStateContext?.state.userLanguage])
+  }, [appStateContext?.state.userLanguage])
 
-  useEffect(() => { }, [appStateContext?.state.isCosmosDBAvailable.status])
+  useEffect(() => {}, [appStateContext?.state.isCosmosDBAvailable.status])
 
   useEffect(() => {
     const handleResize = () => {
@@ -153,7 +159,8 @@ const Layout = () => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const isExportDisabled = !appStateContext?.state.currentChat?.messages || appStateContext.state.currentChat.messages.length === 0
+  const isExportDisabled =
+    !appStateContext?.state.currentChat?.messages || appStateContext.state.currentChat.messages.length === 0
 
   return (
     <div className={styles.layout}>
@@ -166,32 +173,21 @@ const Layout = () => {
             </Link>
           </Stack>
           <Stack horizontal tokens={{ childrenGap: 4 }} className={styles.shareButtonContainer}>
-            
-            {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && ui?.show_chat_history_button !== false && (
-              <HistoryButton
-              onClick={handleHistoryClick}
-              text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
-              />
-            )}
-            {appStateContext?.state.isAuthenticated && (
-              <HelpButton
-                onClick={handleHelpClick}
-                text={helpLabel}
-              />
-            )}
+            {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured &&
+              ui?.show_chat_history_button !== false && (
+                <HistoryButton
+                  onClick={handleHistoryClick}
+                  text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
+                />
+              )}
+            {appStateContext?.state.isAuthenticated && <HelpButton onClick={handleHelpClick} text={helpLabel} />}
             {/* Bouton de personnalisation */}
             {appStateContext?.state.isAuthenticated && (
-              <CustomizationButton
-                onClick={handleCustomizeClick}
-                text={customizeLabel}
-              />
+              <CustomizationButton onClick={handleCustomizeClick} text={customizeLabel} />
             )}
-            {appStateContext?.state.currentChat?.messages && appStateContext.state.currentChat.messages.length > 0 && ui?.show_export_button && (
-              <ExportButton 
-                onClick={handleExportClick}
-                text={exportLabel}
-              />
-            )}
+            {appStateContext?.state.currentChat?.messages &&
+              appStateContext.state.currentChat.messages.length > 0 &&
+              ui?.show_export_button && <ExportButton onClick={handleExportClick} text={exportLabel} />}
             {ui?.show_share_button && <ShareButton onClick={handleShareClick} text={shareLabel} />}
           </Stack>
         </Stack>
@@ -245,30 +241,29 @@ const Layout = () => {
 
 let localizedStrings = new LocalizedStrings({
   FR: {
-      hideHistory : "Masquer historique",
-      showHistory : "Afficher historique",
-      copyUrl : "Copier l'URL",
-      copiedUrl : "URL copiée",
-      share : "Partager",
-      export : "Exporter",
-      help : "Aide",
-      customize : "Personnaliser",
-      shareWebApp: "Partager l'app web",
-      conversationExport: "Export de conversation"
+    hideHistory: 'Masquer historique',
+    showHistory: 'Afficher historique',
+    copyUrl: "Copier l'URL",
+    copiedUrl: 'URL copiée',
+    share: 'Partager',
+    export: 'Exporter',
+    help: 'Aide',
+    customize: 'Personnaliser',
+    shareWebApp: "Partager l'app web",
+    conversationExport: 'Export de conversation'
   },
   EN: {
-    hideHistory : "Hide history",
-    showHistory : "Show history",
-    copyUrl : "Copy URL",
-    copiedUrl : "Copied URL",
-    share: "Share",
-    export: "Export",
-    help : "Help",
-    customize : "Customize",
-    shareWebApp: "Share the web app",
-    conversationExport: "Conversation Export"
-},
-  
- });
+    hideHistory: 'Hide history',
+    showHistory: 'Show history',
+    copyUrl: 'Copy URL',
+    copiedUrl: 'Copied URL',
+    share: 'Share',
+    export: 'Export',
+    help: 'Help',
+    customize: 'Customize',
+    shareWebApp: 'Share the web app',
+    conversationExport: 'Conversation Export'
+  }
+})
 
 export default Layout

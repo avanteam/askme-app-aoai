@@ -6,7 +6,7 @@ import { AppStateContext } from '../../state/AppProvider'
 
 import { ChatHistoryListItemGroups } from './ChatHistoryListItem'
 
-import LocalizedStrings from 'react-localization';
+import LocalizedStrings from 'react-localization'
 
 interface ChatHistoryListProps {}
 
@@ -15,8 +15,6 @@ export interface GroupedChatHistory {
   entries: Conversation[]
 }
 
-
-
 const ChatHistoryList: React.FC<ChatHistoryListProps> = () => {
   const appStateContext = useContext(AppStateContext)
   const chatHistory = appStateContext?.state.chatHistory
@@ -24,20 +22,19 @@ const ChatHistoryList: React.FC<ChatHistoryListProps> = () => {
   React.useEffect(() => {}, [appStateContext?.state.chatHistory])
 
   useEffect(() => {
-    localizedStrings.setLanguage((appStateContext?.state.userLanguage) ? appStateContext?.state.userLanguage : 'FR');
-
+    localizedStrings.setLanguage(appStateContext?.state.userLanguage ? appStateContext?.state.userLanguage : 'FR')
   }, [appStateContext?.state.userLanguage])
 
   const groupByMonth = (entries: Conversation[]) => {
     const groups: GroupedChatHistory[] = [{ month: localizedStrings.recent, entries: [] }]
     const currentDate = new Date()
-  
+
     entries.forEach(entry => {
       const date = new Date(entry.date)
       const daysDifference = (currentDate.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
       const monthYear = date.toLocaleString(appStateContext?.state.userLanguage, { month: 'long', year: 'numeric' })
       const existingGroup = groups.find(group => group.month === monthYear)
-  
+
       if (daysDifference <= 7) {
         groups[0].entries.push(entry)
       } else {
@@ -48,7 +45,7 @@ const ChatHistoryList: React.FC<ChatHistoryListProps> = () => {
         }
       }
     })
-  
+
     groups.sort((a, b) => {
       // Check if either group has no entries and handle it
       if (a.entries.length === 0 && b.entries.length === 0) {
@@ -62,7 +59,7 @@ const ChatHistoryList: React.FC<ChatHistoryListProps> = () => {
       const dateB = new Date(b.entries[0].date)
       return dateB.getTime() - dateA.getTime()
     })
-  
+
     groups.forEach(group => {
       group.entries.sort((a, b) => {
         const dateA = new Date(a.date)
@@ -70,7 +67,7 @@ const ChatHistoryList: React.FC<ChatHistoryListProps> = () => {
         return dateB.getTime() - dateA.getTime()
       })
     })
-  
+
     return groups
   }
 
@@ -94,13 +91,11 @@ const ChatHistoryList: React.FC<ChatHistoryListProps> = () => {
 
 let localizedStrings = new LocalizedStrings({
   FR: {
-      recent : "Récent",
-
+    recent: 'Récent'
   },
   EN: {
-    recent : "Recent",
-},
-  
- });
+    recent: 'Recent'
+  }
+})
 
 export default ChatHistoryList
