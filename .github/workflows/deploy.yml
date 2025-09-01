@@ -137,8 +137,10 @@ jobs:
     - name: 🏷️ Extraction du tag d'image
       id: image
       run: |
-        IMAGE_TAG="${{ needs.build.outputs.image-tag }}"
+        # Prendre le premier tag de la liste (le plus récent)
+        IMAGE_TAG=$(echo "${{ needs.build.outputs.image-tag }}" | head -n1)
         echo "tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+        echo "🏷️ Tag sélectionné: ${IMAGE_TAG}"
 
     - name: 🚀 Déploiement des manifestes Kubernetes
       run: |
