@@ -649,6 +649,43 @@ AskMe: Nouvelle conversation créée avec succès.
 [L'interface se réinitialise avec une conversation vide]
 ```
 
+## État de la Session - 01/09/2025
+
+### Problèmes Résolus Aujourd'hui
+1. ✅ **GitHub Actions Workflow Optimisé** : Correction des déclencheurs pour éviter builds inutiles sur test-rg2
+2. ✅ **Branche de Déploiement Corrigée** : Workflow utilise maintenant `prod` au lieu de `main`
+3. ✅ **Catalog Rancher Fonctionnel** : Workflow utilise les commandes Helm officielles avec packaging .tgz
+4. ✅ **Branche prod Créée** : askme-rancher-catalog a maintenant une branche `prod` 
+5. ✅ **Configuration Rancher** : Catalog pointe vers la branche `prod` 
+
+### Problème en Cours
+❌ **Certificat SSL Fake** : Application déployée mais utilise un certificat "Kubernetes Ingress Controller Fake Certificate"
+- **Cause** : Configuration cert-manager manquante dans le chart Helm
+- **Solution Appliquée** : Ajout configuration ingress avec annotations cert-manager dans helm-chart/values.yaml
+- **Status** : Commit fait sur test-rg2, prêt à merger vers prod
+
+### Actions à Faire Demain
+1. **Merger les corrections vers prod** :
+   ```bash
+   git checkout prod
+   git merge test-rg2  
+   git push origin prod
+   git tag v1.0.2
+   git push origin v1.0.2
+   ```
+
+2. **Upgrader le déploiement Rancher** :
+   - Rancher → Apps & Marketplace → Repositories → Refresh
+   - Installed Apps → AskMe → Upgrade vers v1.0.2
+   - Vérifier génération certificat Let's Encrypt
+
+### État Technique Actuel
+- **Branch active** : test-rg2 (commits prêts à merger)
+- **Dernière version catalog** : v1.0.1 
+- **Prochaine version** : v1.0.2 (avec fix SSL)
+- **Workflow** : Fonctionnel avec commandes Helm correctes
+- **Déploiement** : App fonctionne mais certificat à corriger
+
 ## CI/CD et Déploiement OVH Kubernetes
 
 L'application dispose d'un pipeline CI/CD complet pour déployer automatiquement sur l'infrastructure Kubernetes OVH.
