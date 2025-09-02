@@ -10,7 +10,7 @@ on:
 env:
   REGISTRY_URL: 7wpjr0wh.c1.gra9.container-registry.ovh.net
   IMAGE_NAME: askme/askme-app
-  KUBERNETES_NAMESPACE: askme-app
+  KUBERNETES_NAMESPACE: askme-platform
 
 jobs:
   # Job 1: Frontend Tests et Linting
