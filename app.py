@@ -155,7 +155,7 @@ MS_DEFENDER_ENABLED = os.environ.get("MS_DEFENDER_ENABLED", "true").lower() == "
 
 azure_openai_tools = []
 azure_openai_available_tools = []
-
+ 
 # Initialize Azure OpenAI Client
 async def init_openai_client():
     azure_openai_client = None
