@@ -186,6 +186,20 @@ jobs:
         # Vérifier si index.yaml existe et contient des données
         if [[ -f "index.yaml" ]] && grep -q "entries:" index.yaml; then
           echo "✅ index.yaml existant trouvé, fusion avec les nouvelles versions..."
+          # Supprimer l'entrée de la version courante pour éviter les conflits de digest
+          if grep -q "version: ${{ steps.version.outputs.version }}" index.yaml; then
+            echo "🔄 Suppression de l'ancienne entrée v${{ steps.version.outputs.version }} pour éviter les conflits de digest..."
+            # Créer un backup temporaire sans la version courante
+            python3 -c "
+import yaml
+with open('index.yaml', 'r') as f:
+    data = yaml.safe_load(f)
+if 'entries' in data and 'askme' in data['entries']:
+    data['entries']['askme'] = [entry for entry in data['entries']['askme'] if entry.get('version') != '${{ steps.version.outputs.version }}']
+with open('index.yaml', 'w') as f:
+    yaml.dump(data, f, default_flow_style=False)
+"
+          fi
           # Merge avec l'index existant - URL corrigée vers raw.githubusercontent.com  
           helm repo index . --url https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod --merge index.yaml
         else
