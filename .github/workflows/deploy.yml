@@ -131,11 +131,10 @@ jobs:
         # Update upstream-version in annotations
         sed -i "s/catalog.cattle.io\/upstream-version: \".*\"/catalog.cattle.io\/upstream-version: \"${{ steps.version.outputs.version }}\"/" Chart.yaml
         
-        # Update release notes in changes annotation
+        # Update release notes in changes annotation (approche simplifiée)
         echo "📝 Mise à jour des notes de version..."
-        sed -i "/catalog.cattle.io\/changes: |/,/^[[:space:]]*v[0-9]/ {
-          /catalog.cattle.io\/changes: |/a\\    v${{ steps.version.outputs.version }}:\\    - Mise à jour automatique via CI/CD (tag v${{ steps.version.outputs.version }})\\    - Build automatisé depuis commit ${{ github.sha }}\\    - Image Docker mise à jour\\
-        }" Chart.yaml
+        # Note: On ajoute simplement une note basique, le formatage complet sera fait manuellement si nécessaire
+        sed -i "/catalog.cattle.io\/changes: |/a\\    v${{ steps.version.outputs.version }}: Mise à jour automatique via CI/CD" Chart.yaml
         
         echo "📝 Mise à jour values.yaml..."
         # Update image tag in values.yaml
