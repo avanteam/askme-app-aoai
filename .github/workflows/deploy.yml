@@ -151,7 +151,6 @@ jobs:
         echo "- Chart.yaml: $(grep '^version:' Chart.yaml)"
         echo "- Chart.yaml: $(grep '^appVersion:' Chart.yaml)"
         echo "- values.yaml: $(grep 'tag:' values.yaml)"
-
     - name: 📦 Restore Previous Chart Packages
       run: |
         cd rancher-catalog
@@ -173,8 +172,6 @@ jobs:
         
         echo "📋 Packages disponibles:"
         ls -la *.tgz 2>/dev/null || echo "Aucun package trouvé"
-
-
       - name: 📦 Package Chart and Update Index
         run: |
           cd rancher-catalog
@@ -219,7 +216,7 @@ jobs:
           ls -la askme-*.tgz
 
     
-        - name: 🚀 Commit and Create Synchronized Tag
+      - name: 🚀 Commit and Create Synchronized Tag
       run: |
         cd rancher-catalog
         
