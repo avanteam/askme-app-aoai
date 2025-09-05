@@ -22,20 +22,6 @@ jobs:
     - name: 📥 Checkout du code
       uses: actions/checkout@v4
 
-    # Python setup supprimé - non nécessaire pour frontend tests/linting uniquement
-    # Les tests Python nécessitent des clés API LLM et doivent être exécutés localement
-    # - name: 🐍 Setup Python
-    #   uses: actions/setup-python@v4
-    #   with:
-    #     python-version: '3.11'
-    # - name: 📦 Installation des dépendances Python
-    #   run: |
-    #     python -m pip install --upgrade pip
-    #     pip install -r requirements.txt
-    # - name: 🧪 Tests Python
-    #   run: |
-    #     python -m pytest tests/ -v
-
     - name: 📱 Setup Node.js
       uses: actions/setup-node@v4
       with:
@@ -50,7 +36,6 @@ jobs:
     - name: 🧪 Tests Frontend
       working-directory: ./frontend
       run: npm run test -- --passWithNoTests
-
 
   # Job 2: Build et Push de l'image Docker
   build:
@@ -151,6 +136,7 @@ jobs:
         echo "- Chart.yaml: $(grep '^version:' Chart.yaml)"
         echo "- Chart.yaml: $(grep '^appVersion:' Chart.yaml)"
         echo "- values.yaml: $(grep 'tag:' values.yaml)"
+
     - name: 📦 Restore Previous Chart Packages
       run: |
         cd rancher-catalog
@@ -172,51 +158,51 @@ jobs:
         
         echo "📋 Packages disponibles:"
         ls -la *.tgz 2>/dev/null || echo "Aucun package trouvé"
-      - name: 📦 Package Chart and Update Index
-        run: |
-          cd rancher-catalog
-          VERSION="${{ steps.version.outputs.version }}"
-          
-          # 1. Update Chart version
-          echo "📝 Mise à jour de la version dans Chart.yaml..."
-          yq -i ".version = \"$VERSION\"" charts/askme/Chart.yaml
-          yq -i ".appVersion = \"$VERSION\"" charts/askme/Chart.yaml
-          
-          # 2. Package the chart
-          echo "📦 Création du package..."
-          helm package charts/askme --destination .
-          
-          # 3. Verify package exists
-          if [[ ! -f "askme-${VERSION}.tgz" ]]; then
-            echo "❌ Package creation failed!"
-            exit 1
-          fi
-          
-          # 4. Generate index (keep ALL packages)
-          echo "📝 Mise à jour de l'index..."
-          helm repo index . \
-            --url https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod
-          
-          # 5. Integrity check
-          echo "🔍 Vérification d'intégrité..."
-          missing=0
-          for pkg in $(yq eval '.entries.askme[].urls[0]' index.yaml | xargs -n1 basename); do
-            if [[ ! -f "$pkg" ]]; then
-              echo "❌ Missing: $pkg"
-              ((missing++))
-            fi
-          done
-          
-          if [[ $missing -gt 0 ]]; then
-            echo "❌ $missing packages manquants!"
-            exit 1
-          fi
-          
-          echo "✅ Tous les packages sont présents!"
-          ls -la askme-*.tgz
 
-    
-      - name: 🚀 Commit and Create Synchronized Tag
+    - name: 📦 Package Chart and Update Index
+      run: |
+        cd rancher-catalog
+        VERSION="${{ steps.version.outputs.version }}"
+        
+        # 1. Update Chart version (sans yq pour éviter les dépendances)
+        echo "📝 Mise à jour de la version dans Chart.yaml..."
+        sed -i "s/^version:.*/version: ${VERSION}/" charts/askme/Chart.yaml
+        sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" charts/askme/Chart.yaml
+        
+        # 2. Package the chart
+        echo "📦 Création du package..."
+        helm package charts/askme --destination .
+        
+        # 3. Verify package exists
+        if [[ ! -f "askme-${VERSION}.tgz" ]]; then
+          echo "❌ Package creation failed!"
+          exit 1
+        fi
+        
+        # 4. Generate index (keep ALL packages)
+        echo "📝 Mise à jour de l'index..."
+        helm repo index . \
+          --url https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod
+        
+        # 5. Integrity check (sans yq pour éviter les dépendances)
+        echo "🔍 Vérification d'intégrité..."
+        missing=0
+        for pkg in $(grep -o 'askme-[0-9.]*.tgz' index.yaml | sort -u); do
+          if [[ ! -f "$pkg" ]]; then
+            echo "❌ Missing: $pkg"
+            ((missing++))
+          fi
+        done
+        
+        if [[ $missing -gt 0 ]]; then
+          echo "❌ $missing packages manquants!"
+          exit 1
+        fi
+        
+        echo "✅ Tous les packages sont présents!"
+        ls -la askme-*.tgz
+
+    - name: 🚀 Commit and Create Synchronized Tag
       run: |
         cd rancher-catalog
         
@@ -231,7 +217,7 @@ jobs:
         
         git add .
         git commit -m "🚀 chore: update AskMe to version ${{ steps.version.outputs.version }}
-
+        
         - Updated Chart.yaml version to ${{ steps.version.outputs.version }}
         - Updated values.yaml image tag to ${{ steps.version.outputs.version }}
         - Restored previous chart packages to preserve version history
@@ -253,7 +239,7 @@ jobs:
         if git push origin HEAD:prod 2>/dev/null; then
           echo "✅ Merge vers prod réussi"
         else
-          echo "⚠️  Merge vers prod échoué (conflit) - tag créé avec succès"
+          echo "⚠️ Merge vers prod échoué (conflit) - tag créé avec succès"
           echo "📋 Action manuelle requise pour merger vers prod"
         fi
         
