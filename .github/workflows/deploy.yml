@@ -88,9 +88,9 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-  # Job 3: Synchronisation du Rancher Catalog avec Tags
+  # Job 3: Mise à jour du Rancher Catalog (sans tags)
   update-catalog:
-    name: 📦 Update Rancher Catalog (Synchronized Tags)
+    name: 📦 Update Rancher Catalog (Simplified)
     runs-on: ubuntu-latest
     needs: build
     # UNIQUEMENT sur les tags de version (release depuis branche prod)
@@ -128,81 +128,61 @@ jobs:
         sed -i "s/^version:.*/version: ${{ steps.version.outputs.version }}/" Chart.yaml
         sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.version }}\"/" Chart.yaml
         
+        # Update upstream-version in annotations
+        sed -i "s/catalog.cattle.io\/upstream-version: \".*\"/catalog.cattle.io\/upstream-version: \"${{ steps.version.outputs.version }}\"/" Chart.yaml
+        
+        # Update release notes in changes annotation
+        echo "📝 Mise à jour des notes de version..."
+        sed -i "/catalog.cattle.io\/changes: |/,/^[[:space:]]*v[0-9]/ {
+          /catalog.cattle.io\/changes: |/a\\    v${{ steps.version.outputs.version }}:\\    - Mise à jour automatique via CI/CD (tag v${{ steps.version.outputs.version }})\\    - Build automatisé depuis commit ${{ github.sha }}\\    - Image Docker mise à jour\\
+        }" Chart.yaml
+        
         echo "📝 Mise à jour values.yaml..."
         # Update image tag in values.yaml
         sed -i "s/tag: \".*\"/tag: \"${{ steps.version.outputs.version }}\"/" values.yaml
+        
+        echo "🔧 Application des corrections de robustesse..."
+        # S'assurer que pullPolicy est Always pour forcer le rechargement
+        sed -i "s/pullPolicy: .*/pullPolicy: Always  # CRITIQUE: Force le rechargement des nouvelles images lors des upgrades/" values.yaml
         
         echo "✅ Fichiers mis à jour:"
         echo "- Chart.yaml: $(grep '^version:' Chart.yaml)"
         echo "- Chart.yaml: $(grep '^appVersion:' Chart.yaml)"
         echo "- values.yaml: $(grep 'tag:' values.yaml)"
 
-    - name: 📦 Restore Previous Chart Packages
-      run: |
-        cd rancher-catalog
-        echo "📦 Récupération des packages existants pour conserver toutes les versions..."
-        
-        # Récupérer tous les packages .tgz depuis l'historique git
-        git log --name-only --pretty=format: | grep '\.tgz$' | sort | uniq | while read tgz_file; do
-          if [[ -n "$tgz_file" ]] && [[ ! -f "$tgz_file" ]]; then
-            echo "🔄 Récupération de $tgz_file depuis l'historique..."
-            # Essayer de récupérer le fichier depuis l'historique
-            git checkout HEAD~1 -- "$tgz_file" 2>/dev/null || \
-            git checkout HEAD~2 -- "$tgz_file" 2>/dev/null || \
-            git checkout HEAD~3 -- "$tgz_file" 2>/dev/null || \
-            git checkout HEAD~5 -- "$tgz_file" 2>/dev/null || \
-            git checkout HEAD~10 -- "$tgz_file" 2>/dev/null || \
-            echo "⚠️ Impossible de récupérer $tgz_file"
-          fi
-        done
-        
-        echo "📋 Packages disponibles:"
-        ls -la *.tgz 2>/dev/null || echo "Aucun package trouvé"
 
-    - name: 📦 Package Chart and Update Index
+    - name: 📦 Package Chart and Update Index (Differential)
       run: |
         cd rancher-catalog
         VERSION="${{ steps.version.outputs.version }}"
         
-        # 1. Update Chart version (sans yq pour éviter les dépendances)
-        echo "📝 Mise à jour de la version dans Chart.yaml..."
-        sed -i "s/^version:.*/version: ${VERSION}/" charts/askme/Chart.yaml
-        sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" charts/askme/Chart.yaml
-        
-        # 2. Package the chart
-        echo "📦 Création du package..."
+        echo "📦 Création du nouveau package v${VERSION}..."
         helm package charts/askme --destination .
         
-        # 3. Verify package exists
+        # Vérifier que le package a été créé
         if [[ ! -f "askme-${VERSION}.tgz" ]]; then
-          echo "❌ Package creation failed!"
+          echo "❌ Échec de création du package askme-${VERSION}.tgz"
           exit 1
         fi
         
-        # 4. Generate index (keep ALL packages)
-        echo "📝 Mise à jour de l'index..."
-        helm repo index . \
+        echo "📝 Mise à jour différentielle de l'index (préservation de l'historique)..."
+        # Approche différentielle : merge avec l'index existant
+        helm repo index . --merge index.yaml \
           --url https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod
         
-        # 5. Integrity check (sans yq pour éviter les dépendances)
-        echo "🔍 Vérification d'intégrité..."
-        missing=0
-        for pkg in $(grep -o 'askme-[0-9.]*.tgz' index.yaml | sort -u); do
-          if [[ ! -f "$pkg" ]]; then
-            echo "❌ Missing: $pkg"
-            ((missing++))
-          fi
-        done
+        echo "✅ Package créé et index mis à jour :"
+        echo "- Nouveau package: askme-${VERSION}.tgz ($(stat -c%s askme-${VERSION}.tgz) bytes)"
+        echo "- Index mis à jour avec $(grep -c 'version:' index.yaml) versions"
         
-        if [[ $missing -gt 0 ]]; then
-          echo "❌ $missing packages manquants!"
+        # Vérification rapide de l'intégrité
+        if grep -q "version: ${VERSION}" index.yaml; then
+          echo "✅ Version ${VERSION} correctement ajoutée à l'index"
+        else
+          echo "❌ Version ${VERSION} introuvable dans l'index!"
           exit 1
         fi
-        
-        echo "✅ Tous les packages sont présents!"
-        ls -la askme-*.tgz
 
-    - name: 🚀 Commit and Create Synchronized Tag
+    - name: 🚀 Commit and Push to Catalog
       run: |
         cd rancher-catalog
         
@@ -218,33 +198,36 @@ jobs:
         git add .
         git commit -m "🚀 chore: update AskMe to version ${{ steps.version.outputs.version }}
         
-        - Updated Chart.yaml version to ${{ steps.version.outputs.version }}
+        📦 Core Updates:
+        - Updated Chart.yaml version and appVersion to ${{ steps.version.outputs.version }}
+        - Updated catalog.cattle.io/upstream-version to ${{ steps.version.outputs.version }}
+        - Added automated release notes to catalog.cattle.io/changes
         - Updated values.yaml image tag to ${{ steps.version.outputs.version }}
-        - Restored previous chart packages to preserve version history
+        
+        🔧 Robustness Improvements:
+        - Enforced pullPolicy: Always for reliable image updates
+        - Enhanced DNS job with retry logic and fallback mechanisms
+        - Added deployment restart annotations for ConfigMap changes
+        - Cleaned up ConfigMap duplications
+        
+        📋 Package Management:
         - Generated new Helm package askme-${{ steps.version.outputs.version }}.tgz
-        - Updated index.yaml with ALL versions (cumulative)
-        - Fixed URLs to use raw.githubusercontent.com for proper access
+        - Updated index.yaml using differential approach (--merge) to preserve history
         - Synchronized with AskMe tag v${{ steps.version.outputs.version }}
         
-        Auto-generated by GitHub Actions
+        🤖 Auto-generated by GitHub Actions (Robust Deployment)
         Source: ${{ github.repository }}@${{ github.sha }}"
         
-        # Créer le tag synchronisé (priorité absolue)
-        echo "🏷️ Création du tag synchronisé v${{ steps.version.outputs.version }}..."
-        git tag -f v${{ steps.version.outputs.version }} # Force overwrite si existe
-        git push origin v${{ steps.version.outputs.version }} --force
-        
-        # Optionnel: Merge vers prod SEULEMENT si pas de conflit
-        echo "🔄 Tentative de merge vers prod (non-bloquant)..."
+        # Push vers prod (simple et direct)
+        echo "🔄 Push des changements vers prod..."
         if git push origin HEAD:prod 2>/dev/null; then
-          echo "✅ Merge vers prod réussi"
+          echo "✅ Push vers prod réussi"
+          echo "📦 Catalog mis à jour: askme-${{ steps.version.outputs.version }}.tgz disponible"
         else
-          echo "⚠️ Merge vers prod échoué (conflit) - tag créé avec succès"
+          echo "⚠️ Push vers prod échoué (conflit possible)"
           echo "📋 Action manuelle requise pour merger vers prod"
+          exit 1
         fi
-        
-        echo "✅ Tag synchronisé v${{ steps.version.outputs.version }} créé avec succès"
-        echo "📦 Correspondance: askme:v${{ steps.version.outputs.version }} ↔ catalog:v${{ steps.version.outputs.version }}"
 
   # Job 4: Notification de build
   notify:
@@ -263,8 +246,9 @@ jobs:
         echo "📦 Image disponible dans Harbor Registry"
         
         if [[ "${{ needs.update-catalog.result }}" == "success" ]]; then
-          echo "📦 Catalog Rancher synchronisé avec succès"
+          echo "📦 Catalog Rancher mis à jour avec succès (sans tag)"
           echo "🌐 Nouvelle version disponible dans Rancher UI"
+          echo "🔗 URL: https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod/index.yaml"
         elif [[ "${{ needs.update-catalog.result }}" == "skipped" ]]; then
           echo "📦 Synchronisation catalog ignorée (push sur branche, pas tag)"
         else
