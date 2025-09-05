@@ -151,8 +151,6 @@ frontend_settings = {
 # Enable Microsoft Defender for Cloud Integration
 MS_DEFENDER_ENABLED = os.environ.get("MS_DEFENDER_ENABLED", "true").lower() == "true"
 
-
-
 azure_openai_tools = []
 azure_openai_available_tools = []
  
