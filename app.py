@@ -166,7 +166,7 @@ async def init_openai_client():
         ):
             raise ValueError(
                 f"The minimum supported Azure OpenAI preview API version is '{MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION}'"
-            )
+            ) 
 
         # Endpoint
         if (
