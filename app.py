@@ -157,7 +157,7 @@ azure_openai_available_tools = []
 # Initialize Azure OpenAI Client
 async def init_openai_client():
     azure_openai_client = None
-    
+     
     try:
         # API version check
         if (
