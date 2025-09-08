@@ -140,6 +140,9 @@ jobs:
         # Update image tag in values.yaml
         sed -i "s/tag: \".*\"/tag: \"${{ steps.version.outputs.version }}\"/" values.yaml
         
+        # CORRECTION: Assurer la cohérence du repository path avec env.IMAGE_NAME
+        sed -i "s|repository: \"7wpjr0wh.c1.gra9.container-registry.ovh.net/library/askme-app\"|repository: \"7wpjr0wh.c1.gra9.container-registry.ovh.net/askme/askme-app\"|" values.yaml
+        
         echo "🔧 Application des corrections de robustesse..."
         # S'assurer que pullPolicy est Always pour forcer le rechargement
         sed -i "s/pullPolicy: .*/pullPolicy: Always  # CRITIQUE: Force le rechargement des nouvelles images lors des upgrades/" values.yaml
