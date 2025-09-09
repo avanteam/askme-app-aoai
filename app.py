@@ -792,11 +792,11 @@ async def conversation_internal(request_body, request_headers, preventShouldStre
         return jsonify({"error": error_message}), status_code
 
 def CheckAuthenticate(request):
-    # Si l'authentification est désactivée, autoriser tous les accès
-    if not app_settings.base_settings.auth_enabled:
+    # Si l'authentification n'est pas activée, retourner True
+    if not app_settings.custom_avanteam_settings.enable_auth:
         return True
-        
-    # Sinon effectuer la vérification d'authentification
+
+    # Si l'authentification est activée, effectuer le contrôle
     if "AuthToken" in request.headers:
         salt = datetime.now().strftime("%d%m%Y")
         fullchain = app_settings.custom_avanteam_settings.auth_token + salt

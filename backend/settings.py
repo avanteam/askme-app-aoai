@@ -890,6 +890,7 @@ class _CustomAvanteamSettings(BaseSettings):
     )
 
     auth_token: Optional[str] = None
+    enable_auth: bool = False
     licencehub_handlerurl: Optional[str] = None
     licencehub_key: Optional[str] = None
     threshold_remaining_alert: Optional[int] = 100000
