@@ -181,7 +181,7 @@ jobs:
 
     - name: 📊 Upload des résultats de test
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-results
         path: |
@@ -758,7 +758,7 @@ jobs:
 
     - name: 💾 Sauvegarde du rapport
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: deployment-report
         path: deployment-report.md
