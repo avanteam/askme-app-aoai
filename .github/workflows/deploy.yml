@@ -716,7 +716,7 @@ jobs:
         cat $REPORT_FILE
 
     - name: 📧 Notification Slack/Discord (si configuré)
-      if: always() && (secrets.SLACK_WEBHOOK || secrets.DISCORD_WEBHOOK)
+      if: always()
       run: |
         # Déterminer le statut global
         if [[ "${{ needs.deploy-and-verify.result }}" == "success" ]]; then
