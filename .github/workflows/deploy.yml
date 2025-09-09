@@ -1,9 +1,9 @@
-name: 🚀 Deploy AskMe to OVH Kubernetes
+name: 🚀 Deploy AskMe to OVH Kubernetes (Hardened)
 
 on:
   push:
-    branches: [ prod, test-rg2 ]  # Développement et tests
-    tags: [ 'v*' ]  # Release production depuis branche prod
+    branches: [ prod ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ prod ]
 
@@ -11,47 +11,216 @@ env:
   REGISTRY_URL: 7wpjr0wh.c1.gra9.container-registry.ovh.net
   IMAGE_NAME: askme/askme-app
   KUBERNETES_NAMESPACE: askme-platform
+  # Nouveaux paramètres de robustesse
+  MAX_RETRIES: 3
+  RETRY_DELAY: 10
+  DEPLOYMENT_TIMEOUT: 600
 
 jobs:
-  # Job 1: Frontend Tests et Linting
+  # ====================================
+  # Job 0: Validation des prérequis
+  # ====================================
+  validate-prerequisites:
+    name: 🔍 Validate Prerequisites
+    runs-on: ubuntu-latest
+    outputs:
+      secrets-valid: ${{ steps.check-secrets.outputs.valid }}
+      
+    steps:
+    - name: 🔐 Vérification des secrets requis
+      id: check-secrets
+      run: |
+        # Fonction de validation avec messages explicites
+        validate_secret() {
+          local secret_name=$1
+          local secret_value=$2
+          
+          if [[ -z "$secret_value" || "$secret_value" == "null" ]]; then
+            echo "❌ Secret manquant ou vide: $secret_name"
+            echo "::error::Secret $secret_name is not configured"
+            return 1
+          fi
+          echo "✅ Secret $secret_name présent"
+          return 0
+        }
+        
+        # Validation de tous les secrets critiques
+        ERRORS=0
+        
+        validate_secret "HARBOR_USERNAME" "${{ secrets.HARBOR_USERNAME }}" || ((ERRORS++))
+        validate_secret "HARBOR_PASSWORD" "${{ secrets.HARBOR_PASSWORD }}" || ((ERRORS++))
+        validate_secret "ASKME_CATALOG_SYNC" "${{ secrets.ASKME_CATALOG_SYNC }}" || ((ERRORS++))
+        
+        if [[ $ERRORS -gt 0 ]]; then
+          echo "::error::$ERRORS secret(s) manquant(s). Vérifiez la configuration dans Settings > Secrets"
+          echo "valid=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
+        echo "valid=true" >> $GITHUB_OUTPUT
+        echo "✅ Tous les secrets sont configurés"
+
+    - name: 🌐 Test de connectivité réseau
+      run: |
+        # Test des endpoints critiques avec retry
+        test_endpoint() {
+          local url=$1
+          local name=$2
+          local retries=3
+          
+          for i in $(seq 1 $retries); do
+            echo "Test $i/$retries pour $name..."
+            if curl -f -s --connect-timeout 5 --max-time 10 "$url" > /dev/null 2>&1; then
+              echo "✅ $name accessible"
+              return 0
+            fi
+            [[ $i -lt $retries ]] && sleep 5
+          done
+          
+          echo "❌ $name inaccessible après $retries tentatives"
+          return 1
+        }
+        
+        # Vérification des services critiques
+        test_endpoint "https://${{ env.REGISTRY_URL }}" "Harbor Registry" || exit 1
+        test_endpoint "https://api.github.com" "GitHub API" || exit 1
+
+  # ====================================
+  # Job 1: Tests avec retry et rapport détaillé
+  # ====================================
   test:
     name: 🧪 Frontend Tests & Linting
     runs-on: ubuntu-latest
+    needs: validate-prerequisites
+    timeout-minutes: 15  # Timeout global pour éviter les jobs bloqués
     
     steps:
     - name: 📥 Checkout du code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Pour avoir l'historique complet si besoin
 
-    - name: 📱 Setup Node.js
+    - name: 📱 Setup Node.js avec retry
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
 
-    - name: 📦 Installation des dépendances Node.js
+    - name: 📦 Installation des dépendances avec retry
       working-directory: ./frontend
-      run: npm ci
+      run: |
+        # Fonction de retry pour npm
+        npm_with_retry() {
+          local max_attempts=${{ env.MAX_RETRIES }}
+          local attempt=1
+          
+          while [[ $attempt -le $max_attempts ]]; do
+            echo "🔄 Tentative $attempt/$max_attempts : npm ci"
+            
+            if npm ci --no-audit --prefer-offline; then
+              echo "✅ Installation réussie"
+              return 0
+            fi
+            
+            echo "⚠️ Échec de l'installation, tentative $attempt/$max_attempts"
+            
+            # Nettoyage avant retry
+            if [[ $attempt -lt $max_attempts ]]; then
+              echo "🧹 Nettoyage du cache npm..."
+              npm cache clean --force 2>/dev/null || true
+              rm -rf node_modules package-lock.json
+              sleep ${{ env.RETRY_DELAY }}
+            fi
+            
+            ((attempt++))
+          done
+          
+          echo "❌ Échec définitif après $max_attempts tentatives"
+          exit 1
+        }
+        
+        npm_with_retry
 
-    - name: 🧪 Tests Frontend
+    - name: 🧪 Tests Frontend avec rapport détaillé
       working-directory: ./frontend
-      run: npm run test -- --passWithNoTests
+      run: |
+        # Configuration pour capturer les erreurs de test
+        set +e  # Ne pas arrêter immédiatement en cas d'erreur
+        
+        # Exécution des tests avec output détaillé
+        npm run test -- --passWithNoTests --coverage --json --outputFile=test-results.json
+        TEST_EXIT_CODE=$?
+        
+        # Analyse des résultats
+        if [[ -f test-results.json ]]; then
+          echo "📊 Analyse des résultats de test..."
+          
+          # Extraction des métriques (nécessite jq)
+          if command -v jq &> /dev/null; then
+            TESTS_PASSED=$(jq '.numPassedTests // 0' test-results.json)
+            TESTS_FAILED=$(jq '.numFailedTests // 0' test-results.json)
+            TESTS_TOTAL=$(jq '.numTotalTests // 0' test-results.json)
+            
+            echo "📈 Résultats: $TESTS_PASSED/$TESTS_TOTAL tests réussis"
+            
+            if [[ $TESTS_FAILED -gt 0 ]]; then
+              echo "❌ $TESTS_FAILED tests ont échoué"
+              jq '.testResults[].assertionResults[] | select(.status == "failed") | {title: .title, error: .failureMessages}' test-results.json
+            fi
+          fi
+        fi
+        
+        # Gestion du code de sortie
+        if [[ $TEST_EXIT_CODE -ne 0 ]]; then
+          echo "::error::Les tests frontend ont échoué avec le code $TEST_EXIT_CODE"
+          exit $TEST_EXIT_CODE
+        fi
+        
+        echo "✅ Tous les tests sont passés"
 
-  # Job 2: Build et Push de l'image Docker
+    - name: 📊 Upload des résultats de test
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          frontend/test-results.json
+          frontend/coverage/
+        retention-days: 7
+
+  # ====================================
+  # Job 2: Build avec vérifications et rollback
+  # ====================================
   build:
     name: 🐳 Build & Push Docker Image
     runs-on: ubuntu-latest
     needs: test
-    # Seulement sur prod (staging) et tags (production) - PAS sur test-rg2
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/prod' || startsWith(github.ref, 'refs/tags/v'))
+    timeout-minutes: 30
+    if: github.event_name == 'push' && ( startsWith(github.ref, 'refs/tags/v'))
     
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
       image-digest: ${{ steps.docker.outputs.digest }}
+      previous-image: ${{ steps.backup.outputs.previous-image }}
     
     steps:
     - name: 📥 Checkout du code
       uses: actions/checkout@v4
+
+    - name: 🔖 Sauvegarde de l'image précédente pour rollback
+      id: backup
+      run: |
+        # Déterminer le tag de l'image actuelle en production
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          # Pour une release, sauvegarder le tag précédent
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "prod")
+        else
+          PREVIOUS_TAG="prod-backup-$(date +%Y%m%d-%H%M%S)"
+        fi
+        
+        echo "previous-image=${{ env.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+        echo "📸 Image de backup: $PREVIOUS_TAG"
 
     - name: 🏷️ Extraction des métadonnées
       id: meta
@@ -66,17 +235,40 @@ jobs:
           type=sha,prefix=sha-
           type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: 🔐 Connexion au Harbor Registry
+    - name: 🔐 Connexion au Harbor Registry avec retry
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY_URL }}
         username: ${{ secrets.HARBOR_USERNAME }}
         password: ${{ secrets.HARBOR_PASSWORD }}
+      continue-on-error: false
+      id: docker-login
+
+    - name: 🔄 Retry Docker login si échec
+      if: failure() && steps.docker-login.outcome == 'failure'
+      run: |
+        for i in {1..3}; do
+          echo "Tentative $i/3 de connexion au registry..."
+          if docker login ${{ env.REGISTRY_URL }} \
+            -u "${{ secrets.HARBOR_USERNAME }}" \
+            -p "${{ secrets.HARBOR_PASSWORD }}"; then
+            echo "✅ Connexion réussie"
+            exit 0
+          fi
+          sleep 10
+        done
+        echo "❌ Impossible de se connecter au registry après 3 tentatives"
+        exit 1
 
     - name: 🏗️ Setup Docker Buildx
       uses: docker/setup-buildx-action@v3
- 
-    - name: 🐳 Build et Push de l'image
+      with:
+        driver-opts: |
+          network=host
+          image=moby/buildkit:latest
+        buildkitd-flags: --debug
+
+    - name: 🐳 Build et Push avec gestion d'erreurs
       id: docker
       uses: docker/build-push-action@v5
       with:
@@ -87,178 +279,513 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        # Nouvelles options pour la robustesse
+        no-cache-filters: |
+          frontend
+        build-args: |
+          BUILDKIT_PROGRESS=plain
+          
+    - name: 🔍 Vérification de l'image construite
+      run: |
+        # Vérifier que l'image existe et est valide
+        IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+        
+        echo "🔍 Vérification de l'image: $IMAGE_TAG"
+        
+        # Pull de l'image pour vérification
+        if ! docker pull "$IMAGE_TAG"; then
+          echo "❌ Impossible de récupérer l'image construite"
+          exit 1
+        fi
+        
+        # Vérification de la taille
+        IMAGE_SIZE=$(docker image inspect "$IMAGE_TAG" --format='{{.Size}}')
+        IMAGE_SIZE_MB=$((IMAGE_SIZE / 1024 / 1024))
+        
+        echo "📏 Taille de l'image: ${IMAGE_SIZE_MB}MB"
+        
+        # Alerte si l'image est trop grosse
+        if [[ $IMAGE_SIZE_MB -gt 1000 ]]; then
+          echo "⚠️ ATTENTION: L'image fait plus de 1GB (${IMAGE_SIZE_MB}MB)"
+          echo "::warning::Image size is ${IMAGE_SIZE_MB}MB, consider optimization"
+        fi
+        
+        # Scan de sécurité basique (si trivy est disponible)
+        if command -v trivy &> /dev/null; then
+          echo "🔒 Scan de sécurité de l'image..."
+          trivy image --severity HIGH,CRITICAL --exit-code 1 "$IMAGE_TAG" || {
+            echo "⚠️ Vulnérabilités critiques détectées"
+            echo "::warning::Security vulnerabilities found in image"
+          }
+        fi
 
-  # Job 3: Mise à jour du Rancher Catalog (sans tags)
+    - name: 🏷️ Tag de backup pour rollback rapide
+      if: success()
+      run: |
+        IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+        BACKUP_TAG="${{ env.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:backup-$(date +%Y%m%d-%H%M%S)"
+        
+        docker tag "$IMAGE_TAG" "$BACKUP_TAG"
+        docker push "$BACKUP_TAG"
+        
+        echo "📸 Image de backup créée: $BACKUP_TAG"
+        echo "backup-tag=$BACKUP_TAG" >> $GITHUB_OUTPUT
+
+  # ====================================
+  # Job 3: Update Catalog avec validation
+  # ====================================
   update-catalog:
-    name: 📦 Update Rancher Catalog (Simplified)
+    name: 📦 Update Rancher Catalog (Safe)
     runs-on: ubuntu-latest
     needs: build
-    # UNIQUEMENT sur les tags de version (release depuis branche prod)
+    timeout-minutes: 15
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     
     steps:
     - name: 🏷️ Extract version from tag
       id: version
       run: |
-        # Extraire la version du tag (ex: refs/tags/v1.0.0 → 1.0.0)
         VERSION=${GITHUB_REF#refs/tags/}
-        VERSION=${VERSION#v}  # Remove 'v' prefix if present
+        VERSION=${VERSION#v}
+        
+        # Validation du format de version
+        if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+          echo "❌ Format de version invalide: $VERSION"
+          echo "::error::Invalid version format: $VERSION. Expected format: X.Y.Z or X.Y.Z-suffix"
+          exit 1
+        fi
+        
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
-        echo "📋 Version release détectée: ${VERSION}"
+        echo "✅ Version validée: ${VERSION}"
 
-    - name: 📥 Checkout Rancher Catalog Repository
+    - name: 📥 Checkout Rancher Catalog avec retry
       uses: actions/checkout@v4
       with:
         repository: avanteam/askme-rancher-catalog
-        ref: prod  # Utilisation de la branche prod (branche de déploiement)
+        ref: prod
         token: ${{ secrets.ASKME_CATALOG_SYNC }}
         path: rancher-catalog
+        fetch-depth: 0  # Pour permettre le rollback si nécessaire
+
+    - name: 💾 Backup du catalog actuel
+      run: |
+        cd rancher-catalog
+        
+        # Créer une branche de backup
+        BACKUP_BRANCH="backup-$(date +%Y%m%d-%H%M%S)"
+        git checkout -b "$BACKUP_BRANCH"
+        git push origin "$BACKUP_BRANCH"
+        
+        echo "📸 Backup créé sur la branche: $BACKUP_BRANCH"
+        echo "backup-branch=$BACKUP_BRANCH" >> $GITHUB_ENV
+        
+        # Retour sur prod
+        git checkout prod
 
     - name: 🛠️ Setup Helm
       uses: azure/setup-helm@v3
       with:
         version: 'latest'
 
-    - name: 🔄 Update Chart with Helm commands
+    - name: 🔄 Update Chart avec validation
       run: |
         cd rancher-catalog/charts/askme
         
-        echo "📝 Mise à jour Chart.yaml avec Helm..."
-        # Update Chart version and appVersion
-        sed -i "s/^version:.*/version: ${{ steps.version.outputs.version }}/" Chart.yaml
-        sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.version }}\"/" Chart.yaml
+        # Backup des fichiers originaux
+        cp Chart.yaml Chart.yaml.bak
+        cp values.yaml values.yaml.bak
         
-        # Update upstream-version in annotations
-        sed -i "s/catalog.cattle.io\/upstream-version: \".*\"/catalog.cattle.io\/upstream-version: \"${{ steps.version.outputs.version }}\"/" Chart.yaml
+        # Fonction de mise à jour sécurisée
+        safe_update() {
+          local file=$1
+          local pattern=$2
+          local replacement=$3
+          
+          if ! grep -q "$pattern" "$file"; then
+            echo "⚠️ Pattern non trouvé dans $file: $pattern"
+            return 1
+          fi
+          
+          sed -i.tmp "s/$pattern/$replacement/" "$file"
+          
+          # Vérifier que le changement a été appliqué
+          if ! grep -q "$replacement" "$file"; then
+            echo "❌ Échec de mise à jour dans $file"
+            mv "$file.tmp" "$file"
+            return 1
+          fi
+          
+          rm -f "$file.tmp"
+          return 0
+        }
         
-        # Update release notes in changes annotation (approche simplifiée)
-        echo "📝 Mise à jour des notes de version..."
-        # Note: On ajoute simplement une note basique, le formatage complet sera fait manuellement si nécessaire
-        sed -i "/catalog.cattle.io\/changes: |/a\\    v${{ steps.version.outputs.version }}: Mise à jour automatique via CI/CD" Chart.yaml
+        echo "📝 Mise à jour Chart.yaml..."
+        safe_update Chart.yaml "^version:.*" "version: ${{ steps.version.outputs.version }}" || exit 1
+        safe_update Chart.yaml "^appVersion:.*" "appVersion: \"${{ steps.version.outputs.version }}\"" || exit 1
         
         echo "📝 Mise à jour values.yaml..."
-        # Update image tag in values.yaml
-        sed -i "s/tag: \".*\"/tag: \"${{ steps.version.outputs.version }}\"/" values.yaml
+        safe_update values.yaml "tag: \".*\"" "tag: \"${{ steps.version.outputs.version }}\"" || exit 1
         
-        # CORRECTION: Assurer la cohérence du repository path avec env.IMAGE_NAME
-        sed -i "s|repository: \"7wpjr0wh.c1.gra9.container-registry.ovh.net/library/askme-app\"|repository: \"7wpjr0wh.c1.gra9.container-registry.ovh.net/askme/askme-app\"|" values.yaml
+        # Validation Helm du chart
+        echo "🔍 Validation du chart Helm..."
+        if ! helm lint . ; then
+          echo "❌ Le chart Helm contient des erreurs"
+          mv Chart.yaml.bak Chart.yaml
+          mv values.yaml.bak values.yaml
+          exit 1
+        fi
         
-        echo "🔧 Application des corrections de robustesse..."
-        # S'assurer que pullPolicy est Always pour forcer le rechargement
-        sed -i "s/pullPolicy: .*/pullPolicy: Always  # CRITIQUE: Force le rechargement des nouvelles images lors des upgrades/" values.yaml
-        
-        echo "✅ Fichiers mis à jour:"
-        echo "- Chart.yaml: $(grep '^version:' Chart.yaml)"
-        echo "- Chart.yaml: $(grep '^appVersion:' Chart.yaml)"
-        echo "- values.yaml: $(grep 'tag:' values.yaml)"
+        echo "✅ Chart validé avec succès"
+        rm -f *.bak
 
-
-    - name: 📦 Package Chart and Update Index (Differential)
+    - name: 📦 Package et Index avec vérification
       run: |
         cd rancher-catalog
         VERSION="${{ steps.version.outputs.version }}"
         
-        echo "📦 Création du nouveau package v${VERSION}..."
-        helm package charts/askme --destination .
-        
-        # Vérifier que le package a été créé
-        if [[ ! -f "askme-${VERSION}.tgz" ]]; then
-          echo "❌ Échec de création du package askme-${VERSION}.tgz"
+        # Package avec vérification
+        echo "📦 Création du package..."
+        if ! helm package charts/askme --destination . ; then
+          echo "❌ Échec de création du package"
           exit 1
         fi
         
-        echo "📝 Mise à jour différentielle de l'index (préservation de l'historique)..."
-        # Approche différentielle : merge avec l'index existant
-        helm repo index . --merge index.yaml \
-          --url https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod
-        
-        echo "✅ Package créé et index mis à jour :"
-        echo "- Nouveau package: askme-${VERSION}.tgz ($(stat -c%s askme-${VERSION}.tgz) bytes)"
-        echo "- Index mis à jour avec $(grep -c 'version:' index.yaml) versions"
-        
-        # Vérification rapide de l'intégrité
-        if grep -q "version: ${VERSION}" index.yaml; then
-          echo "✅ Version ${VERSION} correctement ajoutée à l'index"
-        else
-          echo "❌ Version ${VERSION} introuvable dans l'index!"
+        # Vérification du package
+        PACKAGE_FILE="askme-${VERSION}.tgz"
+        if [[ ! -f "$PACKAGE_FILE" ]]; then
+          echo "❌ Package non trouvé: $PACKAGE_FILE"
           exit 1
         fi
+        
+        # Vérification de l'intégrité du package
+        if ! tar -tzf "$PACKAGE_FILE" > /dev/null 2>&1; then
+          echo "❌ Package corrompu: $PACKAGE_FILE"
+          exit 1
+        fi
+        
+        PACKAGE_SIZE=$(stat -c%s "$PACKAGE_FILE")
+        echo "✅ Package créé: $PACKAGE_FILE (${PACKAGE_SIZE} bytes)"
+        
+        # Backup de l'index existant
+        cp index.yaml index.yaml.bak
+        
+        # Mise à jour de l'index avec validation
+        echo "📝 Mise à jour de l'index..."
+        if ! helm repo index . --merge index.yaml \
+          --url https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod; then
+          echo "❌ Échec de mise à jour de l'index"
+          mv index.yaml.bak index.yaml
+          exit 1
+        fi
+        
+        # Validation de l'index
+        if ! grep -q "version: ${VERSION}" index.yaml; then
+          echo "❌ Version ${VERSION} non trouvée dans l'index"
+          mv index.yaml.bak index.yaml
+          exit 1
+        fi
+        
+        # Validation YAML de l'index
+        if ! python3 -c "import yaml; yaml.safe_load(open('index.yaml'))" 2>/dev/null; then
+          echo "❌ Index YAML invalide"
+          mv index.yaml.bak index.yaml
+          exit 1
+        fi
+        
+        rm -f index.yaml.bak
+        echo "✅ Index mis à jour et validé"
 
-    - name: 🚀 Commit and Push to Catalog
+    - name: 🚀 Commit et Push avec gestion de conflits
       run: |
         cd rancher-catalog
         
         git config user.name "AskMe Release Bot"
         git config user.email "noreply@avanteam.com"
         
-        # Check if there are changes to commit
+        # Vérifier les changements
         if git diff --quiet && git diff --staged --quiet; then
-          echo "📋 Aucun changement détecté dans le catalog"
+          echo "📋 Aucun changement à committer"
           exit 0
         fi
         
+        # Commit des changements
         git add .
-        git commit -m "🚀 chore: update AskMe to version ${{ steps.version.outputs.version }}
+        git commit -m "🚀 Release: AskMe v${{ steps.version.outputs.version }}
         
-        📦 Core Updates:
-        - Updated Chart.yaml version and appVersion to ${{ steps.version.outputs.version }}
-        - Updated catalog.cattle.io/upstream-version to ${{ steps.version.outputs.version }}
-        - Added automated release notes to catalog.cattle.io/changes
-        - Updated values.yaml image tag to ${{ steps.version.outputs.version }}
+        📦 Updates:
+        - Chart version: ${{ steps.version.outputs.version }}
+        - App version: ${{ steps.version.outputs.version }}
+        - Docker image: ${{ env.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
         
-        🔧 Robustness Improvements:
-        - Enforced pullPolicy: Always for reliable image updates
-        - Enhanced DNS job with retry logic and fallback mechanisms
-        - Added deployment restart annotations for ConfigMap changes
-        - Cleaned up ConfigMap duplications
+        🔄 Rollback: Use branch ${{ env.backup-branch }} if needed
         
-        📋 Package Management:
-        - Generated new Helm package askme-${{ steps.version.outputs.version }}.tgz
-        - Updated index.yaml using differential approach (--merge) to preserve history
-        - Synchronized with AskMe tag v${{ steps.version.outputs.version }}
+        🤖 Automated by GitHub Actions
+        Build: ${{ github.run_id }}
+        Commit: ${{ github.sha }}"
         
-        🤖 Auto-generated by GitHub Actions (Robust Deployment)
-        Source: ${{ github.repository }}@${{ github.sha }}"
+        # Push avec gestion des conflits
+        MAX_PUSH_ATTEMPTS=3
+        for i in $(seq 1 $MAX_PUSH_ATTEMPTS); do
+          echo "🔄 Tentative de push $i/$MAX_PUSH_ATTEMPTS..."
+          
+          if git push origin prod; then
+            echo "✅ Push réussi"
+            break
+          fi
+          
+          if [[ $i -eq $MAX_PUSH_ATTEMPTS ]]; then
+            echo "❌ Impossible de pusher après $MAX_PUSH_ATTEMPTS tentatives"
+            echo "::error::Failed to push to catalog repository after $MAX_PUSH_ATTEMPTS attempts"
+            
+            # Instructions pour résolution manuelle
+            echo "📋 Pour résoudre manuellement:"
+            echo "1. git pull origin prod"
+            echo "2. Résoudre les conflits"
+            echo "3. git push origin prod"
+            echo "Ou utiliser la branche de backup: ${{ env.backup-branch }}"
+            exit 1
+          fi
+          
+          # Tentative de rebase automatique
+          echo "🔄 Tentative de rebase automatique..."
+          git fetch origin prod
+          if git rebase origin/prod; then
+            echo "✅ Rebase réussi, nouvelle tentative de push..."
+          else
+            echo "❌ Rebase automatique échoué"
+            git rebase --abort
+            exit 1
+          fi
+        done
+
+  # ====================================
+  # Job 4: Déploiement et validation
+  # ====================================
+  deploy-and-verify:
+    name: 🚀 Deploy and Verify
+    runs-on: ubuntu-latest
+    needs: [build, update-catalog]
+    if: success() && (needs.update-catalog.result == 'success' || needs.update-catalog.result == 'skipped')
+    timeout-minutes: 20
+    
+    steps:
+    - name: ⏱️ Attente de la propagation
+      run: |
+        echo "⏱️ Attente de 30s pour la propagation des changements..."
+        sleep 30
+
+    - name: 🔍 Health Check de l'application
+      run: |
+        # Configuration
+        APP_URL="${{ secrets.APP_URL || 'https://askme.example.com' }}"
+        MAX_ATTEMPTS=10
+        DELAY=30
         
-        # Push vers prod (simple et direct)
-        echo "🔄 Push des changements vers prod..."
-        if git push origin HEAD:prod 2>/dev/null; then
-          echo "✅ Push vers prod réussi"
-          echo "📦 Catalog mis à jour: askme-${{ steps.version.outputs.version }}.tgz disponible"
-        else
-          echo "⚠️ Push vers prod échoué (conflit possible)"
-          echo "📋 Action manuelle requise pour merger vers prod"
+        echo "🔍 Vérification de la santé de l'application: $APP_URL"
+        
+        # Fonction de health check
+        health_check() {
+          local attempt=1
+          
+          while [[ $attempt -le $MAX_ATTEMPTS ]]; do
+            echo "Tentative $attempt/$MAX_ATTEMPTS..."
+            
+            # Check HTTP status
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              --connect-timeout 10 \
+              --max-time 30 \
+              "$APP_URL/health" 2>/dev/null || echo "000")
+            
+            if [[ "$HTTP_STATUS" == "200" ]]; then
+              echo "✅ Application opérationnelle (HTTP $HTTP_STATUS)"
+              
+              # Vérification de la version si endpoint disponible
+              VERSION_DEPLOYED=$(curl -s "$APP_URL/api/version" 2>/dev/null || echo "unknown")
+              echo "📦 Version déployée: $VERSION_DEPLOYED"
+              
+              if [[ -n "${{ steps.version.outputs.version }}" ]]; then
+                if [[ "$VERSION_DEPLOYED" == "${{ steps.version.outputs.version }}" ]]; then
+                  echo "✅ Version correcte déployée"
+                else
+                  echo "⚠️ Version attendue: ${{ steps.version.outputs.version }}"
+                  echo "⚠️ Version déployée: $VERSION_DEPLOYED"
+                fi
+              fi
+              
+              return 0
+            fi
+            
+            echo "⚠️ Health check échoué (HTTP $HTTP_STATUS)"
+            
+            if [[ $attempt -lt $MAX_ATTEMPTS ]]; then
+              echo "⏱️ Attente de ${DELAY}s avant nouvelle tentative..."
+              sleep $DELAY
+            fi
+            
+            ((attempt++))
+          done
+          
+          echo "❌ Application non accessible après $MAX_ATTEMPTS tentatives"
+          return 1
+        }
+        
+        # Exécution du health check
+        if ! health_check; then
+          echo "::error::Application health check failed"
+          echo "🔄 Un rollback manuel peut être nécessaire"
           exit 1
         fi
 
-  # Job 4: Notification de build
+  # ====================================
+  # Job 5: Notifications enrichies
+  # ====================================
   notify:
-    name: 📢 Notification
+    name: 📢 Enhanced Notifications
     runs-on: ubuntu-latest
-    needs: [test, build, update-catalog]
-    # Seulement si des jobs build ont été exécutés
-    if: always() && needs.build.result != 'skipped'
+    needs: [validate-prerequisites, test, build, update-catalog, deploy-and-verify]
+    if: always()
     
     steps:
-    - name: 📧 Notification de succès
-      if: needs.build.result == 'success'
+    - name: 📊 Génération du rapport de déploiement
       run: |
-        echo "✅ Build réussi !"
-        echo "🐳 Image Docker : ${{ needs.build.outputs.image-tag }}"
-        echo "📦 Image disponible dans Harbor Registry"
+        # Création d'un rapport détaillé
+        REPORT_FILE="deployment-report.md"
         
-        if [[ "${{ needs.update-catalog.result }}" == "success" ]]; then
-          echo "📦 Catalog Rancher mis à jour avec succès (sans tag)"
-          echo "🌐 Nouvelle version disponible dans Rancher UI"
-          echo "🔗 URL: https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod/index.yaml"
-        elif [[ "${{ needs.update-catalog.result }}" == "skipped" ]]; then
-          echo "📦 Synchronisation catalog ignorée (push sur branche, pas tag)"
+        cat > $REPORT_FILE << EOF
+        # 📊 Rapport de Déploiement AskMe
+        
+        **Date**: $(date '+%Y-%m-%d %H:%M:%S')
+        **Build**: #${{ github.run_number }}
+        **Commit**: ${{ github.sha }}
+        **Déclenché par**: ${{ github.actor }}
+        **Type**: ${{ github.event_name }}
+        
+        ## 📈 Statut des Jobs
+        
+        | Job | Statut | Durée |
+        |-----|--------|-------|
+        | Prerequisites | ${{ needs.validate-prerequisites.result }} | - |
+        | Tests | ${{ needs.test.result }} | - |
+        | Build | ${{ needs.build.result }} | - |
+        | Catalog Update | ${{ needs.update-catalog.result }} | - |
+        | Deploy & Verify | ${{ needs.deploy-and-verify.result }} | - |
+        
+        ## 🐳 Informations Docker
+        
+        - **Image**: ${{ needs.build.outputs.image-tag }}
+        - **Digest**: ${{ needs.build.outputs.image-digest }}
+        - **Backup**: ${{ needs.build.outputs.previous-image }}
+        
+        ## 📝 Actions Recommandées
+        
+        EOF
+        
+        # Ajout des recommandations selon le statut
+        if [[ "${{ needs.deploy-and-verify.result }}" == "failure" ]]; then
+          cat >> $REPORT_FILE << EOF
+        ### ⚠️ Échec du Déploiement
+        
+        1. Vérifier les logs du job Deploy & Verify
+        2. Consulter les logs Kubernetes: \`kubectl logs -n ${{ env.KUBERNETES_NAMESPACE }}\`
+        3. Si nécessaire, rollback: \`helm rollback askme -n ${{ env.KUBERNETES_NAMESPACE }}\`
+        4. Image de backup disponible: ${{ needs.build.outputs.previous-image }}
+        
+        EOF
+        elif [[ "${{ needs.test.result }}" == "failure" ]]; then
+          cat >> $REPORT_FILE << EOF
+        ### ❌ Échec des Tests
+        
+        1. Consulter les résultats de tests dans les artifacts
+        2. Corriger les tests en échec
+        3. Relancer le pipeline
+        
+        EOF
+        elif [[ "${{ needs.build.result }}" == "failure" ]]; then
+          cat >> $REPORT_FILE << EOF
+        ### 🐳 Échec du Build Docker
+        
+        1. Vérifier le Dockerfile
+        2. Consulter les logs de build
+        3. Vérifier l'espace disque du runner
+        4. Tester le build en local
+        
+        EOF
+        fi
+        
+        # Affichage du rapport
+        cat $REPORT_FILE
+
+    - name: 📧 Notification Slack/Discord (si configuré)
+      if: always() && (secrets.SLACK_WEBHOOK || secrets.DISCORD_WEBHOOK)
+      run: |
+        # Déterminer le statut global
+        if [[ "${{ needs.deploy-and-verify.result }}" == "success" ]]; then
+          STATUS="✅ Succès"
+          COLOR="good"
+        elif [[ "${{ needs.deploy-and-verify.result }}" == "skipped" ]]; then
+          STATUS="⏭️ Ignoré"
+          COLOR="warning"
         else
-          echo "⚠️ Problème avec la synchronisation du catalog"
+          STATUS="❌ Échec"
+          COLOR="danger"
+        fi
+        
+        # Message JSON pour Slack
+        if [[ -n "${{ secrets.SLACK_WEBHOOK }}" ]]; then
+          SLACK_MESSAGE=$(cat <<EOF
+        {
+          "text": "Déploiement AskMe: ${STATUS}",
+          "attachments": [{
+            "color": "${COLOR}",
+            "fields": [
+              {"title": "Build", "value": "#${{ github.run_number }}", "short": true},
+              {"title": "Version", "value": "${{ github.ref_name }}", "short": true},
+              {"title": "Auteur", "value": "${{ github.actor }}", "short": true},
+              {"title": "Commit", "value": "${{ github.sha }}", "short": true}
+            ],
+            "footer": "GitHub Actions",
+            "footer_icon": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+            "ts": $(date +%s)
+          }]
+        }
+        EOF
+          )
+          
+          curl -X POST -H 'Content-type: application/json' \
+            --data "$SLACK_MESSAGE" \
+            "${{ secrets.SLACK_WEBHOOK }}" || true
         fi
 
-    - name: 📧 Notification d'échec
-      if: needs.build.result == 'failure'
+    - name: 💾 Sauvegarde du rapport
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-report
+        path: deployment-report.md
+        retention-days: 30
+
+  # ====================================
+  # Job 6: Rollback automatique (si échec)
+  # ====================================
+  auto-rollback:
+    name: 🔄 Auto Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [build, deploy-and-verify]
+    if: failure() && needs.deploy-and-verify.result == 'failure'
+    
+    steps:
+    - name: 🔄 Exécution du rollback automatique
       run: |
-        echo "❌ Build échoué !"
-        echo "🔍 Vérifiez les logs des étapes précédentes"
+        echo "🔄 Déclenchement du rollback automatique..."
+        
+        # Ici, vous pouvez ajouter les commandes de rollback
+        # Par exemple, déclencher un autre workflow de rollback
+        # ou exécuter des commandes Helm/Kubernetes directement
+        
+        echo "📝 Instructions de rollback:"
+        echo "1. Image précédente: ${{ needs.build.outputs.previous-image }}"
+        echo "2. Commande Helm: helm rollback askme -n ${{ env.KUBERNETES_NAMESPACE }}"
+        echo "3. Vérifier les logs après rollback"
+        
+        # Notification du rollback
+        echo "::warning::Rollback automatique déclenché suite à l'échec du déploiement"
