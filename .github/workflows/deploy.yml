@@ -559,90 +559,12 @@ jobs:
         done
 
   # ====================================
-  # Job 4: Déploiement et validation
-  # ====================================
-  deploy-and-verify:
-    name: 🚀 Deploy and Verify
-    runs-on: ubuntu-latest
-    needs: [build, update-catalog]
-    if: success() && (needs.update-catalog.result == 'success' || needs.update-catalog.result == 'skipped')
-    timeout-minutes: 20
-    
-    steps:
-    - name: ⏱️ Attente de la propagation
-      run: |
-        echo "⏱️ Attente de 30s pour la propagation des changements..."
-        sleep 30
-
-    - name: 🔍 Health Check de l'application
-      run: |
-        # Configuration
-        APP_URL="${{ secrets.APP_URL || 'https://askme.example.com' }}"
-        MAX_ATTEMPTS=10
-        DELAY=30
-        
-        echo "🔍 Vérification de la santé de l'application: $APP_URL"
-        
-        # Fonction de health check
-        health_check() {
-          local attempt=1
-          
-          while [[ $attempt -le $MAX_ATTEMPTS ]]; do
-            echo "Tentative $attempt/$MAX_ATTEMPTS..."
-            
-            # Check HTTP status
-            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              --connect-timeout 10 \
-              --max-time 30 \
-              "$APP_URL/health" 2>/dev/null || echo "000")
-            
-            if [[ "$HTTP_STATUS" == "200" ]]; then
-              echo "✅ Application opérationnelle (HTTP $HTTP_STATUS)"
-              
-              # Vérification de la version si endpoint disponible
-              VERSION_DEPLOYED=$(curl -s "$APP_URL/api/version" 2>/dev/null || echo "unknown")
-              echo "📦 Version déployée: $VERSION_DEPLOYED"
-              
-              if [[ -n "${{ steps.version.outputs.version }}" ]]; then
-                if [[ "$VERSION_DEPLOYED" == "${{ steps.version.outputs.version }}" ]]; then
-                  echo "✅ Version correcte déployée"
-                else
-                  echo "⚠️ Version attendue: ${{ steps.version.outputs.version }}"
-                  echo "⚠️ Version déployée: $VERSION_DEPLOYED"
-                fi
-              fi
-              
-              return 0
-            fi
-            
-            echo "⚠️ Health check échoué (HTTP $HTTP_STATUS)"
-            
-            if [[ $attempt -lt $MAX_ATTEMPTS ]]; then
-              echo "⏱️ Attente de ${DELAY}s avant nouvelle tentative..."
-              sleep $DELAY
-            fi
-            
-            ((attempt++))
-          done
-          
-          echo "❌ Application non accessible après $MAX_ATTEMPTS tentatives"
-          return 1
-        }
-        
-        # Exécution du health check
-        if ! health_check; then
-          echo "::error::Application health check failed"
-          echo "🔄 Un rollback manuel peut être nécessaire"
-          exit 1
-        fi
-
-  # ====================================
-  # Job 5: Notifications enrichies
+  # Job 4: Notifications enrichies
   # ====================================
   notify:
     name: 📢 Enhanced Notifications
     runs-on: ubuntu-latest
-    needs: [validate-prerequisites, test, build, update-catalog, deploy-and-verify]
+    needs: [validate-prerequisites, test, build, update-catalog]
     if: always()
     
     steps:
@@ -668,7 +590,6 @@ jobs:
         | Tests | ${{ needs.test.result }} | - |
         | Build | ${{ needs.build.result }} | - |
         | Catalog Update | ${{ needs.update-catalog.result }} | - |
-        | Deploy & Verify | ${{ needs.deploy-and-verify.result }} | - |
         
         ## 🐳 Informations Docker
         
@@ -681,17 +602,7 @@ jobs:
         EOF
         
         # Ajout des recommandations selon le statut
-        if [[ "${{ needs.deploy-and-verify.result }}" == "failure" ]]; then
-          cat >> $REPORT_FILE << EOF
-        ### ⚠️ Échec du Déploiement
-        
-        1. Vérifier les logs du job Deploy & Verify
-        2. Consulter les logs Kubernetes: \`kubectl logs -n ${{ env.KUBERNETES_NAMESPACE }}\`
-        3. Si nécessaire, rollback: \`helm rollback askme -n ${{ env.KUBERNETES_NAMESPACE }}\`
-        4. Image de backup disponible: ${{ needs.build.outputs.previous-image }}
-        
-        EOF
-        elif [[ "${{ needs.test.result }}" == "failure" ]]; then
+        if [[ "${{ needs.test.result }}" == "failure" ]]; then
           cat >> $REPORT_FILE << EOF
         ### ❌ Échec des Tests
         
@@ -719,10 +630,10 @@ jobs:
       if: always()
       run: |
         # Déterminer le statut global
-        if [[ "${{ needs.deploy-and-verify.result }}" == "success" ]]; then
+        if [[ "${{ needs.build.result }}" == "success" && "${{ needs.update-catalog.result }}" != "failure" ]]; then
           STATUS="✅ Succès"
           COLOR="good"
-        elif [[ "${{ needs.deploy-and-verify.result }}" == "skipped" ]]; then
+        elif [[ "${{ needs.test.result }}" == "skipped" ]]; then
           STATUS="⏭️ Ignoré"
           COLOR="warning"
         else
@@ -770,8 +681,8 @@ jobs:
   auto-rollback:
     name: 🔄 Auto Rollback on Failure
     runs-on: ubuntu-latest
-    needs: [build, deploy-and-verify]
-    if: failure() && needs.deploy-and-verify.result == 'failure'
+    needs: [build]
+    if: failure() && needs.build.result == 'failure'
     
     steps:
     - name: 🔄 Exécution du rollback automatique
