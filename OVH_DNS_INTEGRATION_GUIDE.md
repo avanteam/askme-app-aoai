@@ -14,10 +14,7 @@ Intégration complète de la gestion DNS automatique OVH dans le chart Helm AskM
 
 ### **🔑 Credentials Configurés**
 ```
-Application Name: AskMeAvanteamSaaS
-Application Key: 19ff5fa31fddfc15
-Application Secret: 0949ac6c54d103b189ef6b8c5c26941c
-Consumer Key: ee08a1505e9ec0dcb6acac106d604f92
+
 Zone DNS: avanteam-saas.com
 Endpoint: ovh-eu
 Status: ⚠️ PERMISSIONS À CONFIGURER
