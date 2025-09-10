@@ -154,6 +154,7 @@ export type FrontendSettings = {
   sanitize_answer?: boolean
   oyd_enabled?: boolean
   available_llm_providers?: string[]
+  default_llm_provider?: string
   voice_input_enabled?: boolean
   wake_word_enabled?: boolean
   wake_word_phrases?: string[]
