@@ -57,7 +57,7 @@ export function CustomizationPanel() {
       saved || {
         responseSize: appStateContext?.state.customizationPreferences?.responseSize || 'medium',
         documentsCount: appStateContext?.state.customizationPreferences?.documentsCount || 5,
-        llmProvider: appStateContext?.state.customizationPreferences?.llmProvider || appStateContext?.state.frontendSettings?.default_llm_provider || ''
+        llmProvider: appStateContext?.state.customizationPreferences?.llmProvider || appStateContext?.state.frontendSettings?.default_llm_provider || (availableProviders.length > 0 ? availableProviders[0] : '')
       }
     )
   }
@@ -70,7 +70,11 @@ export function CustomizationPanel() {
 
   const [documentsCount, setDocumentsCount] = useState<number>(initialPrefs.documentsCount)
 
-  const [llmProvider, setLlmProvider] = useState<string>(initialPrefs.llmProvider || appStateContext?.state.frontendSettings?.default_llm_provider || '')
+  const [llmProvider, setLlmProvider] = useState<string>(
+    initialPrefs.llmProvider ||
+    appStateContext?.state.frontendSettings?.default_llm_provider ||
+    (availableProviders.length > 0 ? availableProviders[0] : '')
+  )
 
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -167,7 +171,7 @@ export function CustomizationPanel() {
 
   // Réinitialiser les paramètres par défaut
   const resetToDefaults = () => {
-    const defaultProvider = availableProviders[0] || appStateContext?.state.frontendSettings?.default_llm_provider || ''
+    const defaultProvider = appStateContext?.state.frontendSettings?.default_llm_provider || (availableProviders.length > 0 ? availableProviders[0] : '')
     const defaultPreferences: CustomizationPreferences = {
       responseSize: 'medium',
       documentsCount: 5,
