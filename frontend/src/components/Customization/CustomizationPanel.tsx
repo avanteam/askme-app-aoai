@@ -50,6 +50,9 @@ export function CustomizationPanel() {
   const [toastMessage, setToastMessage] = useState('')
   const [currentLanguage, setCurrentLanguage] = useState('FR')
 
+  // Récupérer la liste des providers disponibles depuis les settings frontend
+  const availableProviders = appStateContext?.state.frontendSettings?.available_llm_providers || []
+
   // États pour les préférences utilisateur - initialisés avec les valeurs sauvegardées ou par défaut
   const getInitialPreferences = () => {
     const saved = loadPreferencesFromStorage()
@@ -84,9 +87,6 @@ export function CustomizationPanel() {
     { key: 'medium', text: currentLanguage === 'FR' ? 'Moyenne' : 'Medium' },
     { key: 'comprehensive', text: currentLanguage === 'FR' ? 'Très complète' : 'Comprehensive' }
   ]
-
-  // Récupérer la liste des providers disponibles depuis les settings frontend
-  const availableProviders = appStateContext?.state.frontendSettings?.available_llm_providers || []
 
   // Options pour le choix du provider LLM (basées sur la configuration backend)
   const llmProviderOptions: IChoiceGroupOption[] = availableProviders.map(provider => ({
