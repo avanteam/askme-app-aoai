@@ -137,6 +137,7 @@ frontend_settings = {
     "sanitize_answer": app_settings.base_settings.sanitize_answer,
     "oyd_enabled": app_settings.base_settings.datasource_type,
     "available_llm_providers": app_settings.base_settings.available_llm_providers,
+    "default_llm_provider": app_settings.base_settings.llm_provider,
     "voice_input_enabled": app_settings.base_settings.voice_input_enabled,
     "wake_word_enabled": app_settings.base_settings.wake_word_enabled,
     "wake_word_phrases": app_settings.base_settings.wake_word_phrases,
