@@ -475,29 +475,32 @@ jobs:
         # Supprimer l'ancienne entrée de cette version si elle existe
         if grep -q "version: ${VERSION}" index.yaml; then
           echo "🗑️ Suppression de la version existante ${VERSION} de l'index..."
-          cat > cleanup_index.py << 'EOF'
-import yaml
-import sys
-
-version_to_remove = sys.argv[1]
-
-with open('index.yaml', 'r') as f:
-    data = yaml.safe_load(f)
-
-if 'entries' in data and 'askme' in data['entries']:
-    data['entries']['askme'] = [
-        entry for entry in data['entries']['askme'] 
-        if entry.get('version') != version_to_remove
-    ]
-
-with open('index.yaml', 'w') as f:
-    yaml.safe_dump(data, f, default_flow_style=False)
-
-print(f"Removed version {version_to_remove} from index")
-EOF
           
-          python3 cleanup_index.py "${VERSION}"
-          rm cleanup_index.py
+          # Créer un backup et filtrer les entrées avec awk
+          cp index.yaml index_temp.yaml
+          
+          # Utiliser awk pour filtrer la version spécifique
+          awk -v version="$VERSION" '
+          BEGIN { skip = 0; in_askme = 0 }
+          /^  askme:/ { in_askme = 1 }
+          /^  [a-zA-Z]/ && !/^  askme:/ { in_askme = 0 }
+          /^  - / && in_askme == 1 { 
+            getline version_line
+            if (version_line ~ "version: " version) {
+              skip = 1
+              next
+            } else {
+              print
+              print version_line
+              skip = 0
+            }
+          }
+          skip == 0 { if (!/^    version: /) print }
+          /^[^ ]/ { skip = 0 }
+          ' index_temp.yaml > index.yaml
+          
+          rm index_temp.yaml
+          echo "✅ Version ${VERSION} supprimée de l'index"
         fi
         
         # Générer l'index avec seulement les nouveaux packages
