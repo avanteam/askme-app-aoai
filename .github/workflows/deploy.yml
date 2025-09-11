@@ -469,10 +469,31 @@ jobs:
         # Backup de l'index existant
         cp index.yaml index.yaml.bak
         
-        # Mise à jour de l'index avec validation
+        # Mise à jour de l'index avec validation (sans doublons)
         echo "📝 Mise à jour de l'index..."
-        if ! helm repo index . --merge index.yaml \
-          --url https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod; then
+        
+        # Supprimer l'ancienne entrée de cette version si elle existe
+        if grep -q "version: ${VERSION}" index.yaml; then
+          echo "🗑️ Suppression de la version existante ${VERSION} de l'index..."
+          python3 -c "
+import yaml
+with open('index.yaml', 'r') as f:
+    data = yaml.safe_load(f)
+
+# Filtrer les entrées existantes de cette version
+if 'entries' in data and 'askme' in data['entries']:
+    data['entries']['askme'] = [
+        entry for entry in data['entries']['askme'] 
+        if entry.get('version') != '${VERSION}'
+    ]
+
+with open('index.yaml', 'w') as f:
+    yaml.safe_dump(data, f, default_flow_style=False)
+"
+        fi
+        
+        # Générer l'index avec seulement les nouveaux packages
+        if ! helm repo index . --url https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod; then
           echo "❌ Échec de mise à jour de l'index"
           mv index.yaml.bak index.yaml
           exit 1
