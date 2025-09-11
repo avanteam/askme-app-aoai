@@ -479,14 +479,8 @@ jobs:
 import yaml
 with open('index.yaml', 'r') as f:
     data = yaml.safe_load(f)
-
-# Filtrer les entrées existantes de cette version
 if 'entries' in data and 'askme' in data['entries']:
-    data['entries']['askme'] = [
-        entry for entry in data['entries']['askme'] 
-        if entry.get('version') != '${VERSION}'
-    ]
-
+    data['entries']['askme'] = [entry for entry in data['entries']['askme'] if entry.get('version') != '${VERSION}']
 with open('index.yaml', 'w') as f:
     yaml.safe_dump(data, f, default_flow_style=False)
 "
