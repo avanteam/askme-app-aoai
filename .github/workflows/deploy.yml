@@ -475,15 +475,29 @@ jobs:
         # Supprimer l'ancienne entrée de cette version si elle existe
         if grep -q "version: ${VERSION}" index.yaml; then
           echo "🗑️ Suppression de la version existante ${VERSION} de l'index..."
-          python3 -c "
+          cat > cleanup_index.py << 'EOF'
 import yaml
+import sys
+
+version_to_remove = sys.argv[1]
+
 with open('index.yaml', 'r') as f:
     data = yaml.safe_load(f)
+
 if 'entries' in data and 'askme' in data['entries']:
-    data['entries']['askme'] = [entry for entry in data['entries']['askme'] if entry.get('version') != '${VERSION}']
+    data['entries']['askme'] = [
+        entry for entry in data['entries']['askme'] 
+        if entry.get('version') != version_to_remove
+    ]
+
 with open('index.yaml', 'w') as f:
     yaml.safe_dump(data, f, default_flow_style=False)
-"
+
+print(f"Removed version {version_to_remove} from index")
+EOF
+          
+          python3 cleanup_index.py "${VERSION}"
+          rm cleanup_index.py
         fi
         
         # Générer l'index avec seulement les nouveaux packages
