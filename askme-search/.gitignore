@@ -1,0 +1,27 @@
+# Fichiers d'environnement avec clés secrètes
+.env
+.env.local
+.env.production
+.env.development
+
+# Dossiers de données clients
+clients-data/
+
+# Uploads temporaires
+temp_uploads/
+
+# Logs
+*.log
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Fichiers de test
+test_*.py
+debug_*.py
+
+# IDE
+.vscode/
+.idea/
