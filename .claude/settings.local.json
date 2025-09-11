@@ -76,7 +76,9 @@
       "Bash(helm repo:*)",
       "Bash(helm search:*)",
       "Bash(helm install:*)",
-      "Bash(helm show values:*)"
+      "Bash(helm show values:*)",
+      "Read(//c/Avanteam/dev/DevRG/askm-app-aoai-testrg2/askme-app-aoai/**)",
+      "Bash(git remote set-url:*)"
     ],
     "deny": []
   }
