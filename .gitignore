@@ -1,1 +1,19 @@
+<<<<<<< HEAD
 .claude/
+=======
+.venv
+test_env/
+frontend/node_modules
+.env
+.env-rn
+# static
+.azure/
+__pycache__/
+.ipynb_checkpoints/
+
+# Kubernetes secrets with real values
+k8s/secret.yaml
+
+# Déploiements clients locaux (pour tests CLI uniquement)
+deployments/clients/
+>>>>>>> 495d79eb27f36136c293e2922058ae9c14ef66dc

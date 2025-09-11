@@ -1,0 +1,432 @@
+.answerContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8.1285px;
+  gap: 5.42px;
+  background: #ffffff;
+  box-shadow:
+    0px 1px 2px rgba(0, 0, 0, 0.14),
+    0px 0px 2px rgba(0, 0, 0, 0.12);
+  border-radius: 5.419px;
+  margin-bottom: 60px;
+}
+
+.answerText {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  color: #323130;
+  flex: none;
+  order: 1;
+  align-self: stretch;
+  flex-grow: 0;
+  margin: 11px;
+  white-space: normal;
+  word-wrap: break-word;
+  max-width: 800px;
+  overflow-x: auto;
+}
+
+.answerHeader {
+  position: relative;
+}
+
+.answerFooter {
+  display: flex;
+  flex-flow: row nowrap;
+  width: 100%;
+  height: auto;
+  box-sizing: border-box;
+  justify-content: space-between;
+}
+
+.answerDisclaimerContainer {
+  justify-content: center;
+  /* display: flex; */
+}
+
+.answerDisclaimer {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 16px;
+
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #707070;
+  flex: none;
+  order: 1;
+  flex-grow: 0;
+}
+
+.citationWrapper {
+  margin-top: 8;
+  /* display: flex; */
+  flex-flow: wrap column;
+  max-height: 800px;
+  gap: 4px;
+}
+
+.citationContainer {
+  margin-left: 10px;
+  margin-top: 5px;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
+
+  color: #115ea3;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 4px 6px;
+  gap: 4px;
+  border: 1px solid #d1d1d1;
+  border-radius: 4px;
+
+  flex-shrink: 0; /* Empêche la réduction du conteneur citation */
+  width: 450px; /* Largeur augmentée pour plus de visibilité */
+  min-width: 450px; /* Largeur minimale garantie */
+  max-width: 450px; /* Limite par défaut */
+  overflow: hidden; /* Cache le débordement par défaut */
+  white-space: nowrap; /* Empêche les retours à la ligne */
+
+  position: relative;
+  transition: all 0.3s ease; /* Animation fluide */
+}
+
+/* Conteneur pour le texte avec overflow caché */
+.citationTextContainer {
+  flex: 1;
+  overflow: hidden; /* Cache le texte qui dépasse à gauche */
+  margin-left: 8px; /* Marge pour séparer du numéro */
+}
+
+/* Texte de citation avec défilement interne */
+.citationText {
+  display: inline-block;
+  white-space: nowrap;
+  transition: transform 0.3s ease;
+}
+
+/* Défilement du texte au survol - reste dans la boîte */
+.citationContainer:hover .citationText {
+  animation: scrollTextInside 6s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+/* Animation de défilement horizontal dans la boîte */
+@keyframes scrollTextInside {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(0);
+  } /* Pause plus longue au début */
+  75% {
+    transform: translateX(var(--scroll-distance, -120px));
+  } /* Utilise la distance calculée dynamiquement */
+  100% {
+    transform: translateX(0);
+  } /* Retour au début */
+}
+
+.citationContainer:hover {
+  text-decoration: underline;
+  cursor: pointer;
+  /* Garde la taille fixe - pas d'agrandissement */
+  z-index: 999; /* Passe au-dessus des autres éléments */
+  background-color: #ffffff; /* Fond blanc pour la lisibilité */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Ombre pour l'effet flottant */
+  border-color: #115ea3; /* Bordure plus prononcée au survol */
+}
+
+.citation {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 0px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  flex: none;
+  flex-grow: 0;
+  z-index: 2;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  color: #424242;
+  cursor: pointer;
+}
+
+.citation:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.accordionIcon {
+  display: inline-flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 0px;
+  margin-top: 4px;
+  color: #616161;
+  font-size: 10px;
+}
+
+.accordionIcon:hover {
+  cursor: pointer;
+}
+
+.accordionTitle {
+  margin-right: 5px;
+  margin-left: 10px;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 16px;
+  display: flex;
+  align-items: center;
+  color: #616161;
+}
+
+.accordionTitle:hover {
+  cursor: pointer;
+}
+
+.clickableSup {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 0px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  flex: none;
+  order: 2;
+  flex-grow: 0;
+  z-index: 2;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  color: #424242;
+  cursor: pointer;
+}
+
+.clickableSup:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+sup {
+  font-size: 10px;
+  line-height: 10px;
+}
+
+@media (max-width: 480px) {
+  .answerFooter {
+    flex-direction: column-reverse;
+  }
+
+  .citationContainer {
+    margin-left: 0;
+  }
+
+  .answerDisclaimer {
+    margin-bottom: 5px;
+  }
+}
+
+.citationOverlapDiv {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.divDocLink {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  margin-left: 5px;
+}
+
+.divDocLink a {
+  color: #616161;
+  font-family:
+    'Segoe UI',
+    'Segoe UI Web (West European)',
+    'Segoe UI',
+    -apple-system,
+    BlinkMacSystemFont,
+    Roboto,
+    'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.divDocLink a > div {
+  display: flex;
+}
+
+.divDocLink a > div span {
+  margin-left: 5px;
+}
+/* Conteneur global */
+.referencesContainer {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 15px; /* Espacement entre les références */
+}
+
+/* Conteneur pour chaque référence */
+.referenceItem {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Espacement entre icône et texte */
+  cursor: pointer;
+}
+
+/* Dropdown principal */
+.dropdown {
+  position: relative;
+}
+
+.dropdownButton {
+  display: flex;
+  align-items: center; /* Centrer les éléments verticalement */
+  justify-content: space-between; /* Séparer le texte et la flèche si nécessaire */
+  gap: 8px; /* Espacement entre l'icône et le texte */
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 4px 6px; /* Ajustez si nécessaire */
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dropdownButton:hover {
+  background-color: #e6f7ff; /* Couleur au survol */
+}
+
+/* Menu déroulant */
+.dropdownMenu {
+  display: none; /* Masqué par défaut */
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  width: 200px;
+}
+
+/* Flèche dropdown */
+.arrow {
+  font-size: 12px;
+  color: #888;
+  margin-left: auto;
+}
+
+.dropdown:hover .dropdownMenu {
+  display: block; /* Affiché au survol */
+}
+
+/* Liens dans le menu déroulant */
+.dropdownLink {
+  display: flex;
+  align-items: center; /* Centrer les icônes et le texte verticalement */
+  gap: 8px; /* Espacement entre l'icône et le texte */
+  padding: 4px 8px;
+  color: #333;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.dropdownLink:hover {
+  background-color: #f0f8ff;
+}
+
+/* Icônes */
+.dropdownLink img {
+  transition: transform 0.2s;
+}
+
+.dropdownLink:hover img {
+  transform: scale(1.1); /* Agrandir légèrement au survol */
+}
+
+.dropdownLink {
+  display: flex;
+  align-items: center; /* Centrer les icônes et le texte verticalement */
+  gap: 8px; /* Espacement entre l'icône et le texte */
+  padding: 8px 12px;
+  color: #333;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.dropdownButton img,
+.dropdownLink img {
+  width: 16px; /* Taille uniforme des icônes */
+  height: 16px;
+  object-fit: contain; /* Empêche les déformations */
+}
+
+@media (max-width: 600px) {
+  .hideOnSmall {
+    display: none !important;
+  }
+
+  .dropdownMenu {
+    width: auto;
+  }
+
+  /* Citations plus petites sur mobile */
+  .citationContainer {
+    width: 280px;
+    min-width: 280px;
+    max-width: 280px;
+  }
+
+  .citationContainer:hover {
+    /* Garde la taille fixe sur mobile aussi */
+  }
+}
+
+/* Plus besoin d'animation spécifique pour tablette - utilise la version dynamique */
+
+@media (max-width: 480px) {
+  .citationContainer {
+    width: 250px;
+    min-width: 250px;
+    max-width: 250px;
+  }
+
+  .citationContainer:hover {
+    /* Garde la taille fixe sur très petits écrans aussi */
+  }
+}
+
+/* Plus besoin d'animation spécifique pour mobile - utilise la version dynamique */

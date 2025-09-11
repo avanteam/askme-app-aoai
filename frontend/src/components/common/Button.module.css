@@ -1,0 +1,241 @@
+.shareButtonRoot {
+  width: 90px;
+  height: 34px;
+  border-radius: 5px;
+  background: #0f6cbd;
+  padding: 5px 12px;
+  border: none;
+  transition: all 0.2s ease-in-out;
+  margin-left: 5px;
+}
+
+.shareButtonRoot:hover {
+  background: #0a5091;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.shareButtonRoot span {
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
+  color: #ffffff;
+  letter-spacing: 0.1px;
+}
+
+.shareButtonRoot i,
+.shareButtonRoot:hover i {
+  color: #ffffff !important;
+  margin-right: 4px;
+}
+
+.exportButtonRoot {
+  width: 120px;
+  height: 34px;
+  border-radius: 5px;
+  background: #0f6cbd;
+  padding: 5px 12px;
+  border: none;
+  transition: all 0.2s ease-in-out;
+  margin-left: 5px;
+}
+
+.exportButtonRoot:hover {
+  background: #0a5091;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.exportButtonRoot span {
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
+  color: #ffffff;
+  letter-spacing: 0.1px;
+}
+
+.exportButtonRoot i,
+.exportButtonRoot:hover i {
+  color: #ffffff !important;
+  margin-right: 4px;
+}
+
+.exportButtonRoot:disabled {
+  background: #f0f0f0;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+.exportButtonRoot:disabled span,
+.exportButtonRoot:disabled i {
+  color: #bdbdbd !important;
+}
+
+.historyButtonRoot {
+  width: 150px;
+  height: 34px;
+  border-radius: 5px;
+  border: 1px solid #e0e0e0;
+  background-color: #fcfcfc;
+  transition: all 0.2s ease-in-out;
+  margin-left: 5px;
+}
+
+.historyButtonRoot:hover {
+  border: 1px solid #0f6cbd;
+  background-color: #f5f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.07);
+}
+
+.historyButtonRoot:active {
+  border: 1px solid #0f6cbd;
+  background-color: #e6f2ff;
+}
+
+.historyButtonRoot span {
+  font-weight: 500;
+  color: #323130;
+}
+
+.historyButtonRoot i {
+  color: #0f6cbd;
+  margin-right: 6px;
+}
+
+/* Amélioration des styles du bouton d'aide */
+.helpButtonRoot {
+  width: 90px;
+  height: 34px;
+  border-radius: 5px;
+  background: #0f6cbd;
+  padding: 5px 12px;
+  border: none;
+  transition: all 0.2s ease-in-out;
+  margin-left: 5px;
+}
+
+.helpButtonRoot:hover {
+  background: #0a5091;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.helpButtonRoot span {
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
+  color: #ffffff;
+  letter-spacing: 0.1px;
+}
+
+.helpButtonRoot i,
+.helpButtonRoot:hover i {
+  color: #ffffff !important;
+  margin-right: 4px;
+}
+
+/* Styles du bouton de personnalisation */
+.customizationButtonRoot {
+  width: 120px;
+  height: 34px;
+  border-radius: 5px;
+  background: #0f6cbd;
+  padding: 5px 12px;
+  border: none;
+  transition: all 0.2s ease-in-out;
+  margin-left: 5px;
+}
+
+.customizationButtonRoot:hover {
+  background: #0a5091;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.customizationButtonRoot span {
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
+  color: #ffffff;
+  letter-spacing: 0.1px;
+}
+
+.customizationButtonRoot i,
+.customizationButtonRoot:hover i {
+  color: #ffffff !important;
+  margin-right: 4px;
+}
+
+.buttonContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.helpInlineIcon {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+
+.buttonText {
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 18px;
+  color: #ffffff;
+}
+
+/* Réglages responsifs améliorés */
+@media (max-width: 768px) {
+  .shareButtonRoot,
+  .exportButtonRoot,
+  .helpButtonRoot,
+  .customizationButtonRoot {
+    width: auto;
+    padding: 6px 12px;
+  }
+
+  .historyButtonRoot {
+    width: auto;
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .shareButtonRoot,
+  .exportButtonRoot,
+  .helpButtonRoot,
+  .customizationButtonRoot {
+    width: auto;
+    padding: 5px 8px;
+    min-width: 0;
+  }
+  /*   
+  .shareButtonRoot span,
+  .exportButtonRoot span,
+  .helpButtonRoot span,
+  .customizationButtonRoot span {
+    display: none;
+  }
+  
+  .shareButtonRoot i,
+  .exportButtonRoot i,
+  .helpButtonRoot i,
+  .customizationButtonRoot i {
+    margin-right: 0;
+    font-size: 16px;
+  }
+   */
+  .historyButtonRoot {
+    width: auto;
+    padding: 0 8px;
+  }
+
+  .historyButtonRoot span {
+    font-size: 12px;
+  }
+}
