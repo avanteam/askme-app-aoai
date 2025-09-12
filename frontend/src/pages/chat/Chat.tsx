@@ -165,6 +165,17 @@ const Chat = () => {
 
   /* Gestion de l'auth */
   useEffect(() => {
+    // Si l'authentification est désactivée, bypasser complètement la vérification
+    if (!AUTH_ENABLED) {
+      setShowAuthMessage(false)
+      appStateContext?.dispatch({ type: 'SET_AUTHENTICATION_STATUS', payload: true })
+      setShouldDisplayInput(true)
+      setCurrentUser('Utilisateur non authentifié')
+      appStateContext?.dispatch({ type: 'SET_USERNAME', payload: 'Utilisateur non authentifié' })
+      setUserFullDef('*')
+      return
+    }
+
     const handleMessage = async (event: any) => {
       if (event.data.InitialQuestion) {
         appStateContext?.dispatch({ type: 'SET_INITIAL_QUESTION', payload: event.data.InitialQuestion })
@@ -227,7 +238,7 @@ const Chat = () => {
     return () => {
       window.removeEventListener('message', handleMessage)
     }
-  }, [appStateContext])
+  }, [appStateContext, AUTH_ENABLED])
 
   let assistantMessage = {} as ChatMessage
   let toolMessage = {} as ChatMessage
