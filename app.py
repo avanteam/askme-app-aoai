@@ -52,6 +52,7 @@ from backend.llm_providers import LLMProviderFactory
 from backend.speech_services import synthesize_speech_azure, clean_text_for_speech
 from backend.pronunciation_dict import get_pronunciation_dict, add_pronunciation, remove_pronunciation
 from backend.chat_commands import command_parser, ChatCommandExecutor
+from backend.version import get_version_info, get_display_version
 
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
 
@@ -124,6 +125,7 @@ frontend_settings = {
         app_settings.chat_history and
         app_settings.chat_history.enable_feedback
     ),
+    "version": get_display_version(),
     "ui": {
         "title": app_settings.ui.title,
         "logo": app_settings.ui.logo,

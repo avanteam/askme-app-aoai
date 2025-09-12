@@ -268,6 +268,29 @@ jobs:
           image=moby/buildkit:latest
         buildkitd-flags: --debug
 
+    - name: 📝 Injection de la version dans l'application
+      run: |
+        # Extraire la version du tag Git
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION="${{ github.ref_name }}"
+        else
+          VERSION="dev-$(git rev-parse --short HEAD)"
+        fi
+        
+        # Créer le fichier version.json
+        echo "🏷️ Création du fichier version.json avec la version: $VERSION"
+        cat > version.json << EOF
+        {
+          "version": "$VERSION",
+          "buildDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "buildNumber": "${{ github.run_number }}",
+          "commitSha": "${{ github.sha }}"
+        }
+        EOF
+        
+        echo "📄 Contenu du fichier version.json:"
+        cat version.json
+
     - name: 🐳 Build et Push avec gestion d'erreurs
       id: docker
       uses: docker/build-push-action@v5

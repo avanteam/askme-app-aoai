@@ -404,6 +404,17 @@ export function HelpPanel() {
           <h2 className={styles.helpTitle}>
             <Icon iconName="Lifesaver" className={styles.titleIcon} />
             {getTranslation('helpPanelTitle')}
+            {appStateContext?.state.frontendSettings?.version && (
+              <span style={{ 
+                fontSize: '0.7em', 
+                color: '#666', 
+                fontWeight: 'normal',
+                marginLeft: '8px',
+                opacity: 0.8 
+              }}>
+                {appStateContext.state.frontendSettings.version}
+              </span>
+            )}
           </h2>
           <button className={styles.closeButton} onClick={handleCloseHelp} aria-label={getTranslation('hide')}>
             <Icon iconName="Cancel" />
