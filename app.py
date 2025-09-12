@@ -799,6 +799,9 @@ def CheckAuthenticate(request):
         return False
     
 def GetDecryptedUsername(request):
+    # Si l'authentification est désactivée, utiliser un utilisateur par défaut
+    if not app_settings.base_settings.auth_enabled:
+        return "dev-user"
     
     if "EncodedUsername" in request.headers:
         return decrypt_string(request.headers["EncodedUsername"])
@@ -807,6 +810,10 @@ def GetDecryptedUsername(request):
     
 
 def GetRemainingTokens():
+    # Si l'authentification est désactivée, autoriser un nombre illimité de tokens
+    if not app_settings.base_settings.auth_enabled:
+        return 100000  # Valeur élevée pour ne jamais être négative
+        
     if (app_settings.custom_avanteam_settings.licencehub_key is None or app_settings.custom_avanteam_settings.licencehub_key == ""):
         return False
 

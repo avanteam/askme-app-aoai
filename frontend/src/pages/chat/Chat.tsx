@@ -172,6 +172,15 @@ const Chat = () => {
       setShouldDisplayInput(true)
       setCurrentUser('Utilisateur non authentifié')
       appStateContext?.dispatch({ type: 'SET_USERNAME', payload: 'Utilisateur non authentifié' })
+      
+      // Configurer un token factice pour que les appels API fonctionnent
+      setToken('dev-token')
+      appStateContext?.dispatch({ type: 'SET_AUTH_TOKEN', payload: 'dev-token' })
+      
+      // Configurer un utilisateur crypté factice
+      setEncryptedCurrentUser(encryptString('dev-user'))
+      appStateContext?.dispatch({ type: 'SET_ENCRYPTED_USERNAME', payload: encryptString('dev-user') })
+      
       setUserFullDef('*')
       return
     }
