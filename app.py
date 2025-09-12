@@ -783,14 +783,18 @@ async def conversation_internal(request_body, request_headers, preventShouldStre
         return jsonify({"error": error_message}), status_code
 
 def CheckAuthenticate(request):
-    return True
-    # if "AuthToken" in request.headers:
-    #     salt = datetime.now().strftime("%d%m%Y")
-    #     fullchain = app_settings.custom_avanteam_settings.auth_token + salt
-    #     shaEncoded = sha256(fullchain.encode('utf-8')).hexdigest()
-    #     return request.headers["AuthToken"] == shaEncoded
-    # else:
-    #     return False
+    # Si l'authentification est désactivée, autoriser tous les accès
+    if not app_settings.base_settings.auth_enabled:
+        return True
+        
+    # Sinon effectuer la vérification d'authentification
+    if "AuthToken" in request.headers:
+        salt = datetime.now().strftime("%d%m%Y")
+        fullchain = app_settings.custom_avanteam_settings.auth_token + salt
+        shaEncoded = sha256(fullchain.encode('utf-8')).hexdigest()
+        return request.headers["AuthToken"] == shaEncoded
+    else:
+        return False
     
 def GetDecryptedUsername(request):
     
