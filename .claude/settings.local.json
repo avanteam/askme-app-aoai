@@ -76,7 +76,12 @@
       "Bash(helm repo:*)",
       "Bash(helm search:*)",
       "Bash(helm install:*)",
-      "Bash(helm show values:*)"
+      "Bash(helm show values:*)",
+      "Bash(PYTHONPATH=.. python:*)",
+      "Read(//c/Avanteam/AI/azure web apps/**)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "WebSearch"
     ],
     "deny": []
   }
