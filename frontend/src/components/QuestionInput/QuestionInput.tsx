@@ -139,7 +139,7 @@ export const QuestionInput = ({
   }, [])
 
   const OYD_ENABLED = appStateContext?.state.frontendSettings?.oyd_enabled || false
-  const currentProvider = appStateContext?.state.customizationPreferences?.llmProvider || 'AZURE_OPENAI'
+  const currentProvider = appStateContext?.state.customizationPreferences?.llmProvider || appStateContext?.state.frontendSettings?.default_llm_provider || ''
 
   // Seuls Claude, Gemini et OpenAI Direct supportent les images
   const supportsImages = ['CLAUDE', 'GEMINI', 'OPENAI_DIRECT'].includes(currentProvider)

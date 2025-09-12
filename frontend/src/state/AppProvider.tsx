@@ -93,7 +93,7 @@ const initialState: AppState = {
   customizationPreferences: {
     responseSize: 'medium',
     documentsCount: 5,
-    llmProvider: 'AZURE_OPENAI'
+    llmProvider: '' // Will be set from frontendSettings
   },
   isAutoAudioEnabled: false
 }
@@ -124,7 +124,7 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
             return {
               responseSize: parsed.responseSize || 'medium',
               documentsCount: typeof parsed.documentsCount === 'number' ? parsed.documentsCount : 5,
-              llmProvider: parsed.llmProvider || 'AZURE_OPENAI'
+              llmProvider: parsed.llmProvider || ''
             }
           }
         }
@@ -226,7 +226,19 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     const getFrontendSettings = async () => {
       frontendSettings()
         .then(response => {
-          dispatch({ type: 'FETCH_FRONTEND_SETTINGS', payload: response as FrontendSettings })
+          const frontendData = response as FrontendSettings
+          dispatch({ type: 'FETCH_FRONTEND_SETTINGS', payload: frontendData })
+          
+          // Set default LLM provider if not already set in customization preferences
+          if (frontendData?.default_llm_provider && !state.customizationPreferences.llmProvider) {
+            dispatch({ 
+              type: 'UPDATE_CUSTOMIZATION_PREFERENCES', 
+              payload: {
+                ...state.customizationPreferences,
+                llmProvider: frontendData.default_llm_provider
+              }
+            })
+          }
         })
         .catch(_err => {
           console.error('There was an issue fetching your data.')

@@ -326,7 +326,7 @@ const Chat = () => {
       const currentPreferences = appStateContext?.state.customizationPreferences || {
         responseSize: 'medium' as const,
         documentsCount: 5,
-        llmProvider: 'AZURE_OPENAI'
+        llmProvider: appStateContext?.state.frontendSettings?.default_llm_provider || ''
       }
 
       const updatedPreferences = { ...currentPreferences }
