@@ -122,6 +122,9 @@ class AzureSearchService:
                 include_total_count=True
             )
             
+            # DEBUG: Log the query being sent to the enhanced search system
+            print(f"[ENHANCED SEARCH DEBUG] Query sent to search provider: '{query}'")
+            
             self.logger.info("[ENHANCED SEARCH] Executing optimized search with semantic features enabled")
             self.logger.info(f"AzureSearchService: Final search top_k used: {search_query.top_k}")
             

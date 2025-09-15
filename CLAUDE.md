@@ -67,12 +67,15 @@ Tous les LLM providers (Claude, Gemini, Mistral, OpenAI Direct) utilisent mainte
 - **Diversity filtering** : Élimination des résultats redondants
 - **Query preprocessing** : Optimisation intelligente des requêtes
 - **Field boosting** : Amélioration de la pertinence par champs
+- **API 2025-08-01-preview** : Utilisation des dernières fonctionnalités Azure AI Search
+- **Strict Postfiltering** : Filtrage vectoriel de précision améliorée
+- **Enhanced Vector Search** : Recherche vectorielle optimisée avec exhaustive search
 
 #### Architecture Modulaire
 ```
 backend/search_providers/
 ├── base.py              # Interface abstraite SearchProvider
-├── azure_search.py      # Provider Azure optimisé
+├── azure_search.py      # Provider Azure optimisé avec API 2025-08-01-preview
 └── __init__.py          # Factory pattern extensible
 ```
 
@@ -83,7 +86,8 @@ Pour vérifier que le nouveau système est utilisé, cherchez ces logs :
 ```
 INFO:[LLM PROVIDER] ClaudeProvider is using ENHANCED search system
 INFO:[ENHANCED SEARCH] Initialized new optimized search provider system
-INFO:[SEMANTIC SEARCH] Enabled with config: [config-name]
+INFO:[2025-API] Using enhanced semantic search capabilities
+INFO:[2025-API] Using strict postfiltering for enhanced vector search precision
 INFO:[QUALITY METRICS] Average relevance score: 0.940
 ```
 

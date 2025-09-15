@@ -104,6 +104,33 @@ class OpenAIDirectProvider(LLMProvider):
         except Exception as e:
             self.logger.error(f"Failed to initialize OpenAI Direct client: {e}")
             raise LLMProviderInitializationError(f"OpenAI Direct initialization failed: {e}")
+
+    def _is_gpt5_or_newer(self, model_name: str) -> bool:
+        """
+        Check if the model is GPT-5 or newer that requires max_completion_tokens instead of max_tokens.
+
+        Args:
+            model_name: The OpenAI model name
+
+        Returns:
+            True if the model uses max_completion_tokens, False if it uses max_tokens
+        """
+        model_lower = model_name.lower()
+
+        # GPT-5 and newer models
+        gpt5_models = [
+            'gpt-5',
+            'gpt-4-1',  # GPT-4.1 also uses the new parameter
+            'o3',       # OpenAI o3 reasoning models
+            'o4',       # OpenAI o4 models
+        ]
+
+        # Check if model name starts with any of the new model identifiers
+        for new_model in gpt5_models:
+            if model_lower.startswith(new_model):
+                return True
+
+        return False
     
     @handle_provider_errors("OPENAI_DIRECT")
     async def send_request(
@@ -144,37 +171,75 @@ class OpenAIDirectProvider(LLMProvider):
         # Get max_tokens based on response size
         response_size = kwargs.get("response_size", "medium")
         max_tokens = self._get_max_tokens_for_response_size("openai_direct", response_size)
-        
-        # Build request parameters with defaults from settings
+
+        # Get model name to determine which token parameter to use
+        model_name = kwargs.get("model", getattr(app_settings.openai_direct, 'model', 'gpt-3.5-turbo'))
+
+        # Check if this is a GPT-5 or newer model
+        is_gpt5_or_newer = self._is_gpt5_or_newer(model_name)
+
+        # Build request parameters with model-specific compatibility
         model_args = {
             "messages": enhanced_messages,
-            "temperature": kwargs.get("temperature", getattr(app_settings.openai_direct, 'temperature', 0.7)),
-            "max_tokens": max_tokens,
-            "top_p": kwargs.get("top_p", getattr(app_settings.openai_direct, 'top_p', 1.0)),
-            "stop": kwargs.get("stop", getattr(app_settings.openai_direct, 'stop_sequence', None)),
             "stream": stream,
-            "model": kwargs.get("model", getattr(app_settings.openai_direct, 'model', 'gpt-3.5-turbo')),
+            "model": model_name,
             "user": kwargs.get("user"),
         }
-        
-        # Add optional parameters if provided
-        if "tools" in kwargs:
-            model_args["tools"] = kwargs["tools"]
-        if "tool_choice" in kwargs:
-            model_args["tool_choice"] = kwargs["tool_choice"]
-        if "frequency_penalty" in kwargs:
-            model_args["frequency_penalty"] = kwargs["frequency_penalty"]
-        if "presence_penalty" in kwargs:
-            model_args["presence_penalty"] = kwargs["presence_penalty"]
+
+        # Configure parameters based on model capabilities
+        if is_gpt5_or_newer:
+            # GPT-5 and newer models have different parameter restrictions
+            model_args["max_completion_tokens"] = max_tokens
+
+            # GPT-5 only supports temperature=1 (default), so omit temperature parameter
+            # to let it use the default
+            self.logger.info(f"Using GPT-5+ compatibility mode for model {model_name}")
+
+            # Only add parameters that are supported by GPT-5
+            stop_sequence = kwargs.get("stop", getattr(app_settings.openai_direct, 'stop_sequence', None))
+            if stop_sequence:
+                model_args["stop"] = stop_sequence
+
+        else:
+            # GPT-4o and older models use the traditional parameters
+            model_args["max_tokens"] = max_tokens
+            model_args["temperature"] = kwargs.get("temperature", getattr(app_settings.openai_direct, 'temperature', 0.7))
+            model_args["top_p"] = kwargs.get("top_p", getattr(app_settings.openai_direct, 'top_p', 1.0))
+
+            stop_sequence = kwargs.get("stop", getattr(app_settings.openai_direct, 'stop_sequence', None))
+            if stop_sequence:
+                model_args["stop"] = stop_sequence
+
+            self.logger.info(f"Using GPT-4o compatibility mode for model {model_name}")
+
+
+        # Add optional parameters if provided - only for models that support them
+        if not is_gpt5_or_newer:
+            # Traditional models support these parameters
+            if "tools" in kwargs:
+                model_args["tools"] = kwargs["tools"]
+            if "tool_choice" in kwargs:
+                model_args["tool_choice"] = kwargs["tool_choice"]
+            if "frequency_penalty" in kwargs:
+                model_args["frequency_penalty"] = kwargs["frequency_penalty"]
+            if "presence_penalty" in kwargs:
+                model_args["presence_penalty"] = kwargs["presence_penalty"]
+        else:
+            # GPT-5+ models - be more conservative with optional parameters
+            # Only add tools if explicitly provided (GPT-5 might support these)
+            if "tools" in kwargs:
+                model_args["tools"] = kwargs["tools"]
+            if "tool_choice" in kwargs:
+                model_args["tool_choice"] = kwargs["tool_choice"]
+            # Skip frequency_penalty and presence_penalty for GPT-5 to be safe
+            pass
         
         # Remove None values to avoid API errors
         model_args = {k: v for k, v in model_args.items() if v is not None}
         
-        self.logger.debug(f"Sending request to OpenAI Direct: stream={stream}, model={model_args['model']}")
-        
         # Make the request
         response = await self.client.chat.completions.create(**model_args)
-        
+
         # Add citations to the response if we have search results
         if hasattr(self, '_current_search_citations') and self._current_search_citations:
             # For streaming responses, we need to inject citations
@@ -190,12 +255,10 @@ class OpenAIDirectProvider(LLMProvider):
                             choice.message.context = {}
                         choice.message.context['citations'] = self._current_search_citations
                         choice.message.context['intent'] = 'Azure Search results'
-        
+
         # OpenAI Direct doesn't provide request IDs in the same way as Azure
         # We'll generate a simple identifier for consistency
         request_id = f"openai-direct-{response.id}" if hasattr(response, 'id') else None
-        
-        self.logger.debug(f"OpenAI Direct request completed, ID: {request_id}")
         
         return response, request_id
         

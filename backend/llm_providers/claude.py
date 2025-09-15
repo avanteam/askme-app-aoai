@@ -699,10 +699,69 @@ class ClaudeProvider(LLMProvider):
                             self.logger.info(f"Requête enrichie avec image: '{base_query[:50]}...' → '{enriched_query[:100]}...'")
                             return enriched_query
                     
-                    return base_query
+                    # Extract only the actual user question from multimodal content too
+                    return self._extract_actual_user_question(base_query)
                 
-                return content
+                # Extract only the actual user question, not the system prompt
+                actual_query = self._extract_actual_user_question(content)
+                return actual_query
         return None
+    
+    def _extract_actual_user_question(self, content: str) -> str:
+        """
+        Extract the actual user question from content that may include system prompts.
+        
+        The content might be formatted as:
+        "ALWAYS respond in French... [system prompt]
+        
+        User question here"
+        
+        Args:
+            content: Full content including system prompt and user question
+            
+        Returns:
+            Just the user question part
+        """
+        if not content:
+            return ""
+        
+        # Look for patterns that indicate the start of the actual question
+        # Common patterns: after "Text:", after multiple newlines, at the end
+        
+        # Pattern 1: Look for "Text: " followed by the question
+        import re
+        text_pattern = r'Text:\s*["\']([^"\']+)["\']'
+        match = re.search(text_pattern, content)
+        if match:
+            return match.group(1).strip()
+        
+        # Pattern 2: Look for content after multiple newlines (often where the real question starts)
+        lines = content.split('\n')
+        non_empty_lines = [line.strip() for line in lines if line.strip()]
+        
+        if len(non_empty_lines) > 0:
+            # Often the last non-empty line is the actual question
+            last_line = non_empty_lines[-1]
+            
+            # Skip lines that look like system instructions
+            if not any(keyword in last_line.lower() for keyword in 
+                      ['always respond', 'you are', 'assistant', 'helpful', 'documents', 'cite your sources']):
+                return last_line
+        
+        # Pattern 3: If content is short, it's probably just the question
+        if len(content) < 200 and '\n' not in content:
+            return content.strip()
+        
+        # Fallback: try to find the shortest meaningful line that looks like a question
+        for line in reversed(non_empty_lines):
+            line = line.strip()
+            if len(line) > 10 and len(line) < 200:  # Reasonable question length
+                if '?' in line or any(word in line.lower() for word in ['comment', 'what', 'how', 'why', 'where', 'when', 'qui', 'que', 'quoi', 'où', 'quand']):
+                    return line
+        
+        # Last resort: return the original content but log a warning
+        self.logger.warning(f"Could not extract clean user question from: '{content[:100]}...'")
+        return content.strip()
     
     def _has_document_content(self, text: str) -> bool:
         """Check if the text contains uploaded document content"""

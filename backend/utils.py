@@ -158,6 +158,24 @@ def format_stream_response(chatCompletionChunk, history_metadata, apim_request_i
                 provider_display = provider_name or "AZURE_OPENAI"
                 print(f"[SEARCH] {provider_display}_STREAMING: Received {citation_count} citations from {provider_display}")
                 
+                # Detailed logging for Azure OpenAI vs Enhanced system comparison
+                if provider_display == "AZURE_OPENAI" and citation_count > 0:
+                    print(f"[SEARCH QUALITY] AZURE_OPENAI NATIVE returned {citation_count} documents:")
+                    citations = []
+                    if hasattr(delta.context, 'citations') and delta.context.citations:
+                        citations = delta.context.citations
+                    elif isinstance(delta.context, dict) and delta.context.get('citations'):
+                        citations = delta.context.get('citations')
+                    
+                    for i, citation in enumerate(citations[:5]):  # Top 5 for readability
+                        title = citation.get('title', 'N/A') if isinstance(citation, dict) else getattr(citation, 'title', 'N/A')
+                        content = citation.get('content', '') if isinstance(citation, dict) else getattr(citation, 'content', '')
+                        print(f"  [{i+1}] Title: {str(title)[:60]}...")
+                        print(f"      Content preview: {str(content)[:100].replace(chr(10), ' ').replace(chr(13), ' ')}...")
+                    
+                    if len(citations) > 5:
+                        print(f"  ... and {len(citations) - 5} more documents")
+                
                 messageObj = {"role": "tool", "content": json.dumps(delta.context)}
                 response_obj["choices"][0]["messages"].append(messageObj)
                 return response_obj

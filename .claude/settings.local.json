@@ -76,7 +76,9 @@
       "Bash(helm repo:*)",
       "Bash(helm search:*)",
       "Bash(helm install:*)",
-      "Bash(helm show values:*)"
+      "Bash(helm show values:*)",
+      "Bash(pip install:*)",
+      "WebSearch"
     ],
     "deny": []
   }

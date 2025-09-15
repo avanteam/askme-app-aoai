@@ -18,12 +18,13 @@ from typing import Any, Dict, List, Optional
 from azure.search.documents.aio import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from azure.identity.aio import DefaultAzureCredential
+import httpx
 
 from backend.settings import app_settings
 from backend.utils import generateFilterStringFromFullDef
 from .base import (
-    SearchProvider, 
-    SearchDocument, 
+    SearchProvider,
+    SearchDocument,
     SearchQuery,
     SearchProviderError,
     SearchConfigurationError,
@@ -87,7 +88,26 @@ class AzureSearchProvider(SearchProvider):
         self.strictness = getattr(datasource, 'strictness', 3)
         self.enable_in_domain = getattr(datasource, 'enable_in_domain', True)
         
-        self.logger.info(f"Azure Search configured: service={self.service_name}, index={self.index_name}")
+        # Log configuration for debugging
+        vector_config = f"vector_columns={self.vector_columns}" if self.vector_columns else "no vector search"
+        semantic_config = f"semantic_config={self.semantic_config}" if self.semantic_config else "no semantic search"
+        self.logger.info(f"Azure Search configured: service={self.service_name}, index={self.index_name}, {vector_config}, {semantic_config}")
+
+        # Check embedding configuration
+        if self.vector_columns:
+            if hasattr(app_settings, 'azure_openai') and app_settings.azure_openai:
+                azure_openai = app_settings.azure_openai
+                embedding_deployment = (
+                    getattr(azure_openai, 'embedding_deployment', None) or
+                    getattr(azure_openai, 'embedding_name', None) or
+                    getattr(azure_openai, 'embedding_model', None)
+                )
+                if embedding_deployment:
+                    self.logger.info(f"[HYBRID SEARCH] Embedding deployment available: {embedding_deployment}")
+                else:
+                    self.logger.warning(f"[HYBRID SEARCH] Vector columns configured but no embedding deployment found")
+            else:
+                self.logger.warning(f"[HYBRID SEARCH] Vector columns configured but Azure OpenAI not available")
     
     async def initialize(self) -> None:
         """Initialize Azure Search client and validate configuration."""
@@ -110,11 +130,12 @@ class AzureSearchProvider(SearchProvider):
                 credential = DefaultAzureCredential()
                 self.logger.debug("Using managed identity authentication")
             
-            # Create search client for validation
+            # Create search client for validation with latest API version
             test_client = SearchClient(
                 endpoint=self.endpoint,
                 index_name=self.index_name,
-                credential=credential
+                credential=credential,
+                api_version="2025-08-01-preview"
             )
             
             # Test connection
@@ -142,7 +163,7 @@ class AzureSearchProvider(SearchProvider):
                 await test_client.close()
             
             self.initialized = True
-            
+
         except Exception as e:
             if isinstance(e, SearchProviderError):
                 raise
@@ -151,6 +172,74 @@ class AzureSearchProvider(SearchProvider):
                 self.provider_name,
                 e
             )
+
+    async def _generate_embedding(self, text: str) -> Optional[List[float]]:
+        """
+        Generate embedding for query text using Azure OpenAI.
+
+        This enables vector search capabilities for better relevance matching.
+
+        Args:
+            text: The query text to generate embeddings for
+
+        Returns:
+            List of embedding values or None if generation fails
+        """
+        try:
+            # Only generate embeddings if Azure OpenAI is configured
+            if not hasattr(app_settings, 'azure_openai') or not app_settings.azure_openai:
+                self.logger.debug("Azure OpenAI not configured, skipping embedding generation")
+                return None
+
+            azure_openai = app_settings.azure_openai
+            # Try different possible key attribute names
+            api_key = getattr(azure_openai, 'api_key', None) or getattr(azure_openai, 'key', None)
+            if not azure_openai.endpoint or not api_key:
+                self.logger.debug("Azure OpenAI endpoint/key not configured, skipping embedding generation")
+                return None
+
+            # Use the configured embedding deployment (check multiple possible names)
+            embedding_deployment = (
+                getattr(azure_openai, 'embedding_deployment', None) or
+                getattr(azure_openai, 'embedding_name', None) or
+                getattr(azure_openai, 'embedding_model', None)
+            )
+            if not embedding_deployment:
+                self.logger.debug("No embedding deployment configured (tried embedding_deployment, embedding_name, embedding_model), skipping embedding generation")
+                return None
+
+            # Build request to Azure OpenAI embeddings API
+            url = f"{azure_openai.endpoint}/openai/deployments/{embedding_deployment}/embeddings"
+            headers = {
+                "api-key": api_key,
+                "Content-Type": "application/json"
+            }
+
+            data = {
+                "input": text,
+                "encoding_format": "float"
+            }
+
+            # Use Azure OpenAI API version
+            params = {"api-version": getattr(azure_openai, 'api_version', '2024-05-01-preview')}
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(url, json=data, headers=headers, params=params)
+
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("data") and len(result["data"]) > 0:
+                        embedding = result["data"][0].get("embedding")
+                        if embedding:
+                            self.logger.debug(f"Generated embedding with {len(embedding)} dimensions")
+                            return embedding
+                else:
+                    self.logger.warning(f"Embedding generation failed with status {response.status_code}: {response.text}")
+
+        except Exception as e:
+            self.logger.warning(f"Failed to generate embedding: {e}")
+
+        return None
     
     async def search(self, search_query: SearchQuery) -> List[SearchDocument]:
         """
@@ -175,17 +264,71 @@ class AzureSearchProvider(SearchProvider):
             search_client = SearchClient(
                 endpoint=self.endpoint,
                 index_name=self.index_name,
-                credential=credential
+                credential=credential,
+                api_version="2025-08-01-preview"
             )
             
+            # Generate embedding for vector search if applicable
+            query_embedding = None
+            if self._should_use_vector_search(search_query) and self.vector_columns:
+                query_embedding = await self._generate_embedding(search_query.query)
+                if query_embedding:
+                    self.logger.info("[VECTOR SEARCH] Generated query embedding for hybrid search")
+                else:
+                    self.logger.warning("[VECTOR SEARCH] Failed to generate embedding, falling back to text-only search")
+
             # Build optimized search parameters
-            search_params = self._build_search_parameters(search_query)
-            
+            search_params = self._build_search_parameters(search_query, query_embedding)
+
             self.logger.info(f"[AZURE SEARCH ENHANCED] Processing query: '{search_query.query}' with advanced optimizations")
             self.logger.debug(f"Azure Search query: '{search_query.query}' with params: {search_params}")
             
-            # Execute search
-            results = await search_client.search(**search_params)
+            # DEBUG: Final parameters being sent to Azure Search
+            print(f"[FINAL DEBUG] Final search_params being sent to Azure Search API: {search_params}")
+            
+            # DIRECT COMPARISON TEST: Execute the exact same search that Azure OpenAI would do
+            # Test if the issue is in our parameter mapping
+            if "dérogation" in search_query.query.lower() and "manex" in search_query.query.lower():
+                print("[COMPARISON TEST] Testing direct search for FLT-PROC-2311...")
+                direct_test_params = {
+                    "search_text": "FLT-PROC-2311",
+                    "top": search_params.get("top", 5),  # Utilise le même top que la vraie requête
+                    "query_type": "semantic",
+                    "semantic_configuration_name": search_params.get("semantic_configuration_name")
+                }
+                direct_results = await search_client.search(**direct_test_params)
+                direct_count = 0
+                async for result in direct_results:
+                    direct_count += 1
+                    print(f"[DIRECT TEST] Found: {result.get('titreDocument', result.get('title', 'No title'))} (Score: {result.get('@search.score', 0)})")
+                print(f"[DIRECT TEST] Direct search for FLT-PROC-2311 returned {direct_count} results")
+            
+            # Execute search with professional error handling
+            try:
+                self.logger.info("[AZURE SEARCH] About to execute search with parameters:")
+                for key, value in search_params.items():
+                    self.logger.info(f"  {key}: {value}")
+
+                results = await search_client.search(**search_params)
+
+            except Exception as search_error:
+                self.logger.error(f"[AZURE SEARCH ERROR] Search failed: {search_error}")
+                self.logger.error(f"[AZURE SEARCH ERROR] Error type: {type(search_error)}")
+
+                # If search_fields is the problem, retry without it
+                if "search_fields" in search_params and "field" in str(search_error).lower():
+                    self.logger.warning("[AZURE SEARCH] Retrying without search_fields parameter...")
+                    retry_params = search_params.copy()
+                    del retry_params["search_fields"]
+
+                    self.logger.info("[AZURE SEARCH] Retry parameters:")
+                    for key, value in retry_params.items():
+                        self.logger.info(f"  {key}: {value}")
+
+                    results = await search_client.search(**retry_params)
+                    self.logger.info("[AZURE SEARCH] Retry successful - search_fields was the problem")
+                else:
+                    raise
             
             # Process and optimize results
             documents = await self._process_search_results(results, search_query)
@@ -196,6 +339,38 @@ class AzureSearchProvider(SearchProvider):
             return documents
             
         except Exception as e:
+            # Handle Azure OpenAI proprietary query_type errors with intelligent fallback
+            error_message = str(e)
+            if "vector_semantic_hybrid" in error_message or "vector_simple_hybrid" in error_message:
+                self.logger.warning(f"Azure OpenAI proprietary query_type detected, falling back to compatible search")
+                print(f"[FALLBACK] Azure OpenAI proprietary query_type detected: {error_message}")
+                
+                # Retry with semantic search as fallback
+                try:
+                    fallback_params = search_params.copy()
+                    if "vector_semantic_hybrid" in error_message:
+                        fallback_params["query_type"] = "semantic"
+                        print("[FALLBACK] Retrying with query_type='semantic'")
+                    elif "vector_simple_hybrid" in error_message:
+                        fallback_params["query_type"] = "simple"  
+                        print("[FALLBACK] Retrying with query_type='simple'")
+                    
+                    print(f"[FALLBACK] Fallback search_params: {fallback_params}")
+                    results = await search_client.search(**fallback_params)
+                    
+                    # Process and optimize results
+                    documents = await self._process_search_results(results, search_query)
+                    
+                    print(f"[FALLBACK SUCCESS] Successfully recovered with {len(documents)} documents")
+                    self.logger.info(f"[FALLBACK SUCCESS] Azure OpenAI compatibility fallback returned {len(documents)} documents")
+                    
+                    return documents
+                    
+                except Exception as fallback_error:
+                    self.logger.error(f"Fallback search also failed: {fallback_error}")
+                    print(f"[FALLBACK FAILED] Fallback search failed: {fallback_error}")
+                    # Continue to original error handling
+            
             if isinstance(e, SearchProviderError):
                 raise
             raise SearchQueryError(
@@ -210,7 +385,7 @@ class AzureSearchProvider(SearchProvider):
                 except Exception as e:
                     self.logger.warning(f"Error closing search client: {e}")
     
-    def _build_search_parameters(self, search_query: SearchQuery) -> Dict[str, Any]:
+    def _build_search_parameters(self, search_query: SearchQuery, query_embedding: Optional[List[float]] = None) -> Dict[str, Any]:
         """
         Build optimized search parameters.
         
@@ -219,33 +394,91 @@ class AzureSearchProvider(SearchProvider):
         # Preprocess query for better results
         processed_query = self._preprocess_query(search_query.query)
         
-        # Base parameters
+        # Only log query processing for debugging when needed
+        # print(f"[QUERY DEBUG] Original query: {search_query.query}")
+        # print(f"[QUERY DEBUG] Processed query: {processed_query}")
+        
+        # Base parameters with title field boosting
         top_k = search_query.top_k or self.default_top_k
         search_params = {
             "search_text": processed_query,
             "top": top_k,
             "include_total_count": search_query.include_total_count
         }
+
+        # Log the top_k being used only if it's different from default
+        if top_k != self.default_top_k:
+            print(f"[TOP_K] Using top_k={top_k} (default={self.default_top_k})")
         
-        # Configure search mode based on query and configuration
-        search_mode = self._determine_optimal_search_mode(search_query)
-        if search_mode != "simple":
-            search_params["query_type"] = search_mode
-            self.logger.info(f"[SEARCH MODE] Using advanced search mode: {search_mode}")
-        
-        # Add semantic search configuration
-        if self._should_use_semantic_search(search_query):
-            if self.semantic_config:
-                search_params["semantic_configuration_name"] = self.semantic_config
-                self.logger.info(f"[SEMANTIC SEARCH] Enabled with config: {self.semantic_config}")
+        # Use EXACTLY the same parameters that Azure OpenAI uses
+        # Get the Azure OpenAI configuration from app_settings
+        from backend.settings import app_settings
+        if app_settings.datasource:
+            # Extract the same configuration Azure OpenAI would use
+            azure_config = app_settings.datasource.construct_payload_configuration(
+                documents_count=search_query.top_k,
+                user_permissions=search_query.user_permissions
+            )
+            azure_params = azure_config.get("parameters", {})
+            
+            print(f"[AZURE COMPATIBILITY] Using Azure OpenAI parameters: {list(azure_params.keys())}")
+            
+            # Map Azure OpenAI query_type to public API supported values
+            if "query_type" in azure_params:
+                azure_query_type = azure_params["query_type"]
+                mapped_query_type = self._map_azure_openai_query_type(azure_query_type)
+                
+                if mapped_query_type:
+                    search_params["query_type"] = mapped_query_type
+                    print(f"[SEARCH MODE] Mapped Azure OpenAI query_type '{azure_query_type}' -> '{mapped_query_type}'")
+                else:
+                    print(f"[SEARCH MODE] Azure OpenAI query_type '{azure_query_type}' not supported, using default")
+                    # Don't set query_type if mapping failed
             else:
-                self.logger.debug("Semantic search requested but no configuration available")
+                # No query type found - using default
+            
+            # Apply semantic configuration if present
+            if "semantic_configuration" in azure_params and azure_params["semantic_configuration"]:
+                search_params["semantic_configuration_name"] = azure_params["semantic_configuration"]
+                print(f"[SEMANTIC SEARCH] Using Azure OpenAI semantic config: {azure_params['semantic_configuration']}")
+            
+            # Check for other critical Azure OpenAI parameters that might affect ranking
+            if "strictness" in azure_params:
+                print(f"[AZURE PARAM] strictness: {azure_params['strictness']}")
+                # Note: strictness is not directly applicable to public Azure Search API
+            
+            if "in_scope" in azure_params:
+                print(f"[AZURE PARAM] in_scope: {azure_params['in_scope']}")
+                # Note: in_scope is Azure OpenAI specific, not available in public API
+        else:
+            # Fallback to basic configuration
+            search_mode = self._determine_optimal_search_mode(search_query)
+            if search_mode != "simple":
+                search_params["query_type"] = search_mode
         
-        # Add vector search parameters
-        if self._should_use_vector_search(search_query) and self.vector_columns:
-            # Vector search configuration would go here
-            # This is a placeholder for future vector search enhancements
-            pass
+        # Add enhanced vector search parameters (2025-08-01-preview features)
+        if query_embedding and self.vector_columns:
+            # Build vector queries for hybrid search
+            vector_queries = []
+            for vector_column in self.vector_columns:
+                vector_query = {
+                    "kind": "vector",  # Required by Azure Search API 2025
+                    "vector": query_embedding,
+                    "fields": vector_column,
+                    "k": top_k
+                }
+                vector_queries.append(vector_query)
+
+            search_params["vector_queries"] = vector_queries
+            self.logger.info(f"[HYBRID SEARCH] Added vector search for {len(self.vector_columns)} vector columns")
+
+            # Use strict postfiltering for improved precision (2025-08-01-preview)
+            if hasattr(search_query, 'enable_strict_filtering') and search_query.enable_strict_filtering:
+                search_params["vector_filter_mode"] = "strictPostFilter"
+                self.logger.info("[2025-API] Using strict postfiltering for enhanced vector search precision")
+            else:
+                # Default to preFilter for better recall
+                search_params["vector_filter_mode"] = "preFilter"
         
         # Build and apply filters
         combined_filter = self._build_filters(search_query)
@@ -267,8 +500,8 @@ class AzureSearchProvider(SearchProvider):
         """
         Preprocess query to improve search relevance.
         
-        This method applies query optimization techniques similar to
-        those used in Azure OpenAI's "On Your Data" functionality.
+        This method applies query optimization techniques to match
+        Azure OpenAI's "On Your Data" behavior as closely as possible.
         """
         if not query or len(query.strip()) == 0:
             return "*"
@@ -276,29 +509,74 @@ class AzureSearchProvider(SearchProvider):
         # Clean and normalize query
         processed_query = query.strip()
         
-        # Apply query expansion for better results
-        # This could include synonym expansion, stemming, etc.
-        # For now, we preserve the original query
+        # Apply contextual query expansion to match Azure OpenAI's behavior
+        # Azure OpenAI seems to automatically enrich queries for process-oriented searches
+        query_lower = processed_query.lower()
+        
+        # Use the original query without any hardcoded modifications
+        # The difference in results must come from other search parameters
         
         return processed_query
+    
+    def _map_azure_openai_query_type(self, azure_query_type: str) -> Optional[str]:
+        """
+        Map Azure OpenAI's internal query_type to public Azure Search API supported values.
+        
+        Azure OpenAI uses proprietary query types that aren't available in the public API.
+        This method provides the best equivalent mapping.
+        
+        Args:
+            azure_query_type: The query type from Azure OpenAI configuration
+            
+        Returns:
+            Mapped query type supported by public API, or None if no good mapping exists
+        """
+        mapping = {
+            # Azure OpenAI proprietary -> Public API equivalent
+            "vector_semantic_hybrid": "semantic",  # Use semantic as closest equivalent
+            "vector_simple_hybrid": "simple",      # Fallback to simple search
+            "vectorSimpleHybrid": "simple",        # Alternative naming
+            "vectorSemanticHybrid": "semantic",    # Alternative naming
+            "semantic": "semantic",                # Direct mapping
+            "simple": "simple",                    # Direct mapping
+            "vector": None,                        # Vector search might not be configured
+        }
+        
+        mapped = mapping.get(azure_query_type)
+        return mapped
     
     def _determine_optimal_search_mode(self, search_query: SearchQuery) -> str:
         """
         Determine the optimal search mode based on query and configuration.
-        
-        Returns the best search mode (simple, semantic, vector, hybrid).
+
+        Returns the best search mode (simple, semantic, vector) for the public Azure Search API.
+        Note: Hybrid search is implemented via vector_queries parameter, not query_type.
         """
-        # Explicit mode specified
-        if search_query.use_hybrid_search:
-            return "vector_semantic_hybrid" if self.use_semantic_search else "vector_simple_hybrid"
-        
-        if search_query.use_semantic_search or self.use_semantic_search:
+        # Explicit hybrid search - use semantic if available since we'll add vector_queries separately
+        if hasattr(search_query, 'use_hybrid_search') and search_query.use_hybrid_search:
+            if self.use_semantic_search and self.semantic_config:
+                self.logger.debug("[HYBRID] Using semantic query_type with vector_queries for hybrid search")
+                return "semantic"
+            else:
+                self.logger.debug("[HYBRID] Using simple query_type with vector_queries for hybrid search")
+                return "simple"
+
+        # Semantic search requested
+        if hasattr(search_query, 'use_semantic_search') and search_query.use_semantic_search:
+            if self.semantic_config:
+                self.logger.debug("[2025-API] Using enhanced semantic search capabilities")
+                return "semantic"
+
+        # Global semantic search setting
+        if self.use_semantic_search and self.semantic_config:
+            self.logger.debug("[2025-API] Using enhanced semantic search capabilities")
             return "semantic"
-        
-        if search_query.use_vector_search and self.vector_columns:
-            return "vector"
-        
-        # Use configured default mode
+
+        # Pure vector search (rare case, usually we want hybrid)
+        if hasattr(search_query, 'use_vector_search') and search_query.use_vector_search and not search_query.query:
+            return "simple"  # No text query, just vector
+
+        # Default to configured mode
         return self.query_type
     
     def _should_use_semantic_search(self, search_query: SearchQuery) -> bool:
@@ -309,8 +587,35 @@ class AzureSearchProvider(SearchProvider):
         )
     
     def _should_use_vector_search(self, search_query: SearchQuery) -> bool:
-        """Determine if vector search should be used."""
-        return search_query.use_vector_search and bool(self.vector_columns)
+        """
+        Determine if vector search should be used.
+
+        Vector search is enabled when:
+        1. Explicitly requested via search_query.use_vector_search, OR
+        2. Hybrid search is requested, OR
+        3. Vector columns are configured and Azure OpenAI embeddings are available
+        """
+        # Explicit vector search request
+        if hasattr(search_query, 'use_vector_search') and search_query.use_vector_search:
+            return bool(self.vector_columns)
+
+        # Hybrid search request
+        if hasattr(search_query, 'use_hybrid_search') and search_query.use_hybrid_search:
+            return bool(self.vector_columns)
+
+        # Auto-enable vector search if vector columns are configured and embeddings are available
+        if self.vector_columns:
+            # Check if we can generate embeddings
+            if hasattr(app_settings, 'azure_openai') and app_settings.azure_openai:
+                azure_openai = app_settings.azure_openai
+                embedding_deployment = (
+                    getattr(azure_openai, 'embedding_deployment', None) or
+                    getattr(azure_openai, 'embedding_name', None) or
+                    getattr(azure_openai, 'embedding_model', None)
+                )
+                return bool(embedding_deployment)
+
+        return False
     
     def _build_filters(self, search_query: SearchQuery) -> Optional[str]:
         """
@@ -362,10 +667,26 @@ class AzureSearchProvider(SearchProvider):
                 url = self._extract_field(result, self.url_column)
                 filename = self._extract_field(result, self.filename_column)
                 
-                # Get and normalize search score
+                # Get and normalize search score with hybrid support
                 raw_score = result.get("@search.score", 0.0)
-                normalized_score = self._normalize_score(raw_score, search_query)
-                
+                reranker_score = result.get("@search.reranker_score")
+
+                # Use reranker score for semantic search if available, otherwise use regular score
+                final_score = reranker_score if reranker_score is not None else raw_score
+                normalized_score = self._normalize_hybrid_score(final_score, raw_score, reranker_score, search_query)
+
+                # DEBUG: Log score processing
+                if len(documents) < 5:  # Only log first 5 to avoid spam
+                    reranker_info = f", reranker={reranker_score:.6f}" if reranker_score is not None else ""
+                    print(f"[SCORE DEBUG] Document {len(documents)+1}: raw={raw_score:.6f}{reranker_info}, normalized={normalized_score:.6f}, title={title[:30] if title else 'N/A'}...")
+
+                # Store additional scoring metadata
+                scoring_metadata = {
+                    "raw_score": raw_score,
+                    "reranker_score": reranker_score,
+                    "final_score": final_score
+                }
+
                 # Create SearchDocument
                 doc = SearchDocument(
                     content=content,
@@ -376,8 +697,8 @@ class AzureSearchProvider(SearchProvider):
                     metadata={
                         "id": result.get("id", ""),
                         "source": filename or "Document",
-                        "raw_score": raw_score,
-                        "search_highlights": result.get("@search.highlights", {})
+                        "search_highlights": result.get("@search.highlights", {}),
+                        **scoring_metadata
                     }
                 )
                 
@@ -397,6 +718,15 @@ class AzureSearchProvider(SearchProvider):
         if optimized_documents:
             avg_score = sum(doc.score for doc in optimized_documents) / len(optimized_documents)
             self.logger.info(f"[QUALITY METRICS] Average relevance score: {avg_score:.3f}, Top result score: {optimized_documents[0].score:.3f}")
+            
+            # Detailed logging for quality comparison with Azure OpenAI
+            print(f"[SEARCH QUALITY] ENHANCED System returned {len(optimized_documents)} documents:")
+            for i, doc in enumerate(optimized_documents[:5]):  # Top 5 for readability
+                print(f"  [{i+1}] Score: {doc.score:.3f}, Title: {doc.title[:60] if doc.title else 'N/A'}...")
+                print(f"      Content preview: {doc.content[:100].replace(chr(10), ' ').replace(chr(13), ' ')}...")
+            
+            if len(optimized_documents) > 5:
+                print(f"  ... and {len(optimized_documents) - 5} more documents")
         
         return optimized_documents
     
@@ -429,20 +759,59 @@ class AzureSearchProvider(SearchProvider):
     
     def _normalize_score(self, raw_score: float, search_query: SearchQuery) -> float:
         """
-        Normalize search score for better ranking.
-        
-        Azure Search scores can vary significantly based on search mode.
-        This method normalizes scores to a more consistent range.
+        Legacy score normalization method - kept for compatibility.
+        Use _normalize_hybrid_score for better hybrid search support.
         """
-        # Basic normalization - can be enhanced with more sophisticated methods
-        # For semantic search, scores are typically lower
-        if self._should_use_semantic_search(search_query):
-            # Semantic search scores are typically 0-4, normalize to 0-1
-            return min(raw_score / 4.0, 1.0)
+        return self._normalize_hybrid_score(raw_score, raw_score, None, search_query)
+
+    def _normalize_hybrid_score(
+        self,
+        final_score: float,
+        raw_score: float,
+        reranker_score: Optional[float],
+        search_query: SearchQuery
+    ) -> float:
+        """
+        Normalize search score for hybrid search (vector + semantic) with proper weighting.
+
+        This method handles different score types from Azure Search:
+        - Raw scores: from text search
+        - Reranker scores: from semantic search (typically 0-4 range)
+        - Vector scores: from vector similarity (normalized automatically by Azure)
+
+        Args:
+            final_score: The score to normalize (could be raw or reranker)
+            raw_score: The original text search score
+            reranker_score: The semantic reranker score if available
+            search_query: The search query for context
+
+        Returns:
+            Normalized score in 0-1 range with proper hybrid weighting
+        """
+        # Use reranker score when available (semantic search)
+        if reranker_score is not None:
+            # Reranker scores are typically in 0-4 range, normalize to 0-1
+            normalized_semantic = min(reranker_score / 4.0, 1.0)
+
+            # If we have vector search too, apply hybrid weighting
+            if self._should_use_vector_search(search_query) and self.vector_columns:
+                # Hybrid scoring: 50% semantic, 30% vector (implicit in Azure), 20% text
+                normalized_text = min(raw_score / 10.0, 1.0)  # Rough text normalization
+                # Vector score is already included in Azure's hybrid calculation
+                return (normalized_semantic * 0.7) + (normalized_text * 0.3)
+            else:
+                # Pure semantic search
+                return normalized_semantic
         else:
-            # Simple search scores are typically higher, apply log normalization
-            import math
-            return min(math.log(raw_score + 1) / 10.0, 1.0)
+            # Pure text or vector search
+            if self._should_use_vector_search(search_query) and self.vector_columns:
+                # Vector search scores are typically pre-normalized by Azure
+                return min(final_score, 1.0)
+            else:
+                # Pure text search - apply log normalization for better distribution
+                import math
+                normalized = math.log(final_score + 1) / 10.0
+                return min(normalized, 1.0)
     
     def _optimize_result_ranking(
         self, 
@@ -610,3 +979,46 @@ class AzureSearchProvider(SearchProvider):
             return False
         
         return True
+    
+    def _build_vector_queries(self, search_query: SearchQuery) -> Optional[List[Dict[str, Any]]]:
+        """
+        Build vector queries for enhanced vector search (2025-08-01-preview).
+        
+        This method constructs vector queries using the latest API capabilities
+        to improve vector search performance and precision.
+        
+        Args:
+            search_query: The search query containing vector search parameters
+            
+        Returns:
+            List of vector query configurations or None if vector search not applicable
+        """
+        if not self.vector_columns or not hasattr(search_query, 'vectors'):
+            return None
+            
+        vector_queries = []
+        
+        # Build vector queries for each configured vector column
+        for i, vector_column in enumerate(self.vector_columns):
+            if hasattr(search_query, 'vectors') and i < len(search_query.vectors):
+                vector_query = {
+                    "kind": "vector",  # Required by Azure Search API 2025
+                    "vector": search_query.vectors[i],
+                    "fields": vector_column,
+                    "k": search_query.top_k or self.default_top_k
+                }
+                
+                # Apply vector-specific filters if available
+                if hasattr(search_query, 'vector_filters') and search_query.vector_filters:
+                    vector_query["filter"] = search_query.vector_filters.get(vector_column)
+                
+                # Set exhaustive search for better accuracy (if enabled)
+                if hasattr(search_query, 'exhaustive_vector_search') and search_query.exhaustive_vector_search:
+                    vector_query["exhaustive"] = True
+                    self.logger.debug(f"[2025-API] Enabled exhaustive vector search for column: {vector_column}")
+                
+                vector_queries.append(vector_query)
+                self.logger.debug(f"[2025-API] Built vector query for column: {vector_column}")
+        
+        return vector_queries if vector_queries else None
+    
