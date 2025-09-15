@@ -197,7 +197,7 @@ class GeminiProvider(LLMProvider):
                 
                 # Perform search
                 documents_count = kwargs.get("documents_count")
-                print(f"🔍 Recherche Azure Search:")
+                print(f"[SEARCH] Recherche Azure Search:")
                 print(f"   - Requête: '{user_query}'")
                 print(f"   - Nombre de documents demandés: {documents_count}")
                 
@@ -217,7 +217,7 @@ class GeminiProvider(LLMProvider):
         
         # Apply response size and language preferences to system message
         response_size = kwargs.get("response_size", "medium")
-        print(f"📝 Configuration du message système:")
+        print(f"[CONFIG] Configuration du message système:")
         print(f"   - Taille de réponse: {response_size}")
         print(f"   - Langue détectée: {detected_language}")
         

@@ -51,6 +51,63 @@ MISTRAL_TOP_P=1.0
 MISTRAL_SYSTEM_MESSAGE="Tu es un assistant IA serviable et précis."
 ```
 
+## Enhanced Search System (RAG) - Septembre 2025
+
+L'application dispose maintenant d'un système de recherche RAG unifié et optimisé pour tous les LLM providers.
+
+### Architecture de Recherche
+
+#### Nouveau Système Unifié
+Tous les LLM providers (Claude, Gemini, Mistral, OpenAI Direct) utilisent maintenant un système de recherche optimisé qui égale les performances d'Azure OpenAI "On Your Data".
+
+**Améliorations apportées:**
+- **Semantic Search avancée** : Recherche sémantique automatique quand configurée
+- **Score normalization** : Normalisation des scores pour un meilleur ranking
+- **Content quality scoring** : Priorisation des documents de meilleure qualité  
+- **Diversity filtering** : Élimination des résultats redondants
+- **Query preprocessing** : Optimisation intelligente des requêtes
+- **Field boosting** : Amélioration de la pertinence par champs
+
+#### Architecture Modulaire
+```
+backend/search_providers/
+├── base.py              # Interface abstraite SearchProvider
+├── azure_search.py      # Provider Azure optimisé
+└── __init__.py          # Factory pattern extensible
+```
+
+#### Logs d'Identification
+Pour vérifier que le nouveau système est utilisé, cherchez ces logs :
+
+**LLM Optimisés (Claude, Gemini, Mistral, OpenAI Direct):**
+```
+INFO:[LLM PROVIDER] ClaudeProvider is using ENHANCED search system
+INFO:[ENHANCED SEARCH] Initialized new optimized search provider system
+INFO:[SEMANTIC SEARCH] Enabled with config: [config-name]
+INFO:[QUALITY METRICS] Average relevance score: 0.940
+```
+
+**Azure OpenAI Natif:**
+```
+INFO:[AZURE OPENAI NATIVE] Using native 'On Your Data' integration
+```
+
+#### Configuration Recherche
+```env
+# Nouveau provider de recherche (optionnel)
+SEARCH_PROVIDER=azure_search
+
+# Configuration existante continue de fonctionner
+DATASOURCE_TYPE=AzureCognitiveSearch
+```
+
+#### Extensibilité Future
+L'architecture est conçue pour supporter facilement d'autres moteurs :
+- Elasticsearch
+- Pinecone  
+- Weaviate
+- MongoDB Atlas Vector Search
+
 ## Operational Guidelines
 - ATTENTION : toutes les modifications que tu fais pour faire fonctionner un LLM ne doivent pas casser le bon fonctionnement des autres LLM supportés par le module
 - Ne modifie jamais des paramètres directement dans le code si ils sont présent dans un fichier de conf comme le .env

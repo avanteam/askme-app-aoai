@@ -2,52 +2,52 @@
 Utility classes and functions shared across LLM providers.
 
 This module contains utilities that are used by multiple LLM providers,
-such as Azure Search integration, response formatting helpers, and
+such as search integration, response formatting helpers, and
 common data processing functions.
+
+This module now uses the new search_providers system for enhanced
+performance and extensibility while maintaining backward compatibility.
 """
 
 import logging
 from typing import Any, Dict, List, Optional
 
-from azure.search.documents.aio import SearchClient
-from azure.core.credentials import AzureKeyCredential
-from azure.identity.aio import DefaultAzureCredential
-
 from backend.settings import app_settings
-from backend.utils import generateFilterStringFromFullDef
+from backend.search_providers import create_search_provider, SearchQuery, SearchDocument
 
 
 class AzureSearchService:
     """
-    Service to handle Azure Search queries for LLM providers.
+    Service to handle search queries for LLM providers.
     
-    This service provides a unified interface for searching Azure Search indexes
-    and retrieving relevant documents for LLM context. It's used by providers
-    like Claude that need to augment responses with search results.
+    This service provides a unified interface for searching various search indexes
+    and retrieving relevant documents for LLM context. It now uses the new
+    search_providers system for enhanced performance while maintaining compatibility.
     
     Key features:
-    - Connection management with automatic cleanup
+    - Enhanced search performance with optimized algorithms
+    - Support for multiple search providers (extensible)
+    - Advanced ranking and relevance scoring
     - Permission-based filtering
-    - Multiple content field support
-    - Semantic search capability
+    - Semantic and vector search capabilities
     """
     
     def __init__(self):
-        """Initialize the Azure Search service."""
-        self.search_client = None
+        """Initialize the search service."""
+        self.search_provider = None
         self.initialized = False
         self.logger = logging.getLogger(self.__class__.__name__)
     
     async def close(self):
-        """Close the search client and clean up resources."""
-        if self.search_client:
+        """Close the search provider and clean up resources."""
+        if self.search_provider:
             try:
-                await self.search_client.close()
-                self.logger.debug("Azure Search client closed successfully")
+                await self.search_provider.close()
+                self.logger.debug("Search provider closed successfully")
             except Exception as e:
-                self.logger.warning(f"Error closing search client: {e}")
+                self.logger.warning(f"Error closing search provider: {e}")
             finally:
-                self.search_client = None
+                self.search_provider = None
                 self.initialized = False
     
     async def search_documents(
@@ -60,6 +60,9 @@ class AzureSearchService:
         """
         Search for documents relevant to the query.
         
+        This method now uses the enhanced search_providers system for improved
+        performance and relevance while maintaining full backward compatibility.
+        
         Args:
             query: The search query string
             top_k: Maximum number of documents to return
@@ -68,90 +71,83 @@ class AzureSearchService:
             
         Returns:
             List of documents with content, metadata, and relevance scores
-            
-        Note: This method creates a new client for each request to avoid
-        session leaks and ensure proper resource management.
         """
-        search_client = None
-        
         try:
-            # Validate Azure Search configuration
+            # Validate datasource configuration
             if not app_settings.datasource:
-                self.logger.warning("Azure Search not configured")
+                self.logger.warning("Search datasource not configured")
                 return []
             
-            # Debug logging for top_k parameter (using INFO to ensure visibility)
+            # Debug logging for top_k parameter - identify which LLM is calling
+            import inspect
+            caller_frame = inspect.currentframe().f_back
+            caller_info = "unknown"
+            
+            try:
+                # Try to find the LLM provider in the call stack
+                frame = caller_frame
+                for _ in range(10):  # Check up to 10 frames up
+                    if frame and frame.f_locals:
+                        # Look for 'self' with provider info
+                        if 'self' in frame.f_locals:
+                            obj = frame.f_locals['self']
+                            if hasattr(obj, '__class__'):
+                                class_name = obj.__class__.__name__
+                                if 'Provider' in class_name:
+                                    caller_info = class_name
+                                    break
+                    frame = frame.f_back if frame else None
+            except:
+                pass
+            
+            self.logger.info(f"[LLM PROVIDER] {caller_info} is using ENHANCED search system")
+            print(f"[LLM PROVIDER] {caller_info} is using ENHANCED search system")
             self.logger.info(f"AzureSearchService: search_documents called with top_k parameter: {top_k}")
-                
-            search_service = app_settings.datasource.service
-            search_index = app_settings.datasource.index
-            search_key = app_settings.datasource.key
+            print(f"[DOCS COUNT] AzureSearchService: search_documents called with top_k parameter: {top_k}")
             
-            if not search_service or not search_index:
-                self.logger.warning("Azure Search not configured - service or index missing")
-                return []
+            # Initialize search provider if not already done
+            if not self.search_provider:
+                self.search_provider = await create_search_provider()
+                self.initialized = True
+                self.logger.info("[ENHANCED SEARCH] Initialized new optimized search provider system")
+                print("[ENHANCED SEARCH] Initialized new optimized search provider system")
             
-            # Build endpoint and credentials
-            endpoint = f"https://{search_service}.search.windows.net"
-            
-            if search_key:
-                credential = AzureKeyCredential(search_key)
-            else:
-                # Use managed identity if no key provided
-                credential = DefaultAzureCredential()
-            
-            # Create search client for this request
-            search_client = SearchClient(
-                endpoint=endpoint,
-                index_name=search_index,
-                credential=credential
+            # Create search query with enhanced parameters
+            search_query = SearchQuery(
+                query=query,
+                top_k=top_k,
+                filters=filters,
+                user_permissions=user_permissions,
+                use_semantic_search=True,  # Enable advanced search features
+                include_total_count=True
             )
             
-            # Configure search parameters  
-            if top_k is None:
-                # Use datasource top_k configuration, with fallback to 5
-                default_top_k = getattr(app_settings.datasource, 'top_k', 5)
-                self.logger.info(f"AzureSearchService: Using default top_k from datasource: {default_top_k}")
-                top_k = default_top_k
+            self.logger.info("[ENHANCED SEARCH] Executing optimized search with semantic features enabled")
+            self.logger.info(f"AzureSearchService: Final search top_k used: {search_query.top_k}")
             
-            search_params = {
-                "search_text": query,
-                "top": top_k,
-                "include_total_count": True
-            }
+            # Execute enhanced search
+            search_documents = await self.search_provider.search(search_query)
             
-            self.logger.info(f"AzureSearchService: Final search top_k used: {top_k}")
+            # Convert SearchDocument objects to legacy format for compatibility
+            documents = []
+            for doc in search_documents:
+                legacy_doc = {
+                    "content": doc.content,
+                    "title": doc.title,
+                    "url": doc.url,
+                    "filename": doc.filename,
+                    "score": doc.score,
+                    "metadata": doc.metadata or {}
+                }
+                documents.append(legacy_doc)
             
-            # Build and apply filters
-            combined_filter = self._build_filters(filters, user_permissions)
-            if combined_filter:
-                search_params["filter"] = combined_filter
-                self.logger.debug(f"Using combined filter: {combined_filter}")
-            
-            # Configure semantic search if available
-            self._configure_semantic_search(search_params)
-            
-            self.logger.debug(f"Azure Search query: '{query}' with params: {search_params}")
-            
-            # Execute search
-            results = await search_client.search(**search_params)
-            
-            # Process and return results
-            documents = await self._process_search_results(results)
-            self.logger.debug(f"Azure Search returned {len(documents)} documents")
-            
+            self.logger.info(f"[ENHANCED SEARCH] Successfully returned {len(documents)} documents with improved ranking and semantic search")
             return documents
             
         except Exception as e:
-            self.logger.error(f"Azure Search query failed: {e}")
+            self.logger.error(f"Enhanced search query failed: {e}")
+            # Fallback: return empty list to maintain compatibility
             return []
-        finally:
-            # Always close the search client to prevent session leaks
-            if search_client:
-                try:
-                    await search_client.close()
-                except Exception as e:
-                    self.logger.warning(f"Error closing search client: {e}")
     
     def _build_filters(
         self, 
@@ -161,6 +157,9 @@ class AzureSearchService:
         """
         Build combined OData filter from user filters and permissions.
         
+        This method is now deprecated but maintained for backward compatibility.
+        The new search providers system handles filtering internally.
+        
         Args:
             filters: Custom OData filter string
             user_permissions: User permissions for document access control
@@ -168,6 +167,8 @@ class AzureSearchService:
         Returns:
             Combined filter string or None if no filters needed
         """
+        # This method is kept for compatibility but the new search provider
+        # handles filtering internally for better performance
         permission_filter = None
         
         # Generate permission-based filter if configured
@@ -194,27 +195,37 @@ class AzureSearchService:
         """
         Configure semantic search parameters if available.
         
+        This method is now deprecated but maintained for backward compatibility.
+        The new search providers system handles semantic search automatically.
+        
         Args:
             search_params: Dictionary of search parameters to modify
         """
+        # This method is kept for compatibility but the new search provider
+        # handles semantic search configuration automatically for better results
         if (hasattr(app_settings.datasource, 'use_semantic_search') and 
             app_settings.datasource.use_semantic_search):
             if (hasattr(app_settings.datasource, 'semantic_search_config') and 
                 app_settings.datasource.semantic_search_config):
                 search_params["query_type"] = "semantic"
                 search_params["semantic_configuration_name"] = app_settings.datasource.semantic_search_config
-                self.logger.debug("Enabled semantic search")
+                self.logger.debug("Enabled semantic search (legacy method)")
     
     async def _process_search_results(self, results) -> List[Dict[str, Any]]:
         """
         Process raw search results into standardized document format.
         
+        This method is now deprecated but maintained for backward compatibility.
+        The new search providers system handles result processing automatically.
+        
         Args:
-            results: Azure Search results iterator
+            results: Search results iterator
             
         Returns:
             List of processed documents with standardized fields
         """
+        # This method is kept for compatibility but the new search provider
+        # handles result processing automatically for better performance
         documents = []
         
         async for result in results:

@@ -314,6 +314,8 @@ class AzureOpenAIProvider(LLMProvider):
             self.logger.debug("No datasource configured - skipping Azure Search integration")
             return None
         
+        self.logger.info("[AZURE OPENAI NATIVE] Using native 'On Your Data' integration with built-in search optimizations")
+        
         try:
             # Prepare parameters for construct_payload_configuration
             config_kwargs = {}
@@ -357,7 +359,7 @@ class AzureOpenAIProvider(LLMProvider):
             # Enhanced logging to debug document count issues
             requested_docs = kwargs.get('documents_count', 'default')
             actual_top_n = datasource_config.get('parameters', {}).get('top_n_documents', 'not_found')
-            print(f"🔍 AZURE_OPENAI: Requested documents_count={requested_docs}, sending top_n_documents={actual_top_n} to Azure OpenAI")
+            print(f"[DOCS] AZURE_OPENAI: Requested documents_count={requested_docs}, sending top_n_documents={actual_top_n} to Azure OpenAI")
             self.logger.debug(f"Full datasource_config: {datasource_config}")
             
             return extra_body

@@ -389,8 +389,8 @@ async def send_chat_request(request_body, request_headers, shouldStream = True):
         provider_type = LLMProviderFactory.get_default_provider()
         logging.info(f"DEBUG PROVIDER: Using default provider: {provider_type}")
     
-    print(f"🤖 LLM Provider utilisé: {provider_type}")
-    logging.info(f"🤖 LLM Provider utilisé: {provider_type}")
+    print(f"[LLM] LLM Provider utilisé: {provider_type}")
+    logging.info(f"[LLM] LLM Provider utilisé: {provider_type}")
     logging.debug(f"send_chat_request: Using provider = {provider_type}")
     
     # Use the unified LLM provider abstraction for ALL providers
@@ -412,7 +412,7 @@ async def send_chat_request(request_body, request_headers, shouldStream = True):
         documents_count = customization_preferences.get("documentsCount")
         response_size = customization_preferences.get("responseSize", "medium")
         
-        print(f"📊 Paramètres de personnalisation:")
+        print(f"[PARAMS] Paramètres de personnalisation:")
         print(f"   - Nombre de documents: {documents_count}")
         print(f"   - Taille de réponse: {response_size}")
         
@@ -967,8 +967,8 @@ async def add_conversation():
         provider_from_request = request_json.get('provider')
         provider_from_prefs = request_json.get('customizationPreferences', {}).get('llmProvider') if request_json.get('customizationPreferences') else None
         final_provider = provider_from_request or provider_from_prefs or "DEFAULT (AZURE_OPENAI)"
-        print(f"🤖 LLM Provider utilisé (history/generate): {final_provider}")
-        logging.info(f"🤖 LLM Provider utilisé (history/generate): {final_provider}")
+        print(f"[LLM] LLM Provider utilisé (history/generate): {final_provider}")
+        logging.info(f"[LLM] LLM Provider utilisé (history/generate): {final_provider}")
         logging.debug(f"history/generate: provider in request = {request_json.get('provider', 'Not specified')}")
         logging.debug(f"history/generate: customizationPreferences = {request_json.get('customizationPreferences', 'None')}")
         
@@ -1529,8 +1529,8 @@ async def upload_document():
 
 async def generate_title(conversation_messages) -> str:
     ## make sure the messages are sorted by _ts descending
-    print("🤖 LLM Provider utilisé (génération titre): AZURE_OPENAI (forcé)")
-    logging.info("🤖 LLM Provider utilisé (génération titre): AZURE_OPENAI (forcé)")
+    print("[TITLE GEN] LLM Provider utilisé (génération titre): AZURE_OPENAI (forcé)")
+    logging.info("[TITLE GEN] LLM Provider utilisé (génération titre): AZURE_OPENAI (forcé)")
     title_prompt = "Résume la conversation précédente en un titre de 4 mots ou moins DANS LA LANGUE de cette même conversation. N'utilise pas de guillemets ni de ponctuation. N'inclus aucun autre commentaire ou description."
 
     messages = [

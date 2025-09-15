@@ -228,17 +228,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
         .then(response => {
           const frontendData = response as FrontendSettings
           dispatch({ type: 'FETCH_FRONTEND_SETTINGS', payload: frontendData })
-          
-          // Set default LLM provider if not already set in customization preferences
-          if (frontendData?.default_llm_provider && !state.customizationPreferences.llmProvider) {
-            dispatch({ 
-              type: 'UPDATE_CUSTOMIZATION_PREFERENCES', 
-              payload: {
-                ...state.customizationPreferences,
-                llmProvider: frontendData.default_llm_provider
-              }
-            })
-          }
         })
         .catch(_err => {
           console.error('There was an issue fetching your data.')
@@ -246,6 +235,40 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     }
     getFrontendSettings()
   }, [])
+
+  // Separate effect to handle LLM provider selection after both localStorage and frontendSettings are available  
+  useEffect(() => {
+    if (!state.frontendSettings) return // Wait for frontend settings to be loaded
+    
+    const currentLlmFromLocalStorage = state.customizationPreferences.llmProvider
+    const availableProviders = state.frontendSettings?.available_llm_providers || []
+    const defaultLlmProvider = state.frontendSettings?.default_llm_provider
+    
+    let finalLlmProvider = defaultLlmProvider
+    
+    // If there's a localStorage preference AND it's in available providers, use it
+    if (currentLlmFromLocalStorage && availableProviders.includes(currentLlmFromLocalStorage)) {
+      finalLlmProvider = currentLlmFromLocalStorage
+      console.log(`[LLM SELECTION] Using localStorage preference: ${currentLlmFromLocalStorage}`)
+      return // Don't need to update, already have the right one
+    } else {
+      console.log(`[LLM SELECTION] Using default LLM: ${defaultLlmProvider}`)
+      if (currentLlmFromLocalStorage && !availableProviders.includes(currentLlmFromLocalStorage)) {
+        console.warn(`[LLM SELECTION] localStorage LLM "${currentLlmFromLocalStorage}" not in available providers: ${availableProviders.join(', ')}`)
+      }
+    }
+    
+    // Update with the determined LLM provider (default)
+    if (finalLlmProvider && finalLlmProvider !== currentLlmFromLocalStorage) {
+      dispatch({ 
+        type: 'UPDATE_CUSTOMIZATION_PREFERENCES', 
+        payload: {
+          ...state.customizationPreferences,
+          llmProvider: finalLlmProvider
+        }
+      })
+    }
+  }, [state.frontendSettings]) // Only trigger when frontendSettings change
 
   return <AppStateContext.Provider value={{ state, dispatch }}>{children}</AppStateContext.Provider>
 }
