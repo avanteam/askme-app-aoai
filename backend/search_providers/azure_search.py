@@ -436,6 +436,7 @@ class AzureSearchProvider(SearchProvider):
                     # Don't set query_type if mapping failed
             else:
                 # No query type found - using default
+                pass
             
             # Apply semantic configuration if present
             if "semantic_configuration" in azure_params and azure_params["semantic_configuration"]:
