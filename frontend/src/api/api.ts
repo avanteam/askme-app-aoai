@@ -361,10 +361,8 @@ export const historyRename = async (
 
 export const historyEnsure = async (token: string): Promise<CosmosDBHealth> => {
   const response = await fetch('/history/ensure', {
-    method: 'GET',
-    headers: {
-      AuthToken: token
-    }
+    method: 'GET'
+    // Pas d'AuthToken - c'est un test de santé CosmosDB, pas d'authentification utilisateur
   })
     .then(async res => {
       const respJson = await res.json()

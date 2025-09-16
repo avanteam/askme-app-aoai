@@ -1403,9 +1403,7 @@ async def clear_messages():
 
 @bp.route("/history/ensure", methods=["GET"])
 async def ensure_cosmos():
-    # return jsonify({"error": "CosmosDB is not configured"}), 404
-    if not(CheckAuthenticate(request)):
-        return jsonify({"error": "Unauthorized"}), 401
+    # Test de santé CosmosDB - pas besoin d'authentification
     await cosmos_db_ready.wait()
     if not app_settings.chat_history:
         return jsonify({"error": "CosmosDB is not configured"}), 404
