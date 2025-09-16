@@ -259,12 +259,12 @@ async def init_cosmosdb_client():
 
             if not app_settings.chat_history.account_key:
                 # Utiliser la clé CosmosDB depuis le secret global askme-local-tokens
-                cosmos_db_key = os.getenv('COSMOS_DB_KEY')
+                cosmos_db_key = os.getenv('AZURE_COSMOSDB_ACCOUNT_KEY')
                 if cosmos_db_key:
-                    logging.debug("Using CosmosDB key from global secret askme-local-tokens")
+                    logging.debug("Using CosmosDB key from global secret askme-local-tokens (AZURE_COSMOSDB_ACCOUNT_KEY)")
                     credential = cosmos_db_key
                 else:
-                    logging.warning("No CosmosDB key found in global secret, falling back to Azure AD")
+                    logging.warning("No AZURE_COSMOSDB_ACCOUNT_KEY found in global secret, falling back to Azure AD")
                     async with DefaultAzureCredential() as cred:
                         credential = cred
             else:
