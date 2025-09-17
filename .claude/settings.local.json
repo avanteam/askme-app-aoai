@@ -78,7 +78,8 @@
       "Bash(helm install:*)",
       "Bash(helm show values:*)",
       "Bash(pip install:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm update:*)"
     ],
     "deny": []
   }
