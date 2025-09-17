@@ -57,7 +57,6 @@ const enum messageStatus {
 const Chat = () => {
   const appStateContext = useContext(AppStateContext)
   const ui = appStateContext?.state.frontendSettings?.ui
-  const AUTH_ENABLED = appStateContext?.state.frontendSettings?.auth_enabled
   const chatMessageStreamEnd = useRef<HTMLDivElement | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [showLoadingMessage, setShowLoadingMessage] = useState<boolean>(false)
@@ -165,6 +164,13 @@ const Chat = () => {
 
   /* Gestion de l'auth */
   useEffect(() => {
+    // Attendre que frontendSettings soit chargé
+    if (!appStateContext?.state.frontendSettings) {
+      return
+    }
+
+    const AUTH_ENABLED = appStateContext.state.frontendSettings.auth_enabled
+
     // Si l'authentification est désactivée, bypasser complètement la vérification
     if (!AUTH_ENABLED) {
       setShowAuthMessage(false)
@@ -247,7 +253,7 @@ const Chat = () => {
     return () => {
       window.removeEventListener('message', handleMessage)
     }
-  }, [appStateContext, AUTH_ENABLED])
+  }, [appStateContext?.state.frontendSettings])
 
   let assistantMessage = {} as ChatMessage
   let toolMessage = {} as ChatMessage

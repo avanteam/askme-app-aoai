@@ -788,7 +788,7 @@ async def conversation_internal(request_body, request_headers, preventShouldStre
                 provider_name="SYSTEM",
                 language="fr"
             )
-        
+         
         return jsonify({"error": error_message}), status_code
 
 def CheckAuthenticate(request):
@@ -1399,6 +1399,7 @@ async def clear_messages():
     except Exception as e:
         logging.exception("Exception in /history/clear_messages")
         return jsonify({"error": str(e)}), 500
+
 
 
 @bp.route("/history/ensure", methods=["GET"])
