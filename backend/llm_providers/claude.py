@@ -62,6 +62,9 @@ class ClaudeProvider(LLMProvider):
         
         # State for handling citations in streaming responses
         self._current_search_citations = None
+
+        # State for handling input token details for usage tracking
+        self._current_input_token_details = None
         
         # Initialize image processor for optimized Claude image handling
         # TEMPORARY: Disable image processing for debugging
@@ -124,6 +127,9 @@ class ClaudeProvider(LLMProvider):
         
         # Reset citation state for new request
         self._current_search_citations = None
+
+        # Reset input token details for new request
+        self._current_input_token_details = None
         
         # Detect language from user's last message using LLM for accuracy
         # Skip language detection if this is an internal call to avoid recursion
@@ -260,7 +266,32 @@ class ClaudeProvider(LLMProvider):
         
         # Log message count for debugging
         self.logger.debug(f"Claude: sending {len(claude_messages)} messages to API")
-        
+
+        # Estimate input tokens for usage tracking
+        try:
+            # Get search context if available
+            search_context = ""
+            for message in claude_messages:
+                content = message.get("content", "")
+                if isinstance(content, str) and "Documents retrieved:" in content:
+                    # Extract search context from message content
+                    parts = content.split("Documents retrieved:", 1)
+                    if len(parts) > 1:
+                        search_context = parts[1]
+                        break
+
+            # Estimate input tokens using the original messages (before Claude format conversion)
+            self._current_input_token_details = await self._estimate_input_tokens(
+                messages=messages,
+                search_context=search_context,
+                model_name=self.model
+            )
+
+            self.logger.debug(f"Claude: estimated input tokens: {self._current_input_token_details.get('total', 0)}")
+        except Exception as e:
+            self.logger.warning(f"Failed to estimate input tokens: {e}")
+            self._current_input_token_details = {"total": 0, "metadata": {"error": str(e)}}
+
         # Configure request headers
         headers = {
             "Content-Type": "application/json",
@@ -1165,6 +1196,10 @@ class ClaudeProvider(LLMProvider):
                 completion_tokens=claude_response["usage"].get("output_tokens", 0),
                 total_tokens=claude_response["usage"].get("input_tokens", 0) + claude_response["usage"].get("output_tokens", 0)
             )
+
+            # Enhance usage with detailed input token information
+            if self._current_input_token_details:
+                usage = self._enhance_usage_with_input_tokens(usage, self._current_input_token_details)
         
         response = StandardResponse(
             id=claude_response.get("id", f"chatcmpl-{int(time.time())}"),

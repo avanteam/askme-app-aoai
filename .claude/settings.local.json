@@ -79,7 +79,9 @@
       "Bash(helm show values:*)",
       "Bash(pip install:*)",
       "WebSearch",
-      "Bash(npm update:*)"
+      "Bash(npm update:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": []
   }

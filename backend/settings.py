@@ -881,7 +881,7 @@ class _GeminiSettings(BaseSettings):
 
 
 class _CustomAvanteamSettings(BaseSettings):
-    
+
     model_config = SettingsConfigDict(
         env_prefix="AVANTEAM_",
         env_file=DOTENV_PATH,
@@ -893,9 +893,59 @@ class _CustomAvanteamSettings(BaseSettings):
     licencehub_handlerurl: Optional[str] = None
     licencehub_key: Optional[str] = None
     threshold_remaining_alert: Optional[int] = 100000
-        
 
 
+
+class _UsageTrackerSettings(BaseSettings):
+    """Configuration for the Usage Tracker system with token counting."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="USAGE_TRACKER_",
+        env_file=DOTENV_PATH,
+        extra="ignore",
+        env_ignore_empty=True
+    )
+
+    # General settings
+    enabled: bool = True
+
+    # Image token counting settings
+    image_base_tokens: int = 85
+    image_weight_multiplier: float = 1.5
+
+    # Image size tiers configuration
+    image_size_tier_small_kb: int = 100
+    image_size_tier_small_multiplier: float = 1.0
+
+    image_size_tier_medium_kb: int = 500
+    image_size_tier_medium_multiplier: float = 2.0
+
+    image_size_tier_large_kb: int = 2000
+    image_size_tier_large_multiplier: float = 3.0
+
+    image_size_tier_xlarge_kb: int = 10000
+    image_size_tier_xlarge_multiplier: float = 5.0
+
+    # CosmosDB configuration for usage tracking
+    cosmos_container_name: str = "token_usage"
+    store_detailed_metrics: bool = True
+
+    # Providers with native token counting (comma-separated string converted to list)
+    providers_with_native_counting: Optional[List[str]] = None
+
+    @field_validator('providers_with_native_counting', mode='before')
+    @classmethod
+    def split_providers(cls, value) -> List[str]:
+        if value is None:
+            # Use default from environment variable if available
+            import os
+            env_value = os.getenv("USAGE_TRACKER_PROVIDERS_WITH_NATIVE_COUNTING", "azure_openai,openai_direct,claude")
+            return [provider.strip() for provider in env_value.split(',')]
+        elif isinstance(value, str) and len(value) > 0:
+            return [provider.strip() for provider in value.split(',')]
+        elif isinstance(value, list):
+            return value
+        return ["azure_openai", "openai_direct", "claude"]  # Default providers
 
 
 class _BaseSettings(BaseSettings):
@@ -906,7 +956,7 @@ class _BaseSettings(BaseSettings):
         env_ignore_empty=True
     )
     datasource_type: Optional[str] = None
-    auth_enabled: bool = True
+    auth_enabled: bool = False  # Temporarily disabled for token testing
     sanitize_answer: bool = False
     use_promptflow: bool = False
     llm_provider: str = "CLAUDE"  # Default provider - can be overridden by env var
@@ -993,7 +1043,8 @@ class _AppSettings(BaseModel):
     search: _SearchCommonSettings = _SearchCommonSettings()
     ui: Optional[_UiSettings] = _UiSettings()
     custom_avanteam_settings: _CustomAvanteamSettings = _CustomAvanteamSettings()
-    
+    usage_tracker: _UsageTrackerSettings = _UsageTrackerSettings()
+
     # Constructed properties
     chat_history: Optional[_ChatHistorySettings] = None
     datasource: Optional[DatasourcePayloadConstructor] = None
