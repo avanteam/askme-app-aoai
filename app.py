@@ -53,6 +53,7 @@ from backend.speech_services import synthesize_speech_azure, clean_text_for_spee
 from backend.pronunciation_dict import get_pronunciation_dict, add_pronunciation, remove_pronunciation
 from backend.chat_commands import command_parser, ChatCommandExecutor
 from backend.version import get_version_info, get_display_version
+from backend.usage_service import init_usage_service, get_usage_service
 
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
 
@@ -71,10 +72,23 @@ def create_app():
     async def init():
         try:
             app.cosmos_conversation_client = await init_cosmosdb_client()
+
+            # Initialize usage tracking service with same CosmosDB client
+            if app.cosmos_conversation_client and hasattr(app.cosmos_conversation_client, 'cosmosdb_client'):
+                init_usage_service(app.cosmos_conversation_client.cosmosdb_client)
+                logging.info("Usage tracking service initialized with CosmosDB client")
+            else:
+                init_usage_service(None)
+                logging.warning("Usage tracking service initialized without CosmosDB client")
+
             cosmos_db_ready.set()
         except Exception as e:
             logging.exception("Failed to initialize CosmosDB client")
             app.cosmos_conversation_client = None
+
+            # Still try to initialize usage service even if CosmosDB fails
+            init_usage_service(None)
+
             raise e
     
     return app
@@ -287,6 +301,86 @@ async def init_cosmosdb_client():
     return cosmos_conversation_client
 
 
+async def record_token_usage(
+    response,
+    user_id: str,
+    conversation_id: str,
+    message_id: str,
+    provider_type: str
+):
+    """
+    Record token usage from LLM response.
+
+    Args:
+        response: LLM response containing usage information
+        user_id: User identifier
+        conversation_id: Conversation identifier
+        message_id: Message identifier
+        provider_type: LLM provider type
+    """
+    try:
+        usage_service = get_usage_service()
+        logging.info(f"[USAGE_TRACKING] record_token_usage called for user {user_id[:8] if user_id else 'None'}...")
+        logging.info(f"[USAGE_DEBUG] Provider: {provider_type}, Service enabled: {usage_service.enabled if usage_service else 'None'}")
+
+        if not usage_service:
+            logging.warning("[USAGE_TRACKING] Usage service not initialized")
+            return
+
+        if not usage_service.enabled:
+            logging.info("[USAGE_TRACKING] Usage tracking disabled")
+            return
+
+        # Extract usage information from response
+        usage_data = None
+        model_name = "unknown"
+
+        if hasattr(response, 'usage') and response.usage:
+            usage = response.usage
+
+            # Get input tokens detail if available
+            input_tokens = {}
+            if hasattr(usage, 'input_tokens_detail') and usage.input_tokens_detail:
+                input_tokens = usage.input_tokens_detail
+            else:
+                # Fallback to basic token counts
+                input_tokens = {
+                    "total": getattr(usage, 'prompt_tokens', 0),
+                    "text": getattr(usage, 'prompt_tokens', 0),
+                    "images": 0,
+                    "search_context": 0
+                }
+
+            output_tokens = getattr(usage, 'completion_tokens', 0)
+
+            # Get model name
+            if hasattr(response, 'model'):
+                model_name = response.model
+
+            # Get usage metadata if available
+            metadata = {}
+            if hasattr(usage, 'usage_metadata') and usage.usage_metadata:
+                metadata = usage.usage_metadata
+
+            # Record usage asynchronously (don't await to avoid blocking)
+            logging.info(f"[USAGE_DEBUG] About to call record_usage with: input={input_tokens.get('total', 0)}, output={output_tokens}")
+
+            asyncio.create_task(usage_service.record_usage(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                provider=provider_type,
+                model=model_name,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                metadata=metadata
+            ))
+
+            logging.debug(f"Usage tracking recorded: {input_tokens.get('total', 0)} input + {output_tokens} output = {input_tokens.get('total', 0) + output_tokens} total tokens")
+
+    except Exception as e:
+        logging.warning(f"Failed to record token usage: {e}")
+
 
 async def promptflow_request(request):
     try:
@@ -463,7 +557,7 @@ async def send_chat_request(request_body, request_headers, shouldStream = True):
         raise enhanced_error
 
 
-async def complete_chat_request(request_body, request_headers):
+async def complete_chat_request(request_body, request_headers, user_id, provider_type):
     if app_settings.base_settings.use_promptflow:
         response = await promptflow_request(request_body)
         history_metadata = request_body.get("history_metadata", {})
@@ -478,6 +572,17 @@ async def complete_chat_request(request_body, request_headers):
         response, apim_request_id = await send_chat_request(request_body, request_headers, False)
         logging.debug(f"send_chat_request response type: {type(response)}, apim_request_id: {apim_request_id}")
         history_metadata = request_body.get("history_metadata", {})
+
+        # Record token usage for non-streaming response
+        logging.info(f"[USAGE_TRACKING] About to record usage for {provider_type}")
+        await record_token_usage(
+            response=response,
+            user_id=user_id or "anonymous",
+            conversation_id=history_metadata.get("conversation_id", "unknown"),
+            message_id=str(uuid.uuid4()),  # Generate unique message ID
+            provider_type=provider_type
+        )
+
         non_streaming_response = format_non_streaming_response(response, history_metadata, apim_request_id)
         logging.debug(f"non_streaming_response: {type(non_streaming_response)} - {str(non_streaming_response)[:200]}...")
 
@@ -579,17 +684,26 @@ async def stream_chat_request(request_body, request_headers):
     history_metadata = request_body.get("history_metadata", {})
     
     async def generate(apim_request_id, history_metadata, provider_type):
+        # Variables to capture usage information for token tracking
+        final_usage_response = None
+
+        # DEBUG: Log pour tracer l'usage tracking
+        logging.info(f"[USAGE_DEBUG] generate() called with provider_type={provider_type}")
+
         # Azure OpenAI specific function calling logic
         if provider_type == "AZURE_OPENAI" and app_settings.azure_openai.function_call_azure_functions_enabled:
             # Maintain state during function call streaming
             function_call_stream_state = AzureOpenaiFunctionCallStreamState()
-            
+
             async for completionChunk in response:
                 stream_state = await process_function_call_stream(completionChunk, function_call_stream_state, request_body, request_headers, history_metadata, apim_request_id)
-                
+
                 # No function call, asistant response
                 if stream_state == "INITIAL":
                     yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
+                    # Capture usage information from each chunk
+                    if hasattr(completionChunk, 'usage') and completionChunk.usage:
+                        final_usage_response = completionChunk
 
                 # Function call stream completed, functions were executed.
                 # Append function calls and results to history and send to OpenAI, to stream the final answer.
@@ -598,25 +712,131 @@ async def stream_chat_request(request_body, request_headers):
                     function_response, apim_request_id = await send_chat_request(request_body, request_headers)
                     async for functionCompletionChunk in function_response:
                         yield format_stream_response(functionCompletionChunk, history_metadata, apim_request_id, provider_type)
-                
+                        # Capture usage from function response
+                        if hasattr(functionCompletionChunk, 'usage') and functionCompletionChunk.usage:
+                            final_usage_response = functionCompletionChunk
+
         else:
             # For Claude and non-function Azure OpenAI requests
             if hasattr(response, '__aiter__'):
                 # Response is already an async generator (streaming)
                 async for completionChunk in response:
                     yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
+                    # Capture usage information from each chunk
+                    if hasattr(completionChunk, 'usage') and completionChunk.usage:
+                        final_usage_response = completionChunk
             elif isinstance(response, dict):
                 # Response is a single completion object (non-streaming) - but this shouldn't happen for Claude
                 logging.warning(f"Received dict response in stream_chat_request: {type(response)}")
                 yield format_stream_response(response, history_metadata, apim_request_id, provider_type)
+                final_usage_response = response
             elif hasattr(response, 'id'):
                 # Response is a single completion object (MockAzureOpenAIResponse for Claude)
                 formatted_response = format_stream_response(response, history_metadata, apim_request_id, provider_type)
                 yield formatted_response
+                final_usage_response = response
             else:
                 # Response is a regular iterable (fallback)
                 for completionChunk in response:
                     yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
+                    if hasattr(completionChunk, 'usage') and completionChunk.usage:
+                        final_usage_response = completionChunk
+
+        # Record token usage after streaming is complete
+        logging.info(f"[USAGE_DEBUG] Streaming finished. final_usage_response = {final_usage_response is not None}")
+
+        # ALWAYS estimate tokens for all LLM providers (fallback if no usage, or supplement existing usage)
+        estimated_usage_response = None
+        try:
+            from backend.token_counter import token_counter
+            logging.info("[USAGE_DEBUG] Estimating tokens for ALL LLM providers")
+
+            # Estimate input tokens from original request
+            messages = request_body.get("messages", [])
+            search_context = request_body.get("search_context", "")
+
+            # Extract Azure OpenAI system message for accurate token counting
+            azure_role_information = ""
+            logging.debug(f"[TOKEN_COUNT] Provider type: {provider_type}")
+            if provider_type == "AZURE_OPENAI":
+                try:
+                    # Get Azure OpenAI system message directly from environment to avoid variable conflicts
+                    import os
+                    system_msg = os.getenv('AZURE_OPENAI_SYSTEM_MESSAGE', '')
+                    if system_msg:
+                        azure_role_information = system_msg
+                        logging.info(f"[TOKEN_COUNT] Using Azure system message: {len(azure_role_information)} characters")
+                    else:
+                        logging.warning(f"[TOKEN_COUNT] Azure system message not found in environment")
+                except Exception as e:
+                    logging.error(f"[TOKEN_COUNT] Failed to get Azure system message: {e}")
+                    azure_role_information = ""
+
+            # Use a model approximation based on provider
+            model_for_counting = "gpt-4"  # Default fallback
+            if provider_type == "CLAUDE":
+                model_for_counting = "gpt-4"  # Claude tokens similar to GPT-4
+            elif provider_type == "MISTRAL":
+                model_for_counting = "gpt-3.5-turbo"  # Mistral similar to GPT-3.5
+
+            input_token_details = token_counter.analyze_input_tokens(messages, search_context, model_for_counting, azure_role_information)
+
+            # Estimate output tokens - simple estimation based on typical response length
+            # TODO: Could be improved by capturing actual response length during streaming
+            estimated_output_tokens = 100  # Conservative default
+
+            # Create a mock usage object for recording
+            class MockUsage:
+                def __init__(self, input_tokens, output_tokens, is_estimated=True):
+                    self.prompt_tokens = input_tokens.get('total', 0)
+                    self.completion_tokens = output_tokens
+                    self.total_tokens = self.prompt_tokens + self.completion_tokens
+                    self.input_tokens_detail = input_tokens
+                    self.usage_metadata = {"estimated": is_estimated, "provider": provider_type.lower()}
+
+            estimated_usage_response = type('MockResponse', (), {
+                'usage': MockUsage(input_token_details, estimated_output_tokens),
+                'model': model_for_counting
+            })()
+
+            logging.info(f"[USAGE_DEBUG] Estimated tokens: input={input_token_details.get('total', 0)}, output={estimated_output_tokens}, provider={provider_type}")
+
+        except Exception as e:
+            logging.warning(f"[USAGE_DEBUG] Failed to estimate tokens: {e}")
+
+        # Use estimated usage if no real usage available, otherwise prefer real usage
+        usage_to_record = final_usage_response if final_usage_response else estimated_usage_response
+
+        if usage_to_record:
+            try:
+                # Get user information for usage tracking
+                user_id = GetDecryptedUsername(MockRequest(request_headers)) or "anonymous"
+                conversation_id = history_metadata.get("conversation_id", "unknown")
+                message_id = str(uuid.uuid4())  # Generate unique message ID for streaming
+
+                logging.info(f"[STREAMING_USAGE] Recording usage for {provider_type} stream response")
+                logging.info(f"[USAGE_DEBUG] User: {user_id}, Usage object type: {type(usage_to_record)}")
+
+                # Record usage asynchronously (don't await to avoid blocking)
+                asyncio.create_task(record_token_usage(
+                    response=usage_to_record,
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    message_id=message_id,
+                    provider_type=provider_type
+                ))
+
+                logging.debug(f"[STREAMING_USAGE] Usage tracking initiated for stream response")
+
+            except Exception as e:
+                logging.warning(f"[STREAMING_USAGE] Failed to record streaming usage: {e}")
+        else:
+            logging.warning(f"[STREAMING_USAGE] No usage information could be recorded (neither real nor estimated)")
+
+    # Helper class for request headers
+    class MockRequest:
+        def __init__(self, headers):
+            self.headers = headers
 
     return generate(apim_request_id=apim_request_id, history_metadata=history_metadata, provider_type=provider_type)
 
@@ -753,7 +973,7 @@ async def conversation_internal(request_body, request_headers, preventShouldStre
                 request_body['customizationPreferences']['responseSize'] = mapped_size
 
         if app_settings.azure_openai.stream and not app_settings.base_settings.use_promptflow and not preventShouldStream:
-            logging.debug("Using streaming chat request")
+            logging.info("[USAGE_DEBUG] Using streaming chat request - TOKENS SHOULD BE RECORDED")
             result = await stream_chat_request(request_body, request_headers)
             
             # Extract provider name for better error messages
@@ -766,8 +986,9 @@ async def conversation_internal(request_body, request_headers, preventShouldStre
             response.mimetype = "application/json-lines"
             return response
         else:
-            logging.debug("Using complete chat request")
-            result = await complete_chat_request(request_body, request_headers)
+            logging.info("[USAGE_DEBUG] Using complete chat request - TOKENS WILL BE RECORDED!")
+            logging.info(f"[USAGE_DEBUG] stream={app_settings.azure_openai.stream}, use_promptflow={app_settings.base_settings.use_promptflow}, preventShouldStream={preventShouldStream}")
+            result = await complete_chat_request(request_body, request_headers, user_id, provider_type)
             logging.debug(f"complete_chat_request result: {type(result)} - {str(result)[:200]}...")
             return jsonify(result)
 
@@ -795,7 +1016,7 @@ def CheckAuthenticate(request):
     # Si l'authentification est désactivée, autoriser tous les accès
     if not app_settings.base_settings.auth_enabled:
         return True
-        
+
     # Sinon effectuer la vérification d'authentification
     if "AuthToken" in request.headers:
         salt = datetime.now().strftime("%d%m%Y")
@@ -809,7 +1030,7 @@ def GetDecryptedUsername(request):
     # Si l'authentification est désactivée, utiliser un utilisateur par défaut
     if not app_settings.base_settings.auth_enabled:
         return "dev-user"
-    
+
     if "EncodedUsername" in request.headers:
         return decrypt_string(request.headers["EncodedUsername"])
     else:
@@ -1530,7 +1751,49 @@ async def upload_document():
             "success": False,
             "error": f"Erreur serveur lors du traitement du document: {str(e)}"
         }), 500
-    
+
+
+@bp.route("/api/usage/logs", methods=["GET"])
+async def get_usage_logs():
+    """Route simple pour récupérer les logs d'usage sans authentification"""
+    try:
+        usage_service = get_usage_service()
+
+        if not usage_service or not usage_service.enabled:
+            return jsonify({"error": "Usage tracking not enabled"}), 503
+
+        # Force l'initialisation du container (le créé s'il n'existe pas)
+        await usage_service.init_container()
+
+        if not usage_service.container:
+            return jsonify({"error": "Container not available after initialization"}), 503
+
+        # Récupère tous les logs d'usage
+        query = "SELECT * FROM c ORDER BY c.timestamp DESC"
+
+        items = []
+        async for item in usage_service.container.query_items(query=query):
+            items.append({
+                "timestamp": item.get('timestamp'),
+                "user_id": item.get('user_id'),
+                "provider": item.get('provider'),
+                "model": item.get('model'),
+                "input_tokens": item.get('input_tokens', {}).get('total', 0),
+                "output_tokens": item.get('output_tokens', 0),
+                "total_tokens": item.get('total_tokens', 0),
+                "conversation_id": item.get('conversation_id')
+            })
+
+        return jsonify({
+            "success": True,
+            "total_records": len(items),
+            "records": items
+        })
+
+    except Exception as e:
+        logging.error(f"Exception in /api/usage/logs: {e}")
+        return jsonify({"error": f"Error retrieving usage logs: {str(e)}"}), 500
+
 
 async def generate_title(conversation_messages) -> str:
     ## make sure the messages are sorted by _ts descending
@@ -1739,6 +2002,244 @@ async def clean_text_for_browser():
     except Exception as e:
         logging.error(f"Error cleaning text: {str(e)}")
         return jsonify({"error": f"Text cleaning failed: {str(e)}"}), 500
+
+
+## Usage Tracking API Endpoints ##
+
+@bp.route("/api/usage/current", methods=["GET"])
+async def get_current_usage():
+    """Get current session usage statistics."""
+    if not CheckAuthenticate(request):
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        # Get user details
+        user_details = get_authenticated_user_details(request_headers=dict(request.headers))
+        user_id = user_details.get("user_principal_id") if user_details else "anonymous"
+
+        usage_service = get_usage_service()
+        if not usage_service or not usage_service.enabled:
+            return jsonify({"enabled": False, "message": "Usage tracking not enabled"}), 200
+
+        # Get recent usage (last 1 day)
+        summary = await usage_service.get_usage_summary(user_id, days=1)
+        summary["period"] = "current_session"
+
+        return jsonify(summary), 200
+
+    except Exception as e:
+        logging.exception("Exception in /api/usage/current")
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/usage/history", methods=["GET"])
+async def get_usage_history():
+    """Get usage history with optional filters."""
+    if not CheckAuthenticate(request):
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        # Get user details
+        user_details = get_authenticated_user_details(request_headers=dict(request.headers))
+        user_id = user_details.get("user_principal_id") if user_details else "anonymous"
+
+        usage_service = get_usage_service()
+        if not usage_service or not usage_service.enabled:
+            return jsonify({"enabled": False, "message": "Usage tracking not enabled"}), 200
+
+        # Get query parameters
+        days = int(request.args.get('days', 7))  # Default to 7 days
+        provider = request.args.get('provider')  # Optional provider filter
+
+        # Limit days to reasonable range
+        days = min(days, 365)  # Max 1 year
+
+        # Calculate date range from days parameter
+        from datetime import datetime, timedelta
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+
+        # Get usage records
+        records = await usage_service.get_user_usage(
+            user_id=user_id,
+            start_date=start_date,
+            end_date=end_date,
+            provider=provider
+        )
+
+        return jsonify({
+            "enabled": True,
+            "days": days,
+            "provider_filter": provider,
+            "record_count": len(records),
+            "records": records
+        }), 200
+
+    except Exception as e:
+        logging.exception("Exception in /api/usage/history")
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/usage/summary", methods=["GET"])
+async def get_usage_summary():
+    """Get usage summary for different time periods."""
+    if not CheckAuthenticate(request):
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        # Get user details
+        user_details = get_authenticated_user_details(request_headers=dict(request.headers))
+        user_id = user_details.get("user_principal_id") if user_details else "anonymous"
+
+        usage_service = get_usage_service()
+        if not usage_service or not usage_service.enabled:
+            return jsonify({"enabled": False, "message": "Usage tracking not enabled"}), 200
+
+        # Get summaries for different periods
+        summary_today = await usage_service.get_usage_summary(user_id, days=1)
+        summary_week = await usage_service.get_usage_summary(user_id, days=7)
+        summary_month = await usage_service.get_usage_summary(user_id, days=30)
+
+        return jsonify({
+            "enabled": True,
+            "user_id": user_id,
+            "today": summary_today,
+            "this_week": summary_week,
+            "this_month": summary_month
+        }), 200
+
+    except Exception as e:
+        logging.exception("Exception in /api/usage/summary")
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/usage/conversation/<conversation_id>", methods=["GET"])
+async def get_conversation_usage(conversation_id):
+    """Get usage summary for a specific conversation."""
+    if not CheckAuthenticate(request):
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        usage_service = get_usage_service()
+        if not usage_service or not usage_service.enabled:
+            return jsonify({"enabled": False, "message": "Usage tracking not enabled"}), 200
+
+        # Get conversation usage
+        usage_summary = await usage_service.get_conversation_usage(conversation_id)
+
+        return jsonify(usage_summary), 200
+
+    except Exception as e:
+        logging.exception(f"Exception in /api/usage/conversation/{conversation_id}")
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/admin/usage/stats", methods=["GET"])
+async def get_system_usage_stats():
+    """Get system-wide usage statistics (admin only)."""
+    if not CheckAuthenticate(request):
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        # TODO: Add admin role check here when available
+        # For now, any authenticated user can access this
+
+        usage_service = get_usage_service()
+        if not usage_service or not usage_service.enabled:
+            return jsonify({"enabled": False, "message": "Usage tracking not enabled"}), 200
+
+        # Get query parameters
+        days = int(request.args.get('days', 7))  # Default to 7 days
+        days = min(days, 365)  # Max 1 year
+
+        # Get system stats
+        stats = await usage_service.get_system_usage_stats(days=days)
+
+        return jsonify(stats), 200
+
+    except Exception as e:
+        logging.exception("Exception in /api/admin/usage/stats")
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/usage/settings", methods=["GET"])
+async def get_usage_settings():
+    """Get current usage tracking settings."""
+    if not CheckAuthenticate(request):
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        # Return current usage tracker settings (read-only)
+        if hasattr(app_settings, 'usage_tracker'):
+            settings = app_settings.usage_tracker
+            return jsonify({
+                "enabled": settings.enabled,
+                "image_base_tokens": settings.image_base_tokens,
+                "image_weight_multiplier": settings.image_weight_multiplier,
+                "container_name": settings.cosmos_container_name,
+                "providers_with_native_counting": settings.providers_with_native_counting,
+                "size_tiers": {
+                    "small": {"max_kb": settings.image_size_tier_small_kb, "multiplier": settings.image_size_tier_small_multiplier},
+                    "medium": {"max_kb": settings.image_size_tier_medium_kb, "multiplier": settings.image_size_tier_medium_multiplier},
+                    "large": {"max_kb": settings.image_size_tier_large_kb, "multiplier": settings.image_size_tier_large_multiplier},
+                    "xlarge": {"max_kb": settings.image_size_tier_xlarge_kb, "multiplier": settings.image_size_tier_xlarge_multiplier}
+                }
+            }), 200
+        else:
+            return jsonify({"enabled": False, "message": "Usage tracking not configured"}), 200
+
+    except Exception as e:
+        logging.exception("Exception in /api/usage/settings")
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/usage/all", methods=["GET"])
+async def get_all_usage_logs():
+    """Get ALL token usage logs (all users, all providers) - Simple endpoint for debugging."""
+    if not CheckAuthenticate(request):
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        usage_service = get_usage_service()
+
+        if not usage_service or not usage_service.enabled:
+            return jsonify({"error": "Usage tracking not enabled"}), 503
+
+        # Initialize container
+        await usage_service.init_container()
+
+        if not usage_service.container:
+            return jsonify({"error": "Usage tracking container not available"}), 503
+
+        # Query ALL records from CosmosDB (no user filter)
+        query = "SELECT * FROM c ORDER BY c.timestamp DESC"
+
+        items = []
+        async for item in usage_service.container.query_items(query=query):
+            # Format the record for easy viewing
+            formatted_record = {
+                "message_id": item.get('message_id'),
+                "user_id": item.get('user_id'),
+                "conversation_id": item.get('conversation_id'),
+                "provider": item.get('provider'),
+                "model": item.get('model'),
+                "input_tokens": item.get('input_tokens', {}).get('total', 0),
+                "output_tokens": item.get('output_tokens', 0),
+                "total_tokens": item.get('total_tokens', 0),
+                "timestamp": item.get('timestamp'),
+                "metadata": item.get('metadata', {})
+            }
+            items.append(formatted_record)
+
+        return jsonify({
+            "success": True,
+            "total_records": len(items),
+            "records": items
+        }), 200
+
+    except Exception as e:
+        logging.exception("Exception in /api/usage/all")
+        return jsonify({"error": str(e)}), 500
 
 
 app = create_app()
