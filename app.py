@@ -687,6 +687,9 @@ async def stream_chat_request(request_body, request_headers):
         # Variables to capture usage information for token tracking
         final_usage_response = None
 
+        # Variable to collect complete response text for real token counting
+        complete_response_text = ""
+
         # DEBUG: Log pour tracer l'usage tracking
         logging.info(f"[USAGE_DEBUG] generate() called with provider_type={provider_type}")
 
@@ -700,6 +703,12 @@ async def stream_chat_request(request_body, request_headers):
 
                 # No function call, asistant response
                 if stream_state == "INITIAL":
+                    # Collect response text for real token counting
+                    if hasattr(completionChunk, 'choices') and completionChunk.choices:
+                        delta = completionChunk.choices[0].delta
+                        if hasattr(delta, 'content') and delta.content:
+                            complete_response_text += delta.content
+
                     yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
                     # Capture usage information from each chunk
                     if hasattr(completionChunk, 'usage') and completionChunk.usage:
@@ -711,6 +720,12 @@ async def stream_chat_request(request_body, request_headers):
                     request_body["messages"].extend(function_call_stream_state.function_messages)
                     function_response, apim_request_id = await send_chat_request(request_body, request_headers)
                     async for functionCompletionChunk in function_response:
+                        # Collect response text from function calls too
+                        if hasattr(functionCompletionChunk, 'choices') and functionCompletionChunk.choices:
+                            delta = functionCompletionChunk.choices[0].delta
+                            if hasattr(delta, 'content') and delta.content:
+                                complete_response_text += delta.content
+
                         yield format_stream_response(functionCompletionChunk, history_metadata, apim_request_id, provider_type)
                         # Capture usage from function response
                         if hasattr(functionCompletionChunk, 'usage') and functionCompletionChunk.usage:
@@ -721,6 +736,15 @@ async def stream_chat_request(request_body, request_headers):
             if hasattr(response, '__aiter__'):
                 # Response is already an async generator (streaming)
                 async for completionChunk in response:
+                    # Collect response text for real token counting (Claude, Mistral, etc.)
+                    if hasattr(completionChunk, 'choices') and completionChunk.choices:
+                        delta = completionChunk.choices[0].delta
+                        if hasattr(delta, 'content') and delta.content:
+                            complete_response_text += delta.content
+                    # For providers that put content directly in the chunk
+                    elif hasattr(completionChunk, 'content') and completionChunk.content:
+                        complete_response_text += completionChunk.content
+
                     yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
                     # Capture usage information from each chunk
                     if hasattr(completionChunk, 'usage') and completionChunk.usage:
@@ -728,16 +752,35 @@ async def stream_chat_request(request_body, request_headers):
             elif isinstance(response, dict):
                 # Response is a single completion object (non-streaming) - but this shouldn't happen for Claude
                 logging.warning(f"Received dict response in stream_chat_request: {type(response)}")
+                # Extract content for non-streaming response
+                if response.get('choices') and response['choices'][0].get('message', {}).get('content'):
+                    complete_response_text += response['choices'][0]['message']['content']
                 yield format_stream_response(response, history_metadata, apim_request_id, provider_type)
                 final_usage_response = response
             elif hasattr(response, 'id'):
                 # Response is a single completion object (MockAzureOpenAIResponse for Claude)
+                # Extract content from single response
+                if hasattr(response, 'choices') and response.choices and hasattr(response.choices[0], 'message'):
+                    message = response.choices[0].message
+                    if hasattr(message, 'content') and message.content:
+                        complete_response_text += message.content
+                elif hasattr(response, 'content') and response.content:
+                    complete_response_text += response.content
+
                 formatted_response = format_stream_response(response, history_metadata, apim_request_id, provider_type)
                 yield formatted_response
                 final_usage_response = response
             else:
                 # Response is a regular iterable (fallback)
                 for completionChunk in response:
+                    # Collect text from regular iterable too
+                    if hasattr(completionChunk, 'choices') and completionChunk.choices:
+                        delta = completionChunk.choices[0].delta
+                        if hasattr(delta, 'content') and delta.content:
+                            complete_response_text += delta.content
+                    elif hasattr(completionChunk, 'content') and completionChunk.content:
+                        complete_response_text += completionChunk.content
+
                     yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
                     if hasattr(completionChunk, 'usage') and completionChunk.usage:
                         final_usage_response = completionChunk
@@ -781,9 +824,10 @@ async def stream_chat_request(request_body, request_headers):
 
             input_token_details = token_counter.analyze_input_tokens(messages, search_context, model_for_counting, azure_role_information)
 
-            # Estimate output tokens - simple estimation based on typical response length
-            # TODO: Could be improved by capturing actual response length during streaming
-            estimated_output_tokens = 100  # Conservative default
+            # Count actual output tokens from the complete response
+            estimated_output_tokens = token_counter.count_text_tokens(
+                complete_response_text, model_for_counting
+            ) if complete_response_text else 100
 
             # Create a mock usage object for recording
             class MockUsage:
@@ -794,12 +838,15 @@ async def stream_chat_request(request_body, request_headers):
                     self.input_tokens_detail = input_tokens
                     self.usage_metadata = {"estimated": is_estimated, "provider": provider_type.lower()}
 
+            # Output tokens are real if we captured the complete response text
+            output_tokens_are_real = bool(complete_response_text)
             estimated_usage_response = type('MockResponse', (), {
-                'usage': MockUsage(input_token_details, estimated_output_tokens),
+                'usage': MockUsage(input_token_details, estimated_output_tokens, not output_tokens_are_real),
                 'model': model_for_counting
             })()
 
-            logging.info(f"[USAGE_DEBUG] Estimated tokens: input={input_token_details.get('total', 0)}, output={estimated_output_tokens}, provider={provider_type}")
+            actual_or_estimated = "actual" if complete_response_text else "estimated"
+            logging.info(f"[USAGE_DEBUG] Counted tokens ({actual_or_estimated}): input={input_token_details.get('total', 0)}, output={estimated_output_tokens}, provider={provider_type}")
 
         except Exception as e:
             logging.warning(f"[USAGE_DEBUG] Failed to estimate tokens: {e}")
