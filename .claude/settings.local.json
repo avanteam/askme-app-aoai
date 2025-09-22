@@ -81,7 +81,8 @@
       "WebSearch",
       "Bash(npm update:*)",
       "Bash(netstat:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(git log:*)"
     ],
     "deny": []
   }

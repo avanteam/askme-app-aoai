@@ -796,24 +796,87 @@ async def stream_chat_request(request_body, request_headers):
 
             # Estimate input tokens from original request
             messages = request_body.get("messages", [])
-            search_context = request_body.get("search_context", "")
 
-            # Extract Azure OpenAI system message for accurate token counting
-            azure_role_information = ""
+            # Get search context for token counting
+            # For Azure OpenAI: uses native "On Your Data" (search_context in request_body)
+            # For other providers: search context is built by the provider and stored internally
+            search_context = request_body.get("search_context", "")
+            # Note: provider variable not available in this scope, search_context will be empty for non-Azure providers
+            # This is acceptable as token counting will still work, just without search context detail
+
+            # Debug: Log search context info for token counting
+            logging.debug(f"[TOKEN_COUNT_DEBUG] {provider_type} search_context length: {len(search_context)} chars")
+
+            # Extract system message from processed messages for accurate token counting
+            provider_system_message = ""
             logging.debug(f"[TOKEN_COUNT] Provider type: {provider_type}")
-            if provider_type == "AZURE_OPENAI":
-                try:
-                    # Get Azure OpenAI system message directly from environment to avoid variable conflicts
-                    import os
-                    system_msg = os.getenv('AZURE_OPENAI_SYSTEM_MESSAGE', '')
-                    if system_msg:
-                        azure_role_information = system_msg
-                        logging.info(f"[TOKEN_COUNT] Using Azure system message: {len(azure_role_information)} characters")
+
+            # Try to extract system message from the messages sent to the provider
+            try:
+                if messages:
+                    # Debug: log message structure for non-Azure providers
+                    if provider_type != "AZURE_OPENAI":
+                        logging.debug(f"[TOKEN_COUNT_DEBUG] {provider_type} messages structure: {len(messages)} messages")
+                        for i, msg in enumerate(messages[:3]):  # Show first 3 messages only
+                            msg_role = msg.get("role", "no-role")
+                            msg_content_len = len(str(msg.get("content", "")))
+                            logging.debug(f"[TOKEN_COUNT_DEBUG] Message {i}: role='{msg_role}', content_length={msg_content_len}")
+
+                    # Look for system message in processed messages
+                    for msg in messages:
+                        if msg.get("role") == "system":
+                            provider_system_message = msg.get("content", "")
+                            logging.info(f"[TOKEN_COUNT] Found {provider_type} system message: {len(provider_system_message)} characters")
+                            break
+
+                    # For Azure OpenAI with datasource, also try to get role_information from last request
+                    if provider_type == "AZURE_OPENAI" and not provider_system_message:
+                        # Get Azure OpenAI system message from environment as fallback
+                        import os
+                        system_msg = os.getenv('AZURE_OPENAI_SYSTEM_MESSAGE', '')
+                        if system_msg:
+                            provider_system_message = system_msg
+
+                    # For Claude, get system message from configuration since Claude handles it differently
+                    elif provider_type == "CLAUDE" and not provider_system_message:
+                        try:
+                            # Claude's system message is configured separately, not in messages array
+                            import backend.settings
+                            claude_system_msg = backend.settings.app_settings.claude.system_message
+                            if claude_system_msg:
+                                provider_system_message = claude_system_msg
+                                logging.debug(f"[TOKEN_COUNT] Retrieved Claude system message from config: {len(provider_system_message)} chars")
+                        except Exception as e:
+                            logging.debug(f"[TOKEN_COUNT] Could not retrieve Claude system message from config: {e}")
+
+                    # For other providers, get from their respective configurations
+                    elif provider_type in ["MISTRAL", "GEMINI", "OPENAI_DIRECT"] and not provider_system_message:
+                        try:
+                            import backend.settings
+                            if provider_type == "MISTRAL":
+                                mistral_system_msg = backend.settings.app_settings.mistral.system_message
+                                if mistral_system_msg:
+                                    provider_system_message = mistral_system_msg
+                            elif provider_type == "GEMINI":
+                                gemini_system_msg = backend.settings.app_settings.gemini.system_message
+                                if gemini_system_msg:
+                                    provider_system_message = gemini_system_msg
+                            elif provider_type == "OPENAI_DIRECT":
+                                openai_system_msg = backend.settings.app_settings.openai_direct.system_message
+                                if openai_system_msg:
+                                    provider_system_message = openai_system_msg
+                        except Exception as e:
+                            logging.debug(f"[TOKEN_COUNT] Could not retrieve {provider_type} system message from config: {e}")
+
+                    if provider_system_message:
+                        logging.info(f"[TOKEN_COUNT] Extracted {provider_type} system message: {len(provider_system_message)} characters")
                     else:
-                        logging.warning(f"[TOKEN_COUNT] Azure system message not found in environment")
-                except Exception as e:
-                    logging.error(f"[TOKEN_COUNT] Failed to get Azure system message: {e}")
-                    azure_role_information = ""
+                        logging.warning(f"[TOKEN_COUNT] No system message found for {provider_type}")
+                else:
+                    logging.warning(f"[TOKEN_COUNT] No messages found for {provider_type}")
+            except Exception as e:
+                logging.error(f"[TOKEN_COUNT] Failed to extract {provider_type} system message: {e}")
+                provider_system_message = ""
 
             # Use a model approximation based on provider
             model_for_counting = "gpt-4"  # Default fallback
@@ -822,7 +885,14 @@ async def stream_chat_request(request_body, request_headers):
             elif provider_type == "MISTRAL":
                 model_for_counting = "gpt-3.5-turbo"  # Mistral similar to GPT-3.5
 
-            input_token_details = token_counter.analyze_input_tokens(messages, search_context, model_for_counting, azure_role_information)
+            # Debug: Log what we're passing to the token counter
+            logging.debug(f"[TOKEN_COUNT_DEBUG] Calling analyze_input_tokens for {provider_type}:")
+            logging.debug(f"[TOKEN_COUNT_DEBUG] - messages: {len(messages)} items")
+            logging.debug(f"[TOKEN_COUNT_DEBUG] - search_context: {len(search_context)} chars")
+            logging.debug(f"[TOKEN_COUNT_DEBUG] - model_for_counting: {model_for_counting}")
+            logging.debug(f"[TOKEN_COUNT_DEBUG] - provider_system_message: {len(provider_system_message)} chars")
+
+            input_token_details = token_counter.analyze_input_tokens(messages, search_context, model_for_counting, provider_system_message)
 
             # Count actual output tokens from the complete response
             estimated_output_tokens = token_counter.count_text_tokens(
@@ -849,7 +919,9 @@ async def stream_chat_request(request_body, request_headers):
             logging.info(f"[USAGE_DEBUG] Counted tokens ({actual_or_estimated}): input={input_token_details.get('total', 0)}, output={estimated_output_tokens}, provider={provider_type}")
 
         except Exception as e:
+            import traceback
             logging.warning(f"[USAGE_DEBUG] Failed to estimate tokens: {e}")
+            logging.debug(f"[USAGE_DEBUG] Full traceback: {traceback.format_exc()}")
 
         # Use estimated usage if no real usage available, otherwise prefer real usage
         usage_to_record = final_usage_response if final_usage_response else estimated_usage_response

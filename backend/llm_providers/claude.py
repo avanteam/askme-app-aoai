@@ -886,7 +886,10 @@ class ClaudeProvider(LLMProvider):
         """
         # Build context and citations from search results
         search_context, citations = build_search_context(search_results, app_settings.base_settings.citation_content_max_length)
-        
+
+        # Store search context for token counting
+        self._current_search_context = search_context
+
         if not search_context:
             self.logger.warning("No search context built from results")
             return claude_messages

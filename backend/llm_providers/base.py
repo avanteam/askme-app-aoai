@@ -42,6 +42,9 @@ class LLMProvider(ABC):
         self.initialized = False
         self.logger = logging.getLogger(self.__class__.__name__)
 
+        # Track current search context for token counting
+        self._current_search_context = ""
+
         # Initialize token counter
         try:
             from backend.token_counter import token_counter
@@ -49,7 +52,12 @@ class LLMProvider(ABC):
         except ImportError as e:
             self.logger.warning(f"Token counter not available: {e}")
             self.token_counter = None
-    
+
+    @property
+    def current_search_context(self) -> str:
+        """Get the current search context used by this provider."""
+        return self._current_search_context
+
     def _get_max_tokens_for_response_size(self, provider_name: str, response_size: str) -> int:
         """
         Get max_tokens based on provider and response size preference.
