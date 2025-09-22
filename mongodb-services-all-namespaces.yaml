@@ -1,0 +1,83 @@
+---
+# Service pour namespace avanteam-youtrack
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-external
+  namespace: avanteam-youtrack
+spec:
+  type: ExternalName
+  externalName: mongodb-shared.askme-mongodb.svc.cluster.local
+  ports:
+  - name: mongodb
+    port: 27017
+    targetPort: 27017
+    protocol: TCP
+
+---
+# Secret pour namespace avanteam-youtrack
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-credentials
+  namespace: avanteam-youtrack
+type: Opaque
+stringData:
+  mongodb-root-password: "AskMe-MongoDB-2024-Secure!"
+  mongodb-uri: "mongodb://root:AskMe-MongoDB-2024-Secure!@mongodb-external:27017/?replicaSet=rs0&readPreference=secondaryPreferred"
+
+---
+# Service pour namespace quality-saas-dev
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-external
+  namespace: quality-saas-dev
+spec:
+  type: ExternalName
+  externalName: mongodb-shared.askme-mongodb.svc.cluster.local
+  ports:
+  - name: mongodb
+    port: 27017
+    targetPort: 27017
+    protocol: TCP
+
+---
+# Secret pour namespace quality-saas-dev
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-credentials
+  namespace: quality-saas-dev
+type: Opaque
+stringData:
+  mongodb-root-password: "AskMe-MongoDB-2024-Secure!"
+  mongodb-uri: "mongodb://root:AskMe-MongoDB-2024-Secure!@mongodb-external:27017/?replicaSet=rs0&readPreference=secondaryPreferred"
+
+---
+# Service pour namespace quality-saas-prod
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-external
+  namespace: quality-saas-prod
+spec:
+  type: ExternalName
+  externalName: mongodb-shared.askme-mongodb.svc.cluster.local
+  ports:
+  - name: mongodb
+    port: 27017
+    targetPort: 27017
+    protocol: TCP
+
+---
+# Secret pour namespace quality-saas-prod
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-credentials
+  namespace: quality-saas-prod
+type: Opaque
+stringData:
+  mongodb-root-password: "AskMe-MongoDB-2024-Secure!"
+  mongodb-uri: "mongodb://root:AskMe-MongoDB-2024-Secure!@mongodb-external:27017/?replicaSet=rs0&readPreference=secondaryPreferred"

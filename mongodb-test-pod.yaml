@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mongodb-test
+  namespace: askme-app
+spec:
+  containers:
+  - name: mongodb-client
+    image: bitnami/mongodb:7.0
+    command: ['sleep', '3600']
+    env:
+    - name: MONGODB_ROOT_PASSWORD
+      value: "AskMe-MongoDB-2024-Secure!"
+  restartPolicy: Never

@@ -68,6 +68,19 @@ class _ChatHistorySettings(BaseSettings):
     enable_feedback: bool = False
 
 
+class _MongoHistorySettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="MONGODB_",
+        env_file=DOTENV_PATH,
+        extra="ignore",
+        env_ignore_empty=True
+    )
+
+    uri: str
+    database: str
+    enable_feedback: bool = False
+
+
 class _PromptflowSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="PROMPTFLOW_",
@@ -906,7 +919,8 @@ class _BaseSettings(BaseSettings):
         env_ignore_empty=True
     )
     datasource_type: Optional[str] = None
-    auth_enabled: bool = True
+    history_provider: str = "COSMOSDB"  # History provider: COSMOSDB or MONGODB
+    auth_enabled: bool = Field(default=False, alias="AUTH_ENABLED")  # Explicitly map AUTH_ENABLED env var
     sanitize_answer: bool = False
     use_promptflow: bool = False
     llm_provider: str = "CLAUDE"  # Default provider - can be overridden by env var
@@ -996,6 +1010,7 @@ class _AppSettings(BaseModel):
     
     # Constructed properties
     chat_history: Optional[_ChatHistorySettings] = None
+    mongo_history: Optional[_MongoHistorySettings] = None
     datasource: Optional[DatasourcePayloadConstructor] = None
     promptflow: Optional[_PromptflowSettings] = None
 
@@ -1013,10 +1028,20 @@ class _AppSettings(BaseModel):
     def set_chat_history_settings(self) -> Self:
         try:
             self.chat_history = _ChatHistorySettings()
-        
+
         except ValidationError:
             self.chat_history = None
-        
+
+        return self
+
+    @model_validator(mode="after")
+    def set_mongo_history_settings(self) -> Self:
+        try:
+            self.mongo_history = _MongoHistorySettings()
+
+        except ValidationError:
+            self.mongo_history = None
+
         return self
     
     @model_validator(mode="after")

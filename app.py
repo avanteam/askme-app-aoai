@@ -36,6 +36,7 @@ from azure.identity.aio import (
 from backend.auth.auth_utils import get_authenticated_user_details
 from backend.security.ms_defender_utils import get_msdefender_user_json
 from backend.history.cosmosdbservice import CosmosConversationClient
+from backend.history.history_factory import HistoryProviderFactory
 from backend.settings import (
     app_settings,
     MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION
@@ -55,7 +56,7 @@ from backend.chat_commands import command_parser, ChatCommandExecutor
 from backend.version import get_version_info, get_display_version
 
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
-
+ 
 cosmos_db_ready = asyncio.Event()
 
 # Dictionnaire global pour stocker les sessions utilisateur
@@ -70,10 +71,10 @@ def create_app():
     @app.before_serving
     async def init():
         try:
-            app.cosmos_conversation_client = await init_cosmosdb_client()
+            app.cosmos_conversation_client = await init_history_client()
             cosmos_db_ready.set()
         except Exception as e:
-            logging.exception("Failed to initialize CosmosDB client")
+            logging.exception("Failed to initialize history provider client")
             app.cosmos_conversation_client = None
             raise e
     
@@ -249,42 +250,36 @@ async def openai_remote_azure_function_call(function_name, function_args):
 
     return response.text
 
+async def init_history_client():
+    """
+    Initialise le client d'historique selon le provider configuré (CosmosDB ou MongoDB)
+    """
+    try:
+        history_client = await HistoryProviderFactory.create_history_client()
+        provider_name = HistoryProviderFactory.get_provider_name()
+
+        if history_client:
+            logging.info(f"History client initialized successfully with provider: {provider_name}")
+        else:
+            logging.warning(f"Failed to initialize history client for provider: {provider_name}")
+
+        return history_client
+
+    except Exception as e:
+        logging.exception(f"Exception in history client initialization: {e}")
+        raise e
+
+# Fonction de compatibilité - à garder pour l'instant pour éviter de casser le code existant
 async def init_cosmosdb_client():
-    cosmos_conversation_client = None
-    if app_settings.chat_history:
-        try:
-            cosmos_endpoint = (
-                f"https://{app_settings.chat_history.account}.documents.azure.com:443/"
-            )
+    """
+    DEPRECATED: Utilise init_history_client() à la place.
+    Fonction de compatibilité pour l'ancien code.
+    """
+    return await init_history_client()
 
-            if not app_settings.chat_history.account_key:
-                # Utiliser la clé CosmosDB depuis le secret global askme-local-tokens
-                cosmos_db_key = os.getenv('AZURE_COSMOSDB_ACCOUNT_KEY')
-                if cosmos_db_key:
-                    logging.debug("Using CosmosDB key from global secret askme-local-tokens (AZURE_COSMOSDB_ACCOUNT_KEY)")
-                    credential = cosmos_db_key
-                else:
-                    logging.warning("No AZURE_COSMOSDB_ACCOUNT_KEY found in global secret, falling back to Azure AD")
-                    async with DefaultAzureCredential() as cred:
-                        credential = cred
-            else:
-                credential = app_settings.chat_history.account_key
-
-            cosmos_conversation_client = CosmosConversationClient(
-                cosmosdb_endpoint=cosmos_endpoint,
-                credential=credential,
-                database_name=app_settings.chat_history.database,
-                container_name=app_settings.chat_history.conversations_container,
-                enable_message_feedback=app_settings.chat_history.enable_feedback,
-            )
-        except Exception as e:
-            logging.exception("Exception in CosmosDB initialization", e)
-            cosmos_conversation_client = None
-            raise e
-    else:
-        logging.debug("CosmosDB not configured")
-
-    return cosmos_conversation_client
+async def get_history_client():
+    """Helper function to get history client using factory pattern"""
+    return await HistoryProviderFactory.create_history_client()
 
 
 
@@ -927,15 +922,16 @@ async def add_conversation():
     conversation_id = request_json.get("conversation_id", None)
 
     try:
-        # make sure cosmos is configured
-        if not current_app.cosmos_conversation_client:
-            raise Exception("CosmosDB is not configured or not working")
+        # make sure history provider is configured
+        history_client = await get_history_client()
+        if not history_client:
+            raise Exception("History provider is not configured or not working")
 
         # check for the conversation_id, if the conversation is not set, we will create a new one
         history_metadata = {}
         if not conversation_id:
             title = await generate_title(request_json["messages"])
-            conversation_dict = await current_app.cosmos_conversation_client.create_conversation(
+            conversation_dict = await history_client.create_conversation(
                 user_id=user_id, title=title
             )
             conversation_id = conversation_dict["id"]
@@ -950,7 +946,7 @@ async def add_conversation():
         ## then write it to the conversation history in cosmos
         messages = request_json["messages"]
         if len(messages) > 0 and messages[-1]["role"] == "user":
-            createdMessageValue = await current_app.cosmos_conversation_client.create_message(
+            createdMessageValue = await history_client.create_message(
                 uuid=str(uuid.uuid4()),
                 conversation_id=conversation_id,
                 user_id=user_id,
@@ -1014,9 +1010,10 @@ async def update_conversation():
     logging.debug(f"history/update conversation_id: {conversation_id}")
 
     try:
-        # make sure cosmos is configured
-        if not current_app.cosmos_conversation_client:
-            raise Exception("CosmosDB is not configured or not working")
+        # make sure history provider is configured
+        history_client = await get_history_client()
+        if not history_client:
+            raise Exception("History provider is not configured or not working")
 
         # check for the conversation_id, if the conversation is not set, we will create a new one
         if not conversation_id:
@@ -1042,14 +1039,14 @@ async def update_conversation():
         if len(messages) > 0 and messages[-1]["role"] == "assistant":
             if len(messages) > 1 and messages[-2].get("role", None) == "tool":
                 # write the tool message first
-                await current_app.cosmos_conversation_client.create_message(
+                await history_client.create_message(
                     uuid=str(uuid.uuid4()),
                     conversation_id=conversation_id,
                     user_id=user_id,
                     input_message=messages[-2],
                 )
             # write the assistant message
-            await current_app.cosmos_conversation_client.create_message(
+            await history_client.create_message(
                 uuid=messages[-1]["id"],
                 conversation_id=conversation_id,
                 user_id=user_id,
@@ -1093,8 +1090,12 @@ async def update_message():
         if not message_feedback:
             return jsonify({"error": "message_feedback is required"}), 400
 
-        ## update the message in cosmos
-        updated_message = await current_app.cosmos_conversation_client.update_message_feedback(
+        ## update the message in history provider
+        history_client = await get_history_client()
+        if not history_client:
+            return jsonify({"error": "History provider is not configured"}), 500
+
+        updated_message = await history_client.update_message_feedback(
             user_id, message_id, message_feedback
         )
         if updated_message:
@@ -1143,17 +1144,18 @@ async def delete_conversation():
         if not conversation_id:
             return jsonify({"error": "conversation_id is required"}), 400
 
-        ## make sure cosmos is configured
-        if not current_app.cosmos_conversation_client:
-            raise Exception("CosmosDB is not configured or not working")
+        ## make sure history provider is configured
+        history_client = await get_history_client()
+        if not history_client:
+            raise Exception("History provider is not configured or not working")
 
-        ## delete the conversation messages from cosmos first
-        deleted_messages = await current_app.cosmos_conversation_client.delete_messages(
+        ## delete the conversation messages from history provider first
+        deleted_messages = await history_client.delete_messages(
             conversation_id, user_id
         )
 
         ## Now delete the conversation
-        deleted_conversation = await current_app.cosmos_conversation_client.delete_conversation(
+        deleted_conversation = await history_client.delete_conversation(
             user_id, conversation_id
         )
 
@@ -1176,7 +1178,7 @@ async def list_conversations():
     if not(CheckAuthenticate(request)):
         return jsonify({"error": "Unauthorized"}), 401
     await cosmos_db_ready.wait()
-    offset = request.args.get("offset", 0)
+    offset = int(request.args.get("offset", 0))
     # authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     # user_id = authenticated_user["user_principal_id"]
 
@@ -1184,12 +1186,13 @@ async def list_conversations():
     if (user_id is None):
         return jsonify({"error": "User not found"}), 400
 
-    ## make sure cosmos is configured
-    if not current_app.cosmos_conversation_client:
-        raise Exception("CosmosDB is not configured or not working")
+    ## make sure history provider is configured
+    history_client = await get_history_client()
+    if not history_client:
+        raise Exception("History provider is not configured or not working")
 
-    ## get the conversations from cosmos
-    conversations = await current_app.cosmos_conversation_client.get_conversations(
+    ## get the conversations from history provider
+    conversations = await history_client.get_conversations(
         user_id, offset=offset, limit=25
     )
     if not isinstance(conversations, list):
@@ -1219,12 +1222,13 @@ async def get_conversation():
     if not conversation_id:
         return jsonify({"error": "conversation_id is required"}), 400
 
-    ## make sure cosmos is configured
-    if not current_app.cosmos_conversation_client:
-        raise Exception("CosmosDB is not configured or not working")
+    ## make sure history provider is configured
+    history_client = await get_history_client()
+    if not history_client:
+        raise Exception("History provider is not configured or not working")
 
-    ## get the conversation object and the related messages from cosmos
-    conversation = await current_app.cosmos_conversation_client.get_conversation(
+    ## get the conversation object and the related messages from history provider
+    conversation = await history_client.get_conversation(
         user_id, conversation_id
     )
     ## return the conversation id and the messages in the bot frontend format
@@ -1238,8 +1242,8 @@ async def get_conversation():
             404,
         )
 
-    # get the messages for the conversation from cosmos
-    conversation_messages = await current_app.cosmos_conversation_client.get_messages(
+    # get the messages for the conversation from history provider
+    conversation_messages = await history_client.get_messages(
         user_id, conversation_id
     )
 
@@ -1277,12 +1281,13 @@ async def rename_conversation():
     if not conversation_id:
         return jsonify({"error": "conversation_id is required"}), 400
 
-    ## make sure cosmos is configured
-    if not current_app.cosmos_conversation_client:
-        raise Exception("CosmosDB is not configured or not working")
+    ## make sure history provider is configured
+    history_client = await get_history_client()
+    if not history_client:
+        raise Exception("History provider is not configured or not working")
 
-    ## get the conversation from cosmos
-    conversation = await current_app.cosmos_conversation_client.get_conversation(
+    ## get the conversation from history provider
+    conversation = await history_client.get_conversation(
         user_id, conversation_id
     )
     if not conversation:
@@ -1300,7 +1305,7 @@ async def rename_conversation():
     if not title:
         return jsonify({"error": "title is required"}), 400
     conversation["title"] = title
-    updated_conversation = await current_app.cosmos_conversation_client.upsert_conversation(
+    updated_conversation = await history_client.upsert_conversation(
         conversation
     )
 
@@ -1323,11 +1328,12 @@ async def delete_all_conversations():
 
     # get conversations for user
     try:
-        ## make sure cosmos is configured
-        if not current_app.cosmos_conversation_client:
-            raise Exception("CosmosDB is not configured or not working")
+        ## make sure history provider is configured
+        history_client = await get_history_client()
+        if not history_client:
+            raise Exception("History provider is not configured or not working")
 
-        conversations = await current_app.cosmos_conversation_client.get_conversations(
+        conversations = await history_client.get_conversations(
             user_id, offset=0, limit=None
         )
         if not conversations:
@@ -1335,13 +1341,13 @@ async def delete_all_conversations():
 
         # delete each conversation
         for conversation in conversations:
-            ## delete the conversation messages from cosmos first
-            deleted_messages = await current_app.cosmos_conversation_client.delete_messages(
+            ## delete the conversation messages from history provider first
+            deleted_messages = await history_client.delete_messages(
                 conversation["id"], user_id
             )
 
             ## Now delete the conversation
-            deleted_conversation = await current_app.cosmos_conversation_client.delete_conversation(
+            deleted_conversation = await history_client.delete_conversation(
                 user_id, conversation["id"]
             )
         return (
@@ -1378,12 +1384,13 @@ async def clear_messages():
         if not conversation_id:
             return jsonify({"error": "conversation_id is required"}), 400
 
-        ## make sure cosmos is configured
-        if not current_app.cosmos_conversation_client:
-            raise Exception("CosmosDB is not configured or not working")
+        ## make sure history provider is configured
+        history_client = await get_history_client()
+        if not history_client:
+            raise Exception("History provider is not configured or not working")
 
-        ## delete the conversation messages from cosmos
-        deleted_messages = await current_app.cosmos_conversation_client.delete_messages(
+        ## delete the conversation messages from history provider
+        deleted_messages = await history_client.delete_messages(
             conversation_id, user_id
         )
 
@@ -1403,45 +1410,37 @@ async def clear_messages():
 
 
 @bp.route("/history/ensure", methods=["GET"])
-async def ensure_cosmos():
-    # Test de santé CosmosDB - pas besoin d'authentification
+async def ensure_history_provider():
+    # Test de santé du provider d'historique (MongoDB ou CosmosDB) - pas besoin d'authentification
     await cosmos_db_ready.wait()
     if not app_settings.chat_history:
-        return jsonify({"error": "CosmosDB is not configured"}), 404
+        return jsonify({"error": f"History provider {app_settings.base_settings.history_provider} is not configured"}), 404
 
     try:
-        success, err = await current_app.cosmos_conversation_client.ensure()
-        if not current_app.cosmos_conversation_client or not success:
+        # Utiliser le factory pattern pour obtenir le bon client
+        from backend.history.history_factory import HistoryProviderFactory
+        history_client = await HistoryProviderFactory.create_history_client()
+
+        if not history_client:
+            return jsonify({"error": f"History provider {app_settings.base_settings.history_provider} could not be initialized"}), 500
+
+        # Tester la connexion
+        success, err = await history_client.ensure()
+        if not success:
             if err:
                 return jsonify({"error": err}), 422
-            return jsonify({"error": "CosmosDB is not configured or not working"}), 500
+            return jsonify({"error": f"History provider {app_settings.base_settings.history_provider} is not working"}), 500
 
-        return jsonify({"message": "CosmosDB is configured and working"}), 200
+        return jsonify({"message": f"History provider {app_settings.base_settings.history_provider} is configured and working"}), 200
     except Exception as e:
         logging.exception("Exception in /history/ensure")
-        cosmos_exception = str(e)
-        if "Invalid credentials" in cosmos_exception:
-            return jsonify({"error": cosmos_exception}), 401
-        elif "Invalid CosmosDB database name" in cosmos_exception:
-            return (
-                jsonify(
-                    {
-                        "error": f"{cosmos_exception} {app_settings.chat_history.database} for account {app_settings.chat_history.account}"
-                    }
-                ),
-                422,
-            )
-        elif "Invalid CosmosDB container name" in cosmos_exception:
-            return (
-                jsonify(
-                    {
-                        "error": f"{cosmos_exception}: {app_settings.chat_history.conversations_container}"
-                    }
-                ),
-                422,
-            )
+        exception_str = str(e)
+        if "Invalid credentials" in exception_str or "Authentication failed" in exception_str:
+            return jsonify({"error": exception_str}), 401
+        elif "database name" in exception_str or "container name" in exception_str:
+            return jsonify({"error": f"{exception_str}"}), 422
         else:
-            return jsonify({"error": "CosmosDB is not working"}), 500
+            return jsonify({"error": f"History provider {app_settings.base_settings.history_provider} is not working: {exception_str}"}), 500
 
 
 @bp.route("/help_content", methods=["GET"])

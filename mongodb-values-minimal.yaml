@@ -1,0 +1,119 @@
+# Configuration MongoDB minimale qui fonctionne
+architecture: replicaset
+replicaCount: 3
+
+# Désactiver arbiter
+arbiter:
+  enabled: false
+
+# Auth
+auth:
+  enabled: true
+  rootUser: root
+  rootPassword: 'AskMe-MongoDB-2024-Secure!'
+  replicaSetKey: 'AskMe-ReplicaSet-Key-2024'
+
+# Replica set
+replicaSetName: rs0
+replicaSetHostnames: true
+
+# Storage
+persistence:
+  enabled: true
+  size: 20Gi
+
+# Resources
+resources:
+  requests:
+    memory: "1Gi"
+    cpu: "500m"
+  limits:
+    memory: "2Gi"
+    cpu: "1000m"
+
+# Désactiver preset pour éviter conflicts
+resourcesPreset: ''
+
+# Anti-affinity
+podAntiAffinityPreset: hard
+
+# Service
+service:
+  type: ClusterIP
+
+# CORRECTION: Configuration externalAccess complète
+externalAccess:
+  enabled: false
+  service:
+    type: LoadBalancer
+    loadBalancerIPs: []
+    loadBalancerSourceRanges: []
+    nodePorts: []
+    publicNames: []
+    annotationsList: []
+    extraPorts: []
+    annotations: {}
+    domain: ''
+    externalTrafficPolicy: Local
+    portName: mongodb
+    ports:
+      mongodb: 27017
+    sessionAffinity: None
+    sessionAffinityConfig: {}
+    allocateLoadBalancerNodePorts: true
+    loadBalancerClass: ''
+  autoDiscovery:
+    enabled: false
+  dnsCheck:
+    image:
+      registry: docker.io
+      repository: bitnami/os-shell
+      tag: 12-debian-12-r51
+  externalMaster:
+    enabled: false
+    host: ''
+    port: 27017
+  hidden:
+    enabled: false
+    service:
+      type: LoadBalancer
+      loadBalancerIPs: []
+      loadBalancerSourceRanges: []
+      nodePorts: []
+      extraPorts: []
+      annotations: {}
+      domain: ''
+      externalTrafficPolicy: Local
+      portName: mongodb
+      ports:
+        mongodb: 27017
+      sessionAffinity: None
+      sessionAffinityConfig: {}
+      allocateLoadBalancerNodePorts: true
+      loadBalancerClass: ''
+
+# Metrics
+metrics:
+  enabled: true
+
+# Network
+networkPolicy:
+  enabled: true
+
+# Health checks
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+
+# Config
+configuration: |
+  storage:
+    wiredTiger:
+      engineConfig:
+        cacheSizeGB: 1
+  net:
+    maxIncomingConnections: 200

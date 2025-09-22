@@ -1,6 +1,18 @@
 @echo off
 
 echo.
+echo [MongoDB] Démarrage du tunnel Kubernetes...
+echo.
+call mongodb-tunnel.cmd start
+if "%errorlevel%" neq "0" (
+    echo [AVERTISSEMENT] Impossible de démarrer le tunnel MongoDB. Vérifiez votre connexion Kubernetes.
+) else (
+    echo [MongoDB] Attente de l'établissement du tunnel...
+    timeout /t 5 /nobreak >nul
+    echo [MongoDB] Tunnel prêt !
+)
+
+echo.
 echo Restoring backend python packages
 echo.
 call python -m pip install -r requirements.txt

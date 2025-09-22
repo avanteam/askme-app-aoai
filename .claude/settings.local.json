@@ -79,7 +79,8 @@
       "Bash(helm show values:*)",
       "Bash(pip install:*)",
       "WebSearch",
-      "Bash(npm update:*)"
+      "Bash(npm update:*)",
+      "Read(//c/Avanteam/dev/DevRG/askm-app-aoai-testrg2/askme-rancher-catalog/charts/askme/**)"
     ],
     "deny": []
   }

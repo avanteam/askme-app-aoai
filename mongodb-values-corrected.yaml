@@ -1,0 +1,165 @@
+## Configuration MongoDB corrigée pour AskMe
+## Corrige l'erreur: len of nil pointer pour externalAccess
+
+# Architecture replica set
+architecture: replicaset
+replicaCount: 3
+
+# Désactiver l'arbiter (source du problème initial)
+arbiter:
+  enabled: false
+
+# Authentification
+auth:
+  enabled: true
+  rootUser: root
+  rootPassword: 'AskMe-MongoDB-2024-Secure!'
+  replicaSetKey: 'AskMe-ReplicaSet-Key-2024'
+
+# Replica Set
+replicaSetName: rs0
+replicaSetHostnames: true
+
+# Stockage
+persistence:
+  enabled: true
+  size: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClass: ''
+
+# Ressources
+resources:
+  limits:
+    memory: "2Gi"
+    cpu: "1000m"
+  requests:
+    memory: "1Gi"
+    cpu: "500m"
+resourcesPreset: ''
+
+# Anti-affinité pour distribution sur différents nœuds
+podAntiAffinityPreset: hard
+
+# Service interne uniquement
+service:
+  type: ClusterIP
+  ports:
+    mongodb: 27017
+
+# CORRECTION CRITIQUE: Configuration complète externalAccess
+externalAccess:
+  enabled: false
+  service:
+    type: LoadBalancer
+    loadBalancerIPs: []  # ← FIX: Liste vide au lieu de nil
+    loadBalancerSourceRanges: []
+    annotations: {}
+    nodePorts: []
+    domain: ''
+    externalTrafficPolicy: Local
+  autoDiscovery:
+    enabled: false
+
+# Monitoring
+metrics:
+  enabled: true
+  service:
+    type: ClusterIP
+    ports:
+      metrics: 9216
+    annotations:
+      prometheus.io/scrape: 'true'
+      prometheus.io/port: '9216'
+      prometheus.io/path: '/metrics'
+
+# Backup quotidien
+backup:
+  enabled: true
+  cronjob:
+    schedule: '0 2 * * *'
+    storage:
+      size: 50Gi
+      accessModes:
+        - ReadWriteOnce
+
+# Sondes optimisées
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  periodSeconds: 20
+  timeoutSeconds: 10
+  failureThreshold: 6
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+# Configuration MongoDB optimisée
+configuration: |
+  # Optimisations pour AskMe
+  storage:
+    wiredTiger:
+      engineConfig:
+        cacheSizeGB: 1
+        directoryForIndexes: false
+  net:
+    maxIncomingConnections: 200
+    bindIpAll: true
+  replication:
+    replSetName: rs0
+  operationProfiling:
+    mode: slowOp
+    slowOpThresholdMs: 100
+
+# Sécurité réseau
+networkPolicy:
+  enabled: true
+  allowExternal: true
+
+# Volumes et sécurité
+podSecurityContext:
+  enabled: true
+  fsGroup: 1001
+
+containerSecurityContext:
+  enabled: true
+  runAsUser: 1001
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+
+# PodDisruptionBudget pour HA
+pdb:
+  create: true
+  minAvailable: 2  # Au moins 2 pods doivent rester disponibles
+
+# Images
+image:
+  registry: docker.io
+  repository: bitnami/mongodb
+  tag: 8.0.13-debian-12-r0
+  pullPolicy: IfNotPresent
+
+# Cleanup des valeurs qui peuvent causer des conflits
+hidden:
+  enabled: false
+
+# Pas de TLS pour simplicité initiale
+tls:
+  enabled: false
+
+# Logging
+systemLogVerbosity: 0
+disableSystemLog: false
+
+# Journal et persistance
+enableJournal: true
+directoryPerDB: false
+
+# ServiceAccount
+serviceAccount:
+  create: true
+  automountServiceAccountToken: false
