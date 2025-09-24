@@ -1199,14 +1199,11 @@ async def conversation_internal(request_body, request_headers, preventShouldStre
         return jsonify({"error": error_message}), status_code
 
 def CheckAuthenticate(request):
-    # TEMPORAIRE: Bypass pour debugging
-    return True
-
     # Si l'authentification est désactivée, autoriser tous les accès
     if not app_settings.base_settings.auth_enabled:
         return True
 
-    # Sinon effectuer la vérification d'authentification
+    # Effectuer la vérification d'authentification
     if "AuthToken" in request.headers:
         salt = datetime.now().strftime("%d%m%Y")
         fullchain = app_settings.custom_avanteam_settings.auth_token + salt
@@ -1944,7 +1941,11 @@ async def upload_document():
 
 @bp.route("/api/usage/logs", methods=["GET"])
 async def get_usage_logs():
-    """Route simple pour récupérer les logs d'usage sans authentification"""
+    """Route pour récupérer les logs d'usage avec authentification"""
+    # Vérification de l'authentification
+    if not CheckAuthenticate(request):
+        return jsonify({"error": "Authentication required"}), 401
+
     try:
         usage_service = get_usage_service()
 
