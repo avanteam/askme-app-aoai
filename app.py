@@ -809,9 +809,61 @@ async def stream_chat_request(request_body, request_headers):
             # For other providers: search context is built by the provider and stored internally
 
             search_context = ""
+            logging.debug(f"[TOKEN_COUNT_FLOW] About to check provider_type: '{provider_type}'")
             if provider_type == "AZURE_OPENAI":
+                logging.debug(f"[TOKEN_COUNT_FLOW] AZURE_OPENAI condition matched!")
                 # Azure OpenAI uses native "On Your Data" integration
-                search_context = request_body.get("search_context", "")
+                # IMPORTANT: request_body doesn't contain search_context, so we simulate the search
+                # to get accurate token counting without interfering with Azure OpenAI's native behavior
+                logging.info(f"[TOKEN_COUNT] Azure OpenAI detected - starting search simulation")
+                try:
+                    logging.info(f"[TOKEN_COUNT] Azure OpenAI: Performing parallel search for token counting")
+
+                    # Import Azure Search service to simulate the search
+                    from backend.llm_providers.utils import AzureSearchService, build_search_context
+                    logging.debug(f"[TOKEN_COUNT] Azure OpenAI: Imports successful")
+
+                    # Get the user query from messages
+                    user_query = ""
+                    for msg in list(reversed(messages)):
+                        if msg.get("role") == "user":
+                            content = msg.get("content", "")
+                            if isinstance(content, str):
+                                user_query = content
+                                break
+                            elif isinstance(content, list):
+                                # Handle multimodal content
+                                text_parts = []
+                                for part in content:
+                                    if isinstance(part, dict) and part.get("type") == "text":
+                                        text_parts.append(part.get("text", ""))
+                                user_query = " ".join(text_parts)
+                                break
+
+                    if user_query:
+                        # Create search service and perform search for token counting only
+                        search_service = AzureSearchService()
+                        search_results = await search_service.search_documents(
+                            query=user_query,
+                            top_k=request_body.get("documents_count"),
+                            filters=request_body.get("search_filters"),
+                            user_permissions=request_body.get("user_permissions")
+                        )
+
+                        # Build search context for token counting
+                        search_context, _ = build_search_context(
+                            search_results,
+                            app_settings.base_settings.citation_content_max_length
+                        )
+
+                        logging.debug(f"[TOKEN_COUNT] Azure OpenAI: Simulated search returned {len(search_context)} chars for token counting")
+                    else:
+                        logging.warning(f"[TOKEN_COUNT] Azure OpenAI: No user query found for search simulation")
+                        search_context = ""
+
+                except Exception as e:
+                    logging.warning(f"[TOKEN_COUNT] Azure OpenAI: Failed to simulate search for token counting: {e}")
+                    search_context = ""
             else:
                 # Other providers store search context in the provider instance
                 try:
