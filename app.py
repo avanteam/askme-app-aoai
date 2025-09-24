@@ -2033,6 +2033,69 @@ async def get_usage_logs():
         return jsonify({"error": f"Error retrieving usage logs: {str(e)}"}), 500
 
 
+@bp.route("/api/usage/logs/<log_id>", methods=["GET"])
+async def get_usage_log_details(log_id: str):
+    """Route pour récupérer les détails complets d'un log d'usage par son ID"""
+    # Vérification de l'authentification
+    if not CheckAuthenticate(request):
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        usage_service = get_usage_service()
+
+        if not usage_service or not usage_service.enabled:
+            return jsonify({"error": "Usage tracking not enabled"}), 503
+
+        # Force l'initialisation du container (le créé s'il n'existe pas)
+        await usage_service.init_container()
+
+        if not usage_service.container:
+            return jsonify({"error": "Container not available after initialization"}), 503
+
+        # Validation basique de l'ID
+        if not log_id or len(log_id.strip()) == 0:
+            return jsonify({"error": "Log ID is required"}), 400
+
+        # Recherche du log par ID
+        query = "SELECT * FROM c WHERE c.id = @log_id"
+        query_params = [{"name": "@log_id", "value": log_id.strip()}]
+
+        items = []
+        async for item in usage_service.container.query_items(query=query, parameters=query_params):
+            # Retourner tous les détails disponibles
+            items.append({
+                'id': item.get('id'),
+                'timestamp': item.get('timestamp'),
+                'user_id': item.get('user_id'),
+                'conversation_id': item.get('conversation_id'),
+                'message_id': item.get('message_id'),
+                'provider': item.get('provider'),
+                'input_tokens': item.get('input_tokens', {}),  # Détails complets des tokens d'entrée
+                'output_tokens': item.get('output_tokens', 0),
+                'total_tokens': item.get('total_tokens', 0),
+                'metadata': item.get('metadata', {})  # Métadonnées complètes
+            })
+
+        if not items:
+            return jsonify({
+                "success": False,
+                "error": "Log not found",
+                "log_id": log_id
+            }), 404
+
+        # Retourner les détails complets du log
+        log_details = items[0]
+        return jsonify({
+            "success": True,
+            "log_id": log_id,
+            "log_details": log_details
+        })
+
+    except Exception as e:
+        logging.error(f"Exception in /api/usage/logs/{log_id}: {e}")
+        return jsonify({"error": f"Error retrieving usage log details: {str(e)}"}), 500
+
+
 async def generate_title(conversation_messages) -> str:
     ## make sure the messages are sorted by _ts descending
     print("[TITLE GEN] LLM Provider utilisé (génération titre): AZURE_OPENAI (forcé)")
