@@ -15,17 +15,17 @@ EXTERNAL_API_KEYS="lighton:sk-ext-lighton-prod-xyz123:*"
 ### 2. **Redémarrer l'application** :
 
 ```bash
-python -m uvicorn app:app --port 50505 --reload
+python -m uvicorn app:app --port 5007 --reload
 ```
 
 ### 3. **Tester immédiatement** :
 
 ```bash
 # Health check (sans auth)
-curl http://localhost:50505/api/v1/health
+curl http://localhost:5007/api/v1/health
 
 # Recherche (avec auth)
-curl -X POST "http://localhost:50505/api/v1/search" \
+curl -X POST "http://localhost:5007/api/v1/search" \
   -H "Authorization: Bearer sk-ext-lighton-prod-xyz123" \
   -H "Content-Type: application/json" \
   -d '{
@@ -148,5 +148,5 @@ Votre API REST externe est maintenant prête pour LightOn et autres intégration
 
 ---
 
-**📚 Documentation complète** : Voir `EXTERNAL_API_README.md`
-**🧪 Tests avancés** : Voir `tests/test_external_api.py`
+**📚 Documentation complète** : Voir `docs/api/external-api.md`
+**🧪 Tests avancés** : Voir `tests/api/test_external_api.py`

@@ -21,7 +21,7 @@ L'API REST externe AskMe permet aux applications tierces d'effectuer des recherc
 
 | Environnement | URL Swagger UI | URL OpenAPI JSON |
 |---------------|----------------|------------------|
-| **Local** | `http://localhost:50505/docs` | `http://localhost:50505/openapi.json` |
+| **Local** | `http://localhost:5007/docs` | `http://localhost:5007/openapi.json` |
 | **Staging** | `https://askme-staging.your-domain.com/docs` | `https://askme-staging.your-domain.com/openapi.json` |
 | **Production** | `https://askme.your-domain.com/docs` | `https://askme.your-domain.com/openapi.json` |
 
@@ -36,7 +36,7 @@ EXTERNAL_API_SWAGGER_UI_ENABLED=true
 
 ### Navigation Swagger
 
-1. **Accédez à** `http://localhost:50505/docs`
+1. **Accédez à** `http://localhost:5007/docs`
 2. **Explorez** les endpoints disponibles
 3. **Testez** directement depuis l'interface
 4. **Copiez** les exemples de code générés
@@ -88,7 +88,7 @@ EXTERNAL_API_AUDIT_LOGGING=true
 ### Base URL
 ```
 Production: https://askme.your-domain.com/api/v1
-Local: http://localhost:50505/api/v1
+Local: http://localhost:5007/api/v1
 ```
 
 ---
@@ -416,8 +416,8 @@ WARNING:API auth failed - IP: 192.168.1.999, Error: IP address not authorized, R
 ```yaml
 # Exemple configuration nginx
 upstream askme_api {
-    server askme-api-1:50505;
-    server askme-api-2:50505;
+    server askme-api-1:5007;
+    server askme-api-2:5007;
 }
 
 location /health {
@@ -705,10 +705,10 @@ grep "API request completed" logs/app.log | awk '{print $NF}' | sort -n
 python test_external_api.py
 
 # Ou tests manuels
-curl -v http://localhost:50505/api/v1/health
+curl -v http://localhost:5007/api/v1/health
 curl -v -H "Authorization: Bearer test-key" \
      -d '{"query":"test"}' \
-     http://localhost:50505/api/v1/search
+     http://localhost:5007/api/v1/search
 ```
 
 ---
@@ -742,9 +742,9 @@ REDIS_URL=redis://localhost:6379/0
 ```nginx
 upstream askme_api {
     least_conn;
-    server askme-api-1:50505 weight=1;
-    server askme-api-2:50505 weight=1;
-    server askme-api-3:50505 weight=2;  # Plus puissant
+    server askme-api-1:5007 weight=1;
+    server askme-api-2:5007 weight=1;
+    server askme-api-3:5007 weight=2;  # Plus puissant
 }
 ```
 
@@ -782,9 +782,9 @@ async with httpx.AsyncClient(
 ## 📞 Support & Contact
 
 ### Documentation
-- **API Complète** : `EXTERNAL_API_README.md`
-- **Quick Start** : `QUICK_START_EXTERNAL_API.md`
-- **Tests** : `tests/test_external_api.py`
+- **API Complète** : `docs/api/external-api.md`
+- **Quick Start** : `docs/api/quick-start.md`
+- **Tests** : `tests/api/test_external_api.py`
 
 ### Monitoring
 - **Health Check** : `GET /api/v1/health`

@@ -66,7 +66,7 @@ EXTERNAL_API_MAX_RESULTS=50
 
 3. **Démarrer l'application**:
 ```bash
-python -m uvicorn app:app --port 50505 --reload
+python -m uvicorn app:app --port 5007 --reload
 ```
 
 ## Endpoints API
@@ -79,7 +79,7 @@ Recherche dans les documents indexés.
 
 **Exemple**:
 ```bash
-curl -X POST "http://localhost:50505/api/v1/search" \
+curl -X POST "http://localhost:5007/api/v1/search" \
   -H "Authorization: Bearer sk-ext-lighton-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -123,7 +123,7 @@ Vérification de l'état de l'API et des services.
 **Authentification**: Aucune
 **Exemple**:
 ```bash
-curl http://localhost:50505/api/v1/health
+curl http://localhost:5007/api/v1/health
 ```
 
 ### 📋 `GET /api/v1/capabilities`
@@ -132,7 +132,7 @@ Informations sur les fonctionnalités disponibles.
 **Authentification**: Aucune
 **Exemple**:
 ```bash
-curl http://localhost:50505/api/v1/capabilities
+curl http://localhost:5007/api/v1/capabilities
 ```
 
 ### 📚 `GET /openapi.json`

@@ -28,15 +28,15 @@ Status: ⚠️ PERMISSIONS À CONFIGURER
 ### **📁 Fichiers Créés**
 
 #### **1. Script de Gestion DNS**
-- **`charts/askme/scripts/ovh-dns-manager.py`**
+- **`tools/development/ovh-dns-manager.py`** (script de développement)
 - Gestionnaire Python pour l'API OVH
 - Fonctions : create, delete, list des enregistrements DNS
 - Authentification sécurisée avec signature OVH
 
-#### **2. Job Kubernetes de Création**
-- **`charts/askme/templates/dns-job.yaml`**
-- Hook Helm : `post-install`, `post-upgrade`
-- Création automatique du sous-domaine client
+#### **2. Intégration Rancher Catalog**
+- **Configuration DNS via askme-rancher-catalog**
+- Gestion automatique des domaines par client
+- Création DNS lors du déploiement via Rancher UI
 - Récupération automatique de l'IP d'ingress
 
 #### **3. Job Kubernetes de Nettoyage**

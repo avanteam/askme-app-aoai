@@ -101,11 +101,8 @@ kubectl apply -f mongodb-external-service.yaml
 
 ### Étape 4 : Initialiser les databases
 ```powershell
-# Windows
-.\scripts\init-mongodb-databases.ps1
-
-# Linux/Mac
-./scripts/init-mongodb-databases.sh
+# Windows uniquement (développement)
+.\tools\data\scripts\init-mongodb-databases.ps1
 ```
 
 ## 🔄 Migration des Données
@@ -124,7 +121,7 @@ kubectl apply -f mongodb-external-service.yaml
 
 #### 3. Migration manuelle (si nécessaire)
 ```bash
-python scripts/migrate-cosmosdb-to-mongodb.py \
+python tools/data/scripts/migrate-cosmosdb-to-mongodb.py \
   --cosmos-endpoint "https://account.documents.azure.com:443/" \
   --cosmos-key "your-cosmos-key" \
   --cosmos-database "db_conversation_history" \
@@ -165,7 +162,7 @@ MONGODB_ENABLE_FEEDBACK=false
 ### Mise à jour Helm Values
 
 ```yaml
-# deployments/clients/askme.avanteam-online.com/values.yaml
+# Configuration client via Rancher Catalog
 env:
   HISTORY_PROVIDER: "MONGODB"
   MONGODB_URI: "mongodb://askme_avanteam_user:password@mongodb-external:27017/askme_avanteam?replicaSet=rs0&readPreference=secondaryPreferred"
@@ -176,12 +173,12 @@ env:
 
 ### 1. Test de santé MongoDB
 ```bash
-curl http://localhost:50505/history/ensure
+curl http://localhost:5007/history/ensure
 ```
 
 ### 2. Test API complet
 ```bash
-python scripts/test-mongodb-api.py --url http://localhost:50505
+python tools/data/scripts/test-mongodb-api.py --url http://localhost:5007
 ```
 
 ### 3. Tests fonctionnels

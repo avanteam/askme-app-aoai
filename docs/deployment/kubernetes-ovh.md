@@ -346,10 +346,14 @@ askme-app-aoai/
 │   ├── 🚪 ingress.yaml           # Exposition Internet
 │   ├── 🔒 letsencrypt-issuer.yaml # Générateur SSL
 │   └── 📜 deploy.sh              # Script d'automatisation
-├── 🐳 WebApp.Dockerfile          # Instructions de build
-├── ⚙️ .env                       # Variables d'environnement
-├── 📋 requirements*.txt          # Dépendances Python hiérarchisées (prod, dev, test)
-└── 📚 README.md                  # Documentation
+├── 📦 deployment/               # Configuration déploiement
+│   ├── docker/                  # Dockerfiles
+│   └── config/                  # Configurations .env
+├── 🔧 tools/                    # Scripts utilitaires
+│   ├── local/                   # Développement Windows
+│   └── data/scripts/            # Scripts préparation données
+├── 📋 requirements*.txt          # Dépendances Python hiérarchisées
+└── 📚 docs/                     # Documentation organisée
 ```
 
 ### Détail des Composants Clés
