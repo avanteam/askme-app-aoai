@@ -336,7 +336,6 @@ async def record_token_usage(
 
         # Extract usage information from response
         usage_data = None
-        model_name = "unknown"
 
         if hasattr(response, 'usage') and response.usage:
             usage = response.usage
@@ -356,10 +355,6 @@ async def record_token_usage(
 
             output_tokens = getattr(usage, 'completion_tokens', 0)
 
-            # Get model name
-            if hasattr(response, 'model'):
-                model_name = response.model
-
             # Get usage metadata if available
             metadata = {}
             if hasattr(usage, 'usage_metadata') and usage.usage_metadata:
@@ -373,7 +368,6 @@ async def record_token_usage(
                 conversation_id=conversation_id,
                 message_id=message_id,
                 provider=provider_type,
-                model=model_name,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 metadata=metadata
@@ -1964,10 +1958,10 @@ async def get_usage_logs():
         items = []
         async for item in usage_service.container.query_items(query=query):
             items.append({
+                'id': item.get('id'),
                 "timestamp": item.get('timestamp'),
                 "user_id": item.get('user_id'),
                 "provider": item.get('provider'),
-                "model": item.get('model'),
                 "input_tokens": item.get('input_tokens', {}).get('total', 0),
                 "output_tokens": item.get('output_tokens', 0),
                 "total_tokens": item.get('total_tokens', 0),
@@ -2405,7 +2399,6 @@ async def get_all_usage_logs():
                 "user_id": item.get('user_id'),
                 "conversation_id": item.get('conversation_id'),
                 "provider": item.get('provider'),
-                "model": item.get('model'),
                 "input_tokens": item.get('input_tokens', {}).get('total', 0),
                 "output_tokens": item.get('output_tokens', 0),
                 "total_tokens": item.get('total_tokens', 0),

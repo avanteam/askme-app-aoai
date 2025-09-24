@@ -41,7 +41,6 @@ class UsageRecord:
         conversation_id: str,
         message_id: str,
         provider: str,
-        model: str,
         input_tokens: Dict[str, Any],
         output_tokens: int,
         metadata: Optional[Dict[str, Any]] = None,
@@ -52,7 +51,6 @@ class UsageRecord:
         self.conversation_id = conversation_id
         self.message_id = message_id
         self.provider = provider
-        self.model = model
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
         self.total_tokens = input_tokens.get('total', 0) + output_tokens
@@ -80,7 +78,6 @@ class UsageRecord:
             'conversation_id': self.conversation_id,
             'message_id': self.message_id,
             'provider': self.provider,
-            'model': self.model,
             'input_tokens': self.input_tokens,
             'output_tokens': self.output_tokens,
             'total_tokens': self.total_tokens,
@@ -240,7 +237,6 @@ class UsageTrackingService:
         conversation_id: str,
         message_id: str,
         provider: str,
-        model: str,
         input_tokens: Dict[str, Any],
         output_tokens: int,
         metadata: Optional[Dict[str, Any]] = None
@@ -253,7 +249,6 @@ class UsageTrackingService:
             conversation_id: Conversation identifier
             message_id: Message identifier
             provider: LLM provider name
-            model: Model name
             input_tokens: Input token breakdown
             output_tokens: Output token count
             metadata: Additional metadata
@@ -280,7 +275,6 @@ class UsageTrackingService:
                 conversation_id=conversation_id,
                 message_id=message_id,
                 provider=provider,
-                model=model,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 metadata=metadata
