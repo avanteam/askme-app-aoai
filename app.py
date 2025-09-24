@@ -1935,7 +1935,7 @@ async def upload_document():
 
 @bp.route("/api/usage/logs", methods=["GET"])
 async def get_usage_logs():
-    """Route pour récupérer les logs d'usage avec authentification"""
+    """Route pour récupérer les logs d'usage avec authentification et filtrage par dates"""
     # Vérification de l'authentification
     if not CheckAuthenticate(request):
         return jsonify({"error": "Authentication required"}), 401
@@ -1952,27 +1952,81 @@ async def get_usage_logs():
         if not usage_service.container:
             return jsonify({"error": "Container not available after initialization"}), 503
 
-        # Récupère tous les logs d'usage
-        query = "SELECT * FROM c ORDER BY c.timestamp DESC"
+        # Récupération des paramètres de plage de dates (optionnels)
+        start_date = request.args.get('start_date')  # Format: YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS
+        end_date = request.args.get('end_date')      # Format: YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS
+
+        # Construction de la requête avec filtrage par dates si spécifiées
+        query = "SELECT * FROM c"
+        query_params = []
+
+        # Filtrage par plage de dates si spécifiée
+        where_clauses = []
+        if start_date:
+            try:
+                # Conversion de la date de début
+                if 'T' not in start_date:
+                    start_date += 'T00:00:00'  # Début de journée si pas d'heure spécifiée
+                where_clauses.append("c.timestamp >= @start_date")
+                query_params.append({"name": "@start_date", "value": start_date})
+            except ValueError:
+                return jsonify({"error": "Invalid start_date format. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS"}), 400
+
+        if end_date:
+            try:
+                # Conversion de la date de fin
+                if 'T' not in end_date:
+                    end_date += 'T23:59:59'  # Fin de journée si pas d'heure spécifiée
+                where_clauses.append("c.timestamp <= @end_date")
+                query_params.append({"name": "@end_date", "value": end_date})
+            except ValueError:
+                return jsonify({"error": "Invalid end_date format. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS"}), 400
+
+        # Ajout des clauses WHERE si nécessaires
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+
+        query += " ORDER BY c.timestamp DESC"
 
         items = []
-        async for item in usage_service.container.query_items(query=query):
-            items.append({
-                'id': item.get('id'),
-                "timestamp": item.get('timestamp'),
-                "user_id": item.get('user_id'),
-                "provider": item.get('provider'),
-                "input_tokens": item.get('input_tokens', {}).get('total', 0),
-                "output_tokens": item.get('output_tokens', 0),
-                "total_tokens": item.get('total_tokens', 0),
-                "conversation_id": item.get('conversation_id')
-            })
+        # Exécution de la requête avec paramètres si spécifiés
+        if query_params:
+            async for item in usage_service.container.query_items(query=query, parameters=query_params):
+                items.append({
+                    'id': item.get('id'),
+                    "timestamp": item.get('timestamp'),
+                    "user_id": item.get('user_id'),
+                    "provider": item.get('provider'),
+                    "input_tokens": item.get('input_tokens', {}).get('total', 0),
+                    "output_tokens": item.get('output_tokens', 0),
+                    "total_tokens": item.get('total_tokens', 0),
+                    "conversation_id": item.get('conversation_id')
+                })
+        else:
+            async for item in usage_service.container.query_items(query=query):
+                items.append({
+                    'id': item.get('id'),
+                    "timestamp": item.get('timestamp'),
+                    "user_id": item.get('user_id'),
+                    "provider": item.get('provider'),
+                    "input_tokens": item.get('input_tokens', {}).get('total', 0),
+                    "output_tokens": item.get('output_tokens', 0),
+                    "total_tokens": item.get('total_tokens', 0),
+                    "conversation_id": item.get('conversation_id')
+                })
 
-        return jsonify({
+        # Construction de la réponse avec informations sur le filtrage
+        response_data = {
             "success": True,
             "total_records": len(items),
-            "records": items
-        })
+            "records": items,
+            "filters": {
+                "start_date": start_date,
+                "end_date": end_date
+            }
+        }
+
+        return jsonify(response_data)
 
     except Exception as e:
         logging.error(f"Exception in /api/usage/logs: {e}")
