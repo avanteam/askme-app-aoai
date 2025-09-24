@@ -109,7 +109,7 @@ export const Answer = ({
   const citationTextRefs = useRef<{ [key: number]: HTMLSpanElement | null }>({})
   const citationContainerRefs = useRef<{ [key: number]: HTMLSpanElement | null }>({})
   const FEEDBACK_ENABLED =
-    appStateContext?.state.frontendSettings?.feedback_enabled && appStateContext?.state.isCosmosDBAvailable?.cosmosDB
+    appStateContext?.state.frontendSettings?.feedback_enabled && appStateContext?.state.isDatabaseAvailable?.database
   const SANITIZE_ANSWER = appStateContext?.state.frontendSettings?.sanitize_answer
 
   const ui = appStateContext?.state.frontendSettings?.ui

@@ -117,7 +117,8 @@ class TestRunner:
         # Installer les requirements principaux
         requirements_files = [
             self.root_dir / "requirements.txt",
-            self.root_dir / "requirements-dev.txt"
+            self.root_dir / "requirements-dev.txt",
+            self.root_dir / "requirements-test.txt"  # Ajout tests complets
         ]
         
         for req_file in requirements_files:

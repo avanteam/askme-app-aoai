@@ -93,8 +93,8 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
       }
     case 'FETCH_CHAT_HISTORY':
       return { ...state, chatHistory: action.payload }
-    case 'SET_COSMOSDB_STATUS':
-      return { ...state, isCosmosDBAvailable: action.payload }
+    case 'SET_DATABASE_STATUS':
+      return { ...state, isDatabaseAvailable: action.payload }
     case 'FETCH_FRONTEND_SETTINGS':
       return { ...state, isLoading: false, frontendSettings: action.payload }
     case 'SET_FEEDBACK_STATE':

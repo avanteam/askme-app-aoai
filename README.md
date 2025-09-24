@@ -32,10 +32,12 @@ AskMe est un assistant virtuel d'entreprise multi-client qui supporte plusieurs 
 ## 🚀 Démarrage Rapide
 
 ### Prérequis
-- **Docker** & **Docker Compose**
+- **Windows 10/11** - Environnement de développement principal
+- **Docker** & **Docker Compose** pour les tests locaux
 - **Node.js 20+** pour le développement frontend
 - **Python 3.11+** pour le backend
-- **Kubernetes** cluster pour la production
+- **kubectl** configuré pour accès au cluster Kubernetes
+- **Kubernetes** cluster pour la production (OVH via Rancher Catalog)
 
 ### Installation Locale
 
@@ -45,26 +47,27 @@ git clone https://github.com/avanteam/askme-app-aoai.git
 cd askme-app-aoai
 
 # 2. Configuration
-cp .env.sample .env
+cp deployment/config/.env.sample .env
 # Éditer .env avec vos clés API
 
-# 3. Démarrage (build frontend + backend)
-./start.sh
+# 3. Démarrage (build frontend + backend) - Windows uniquement
+tools\local\start.cmd
 ```
 
-L'application sera disponible sur http://localhost:50505
+L'application sera disponible sur http://localhost:5007
 
 ### Déploiement Production
 
-Pour déployer en production via Rancher :
+Le déploiement se fait exclusivement via **askme-rancher-catalog** :
 
-```bash
-# 1. Créer une version
-./scripts/release-sync.sh
+1. **Push des modifications** vers `test-rg2` pour tests
+2. **Merge vers `prod`** quand prêt pour release
+3. **Créer un tag** `v1.x.x` qui déclenche automatiquement :
+   - GitHub Actions build et push vers Harbor Registry OVH
+   - Synchronisation du catalog Rancher
+4. **Déployer via Rancher UI** avec la nouvelle version disponible
 
-# 2. Déployer via Rancher UI ou CLI
-./scripts/deploy-client.sh client-name domain.com
-```
+Voir [`docs/deployment/workflow-release.md`](docs/deployment/workflow-release.md) pour le processus détaillé.
 
 ## ⚙️ Configuration
 
@@ -94,7 +97,7 @@ AZURE_SEARCH_INDEX=your-index
 AZURE_SEARCH_KEY=your_search_key
 ```
 
-Voir `.env.sample` pour la configuration complète.
+Voir `deployment/config/.env.sample` pour la configuration complète.
 
 ### Interface de Personnalisation
 
@@ -104,64 +107,109 @@ L'application propose une interface graphique permettant aux utilisateurs de :
 - **Modifier le nombre de documents** de référence
 - **Configurer la reconnaissance vocale**
 
-## 🏗️ Architecture
+## 🏗️ Architecture du Projet
+
+### Structure Réorganisée (Production-Ready)
+```
+askme-app-aoai/
+├── 📋 README.md, CLAUDE.md, LICENSE        # Documentation principale
+├── 🏗️ app.py, backend/, frontend/         # Code application
+├── 📚 docs/                                # Documentation organisée
+│   ├── deployment/                         # Guides K8s et CI/CD
+│   ├── api/                               # Documentation API
+│   ├── features/                          # Fonctionnalités avancées
+│   └── ovh/                              # Configuration OVH
+├── 🧪 tests/                              # Tests structurés
+│   ├── unit_tests/                        # Tests unitaires
+│   ├── integration_tests/                 # Tests d'intégration
+│   ├── functional_tests/                  # Tests fonctionnels
+│   └── api/                              # Tests API
+├── 🔧 tools/                              # Scripts utilitaires
+│   ├── local/                            # Développement local (Windows)
+│   ├── data/                             # Scripts préparation données
+│   └── development/                      # Outils debug et tunnel
+├── 📦 deployment/                         # Configuration déploiement
+│   ├── docker/                           # Dockerfiles
+│   ├── config/                           # Configurations env
+│   └── ci-cd/                           # Backup CI/CD
+└── 📝 requirements*.txt                   # Dépendances Python
+```
 
 ### Backend (Python/Quart)
 ```
 backend/
-├── llm_providers/          # Abstraction multi-LLM
-│   ├── azure_openai.py     # Provider Azure OpenAI
-│   ├── claude.py           # Provider Anthropic Claude
-│   ├── openai_direct.py    # Provider OpenAI Direct
-│   └── ...
-├── auth/                   # Authentification
-├── history/                # Gestion historique
-└── settings.py             # Configuration centralisée
+├── llm_providers/          # Abstraction multi-LLM avec gestion d'erreur unifiée
+├── search_providers/       # Système RAG unifié (Sept 2025)
+├── auth/                   # Authentification Microsoft Entra ID
+├── history/                # Gestion historique CosmosDB/MongoDB
+└── settings.py             # Configuration centralisée via environnement
 ```
 
 ### Frontend (React/TypeScript)
 ```
 frontend/src/
-├── components/
-│   ├── Answer/             # Affichage des réponses
-│   ├── QuestionInput/      # Interface de saisie
-│   └── Customization/      # Panneau de personnalisation
-├── hooks/
-│   └── useVoiceRecognition.ts
-└── state/                  # Gestion d'état globale
+├── components/             # Composants React réutilisables
+├── hooks/                  # Hooks personnalisés (voice, API)
+├── state/                  # Gestion d'état globale
+└── api/                    # Client API avec types TypeScript
 ```
 
-### Infrastructure
-```
-helm-chart/                 # Déploiement Kubernetes
-├── templates/              # Manifestes K8s
-├── values.yaml            # Configuration par défaut
-└── Chart.yaml             # Métadonnées Helm
-```
+### Déploiement
+- **Local** : Scripts Windows dans `tools/local/`
+- **Production** : Exclusivement via `askme-rancher-catalog`
+- **CI/CD** : GitHub Actions → Harbor Registry → Rancher UI
 
 ## 🧪 Tests
+
+### Structure des Dépendances de Test
+
+```bash
+# Installation selon l'environnement
+pip install -r requirements.txt          # Production uniquement
+pip install -r requirements-dev.txt      # Développement (inclut pytest, coverage)
+pip install -r requirements-test.txt     # Tests avancés (E2E, performance)
+```
 
 ### Exécution des Tests
 
 ```bash
-# Tests complets
-npm test                    # Frontend
-pytest                     # Backend
-./scripts/test-workflow.sh  # Tests d'intégration
-
-# Tests par catégorie
+# Tests backend
 pytest tests/unit_tests/           # Tests unitaires
-pytest tests/functional_tests/    # Tests fonctionnels
+pytest tests/functional_tests/    # Tests fonctionnels (LLM providers)
 pytest tests/integration_tests/   # Tests d'intégration
+pytest tests/api/                 # Tests API externes
+
+# Tests frontend
+cd frontend && npm test
+
+# Tests E2E
+cd tests/e2e && npx playwright test
 ```
 
-### Tests E2E
+## 🔧 Développement Local
 
-```bash
-# Tests End-to-End avec Playwright
-cd tests/e2e
-npm install
-npx playwright test
+### Scripts de Développement (Windows)
+
+```cmd
+REM Démarrage complet (tunnel MongoDB + frontend + backend)
+tools\local\start.cmd
+
+REM Build Docker local pour tests
+tools\local\deploy-local.ps1 build
+tools\local\deploy-local.ps1 run
+
+REM Tunnel MongoDB Kubernetes pour développement
+tools\development\mongodb-tunnel.cmd start
+```
+
+### Outils de Debug
+
+```cmd
+REM Script de debug Python avec logs détaillés
+python tools\development\main_debug.py
+
+REM Configuration pronunciation personnalisée
+edit tools\development\pronunciation_custom.json
 ```
 
 ## 🔧 Développement

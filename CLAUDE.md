@@ -133,19 +133,17 @@ npm run format       # Run prettier:fix and lint:fix
 
 ### Backend Development
 ```bash
-python -m pip install -r requirements.txt      # Install dependencies
-python -m pip install -r requirements-dev.txt  # Install dev dependencies
+python -m pip install -r requirements.txt      # Install production dependencies
+python -m pip install -r requirements-dev.txt  # Install dev dependencies (includes pytest, coverage)
+python -m pip install -r requirements-test.txt # Install full test suite (E2E, performance, etc.)
 python -m uvicorn app:app --port 50505 --reload # Development server
 python -m gunicorn app:app                     # Production server
 ```
 
 ### Full Application
 ```bash
-# Windows
-start.cmd   # Builds frontend, installs dependencies, starts backend
-
-# Linux/Mac
-./start.sh  # Builds frontend, installs dependencies, starts backend
+# Windows uniquement
+tools\local\start.cmd   # Builds frontend, installs dependencies, starts backend
 ```
 
 ### Docker Development
@@ -153,22 +151,20 @@ start.cmd   # Builds frontend, installs dependencies, starts backend
 #### Local Docker Build and Test
 ```powershell
 # Windows PowerShell - Local development
-.\deploy-local.ps1 build    # Build Docker image locally
-.\deploy-local.ps1 run      # Run container on localhost:50505
-.\deploy-local.ps1 stop     # Stop and remove container
+.\tools\local\deploy-local.ps1 build    # Build Docker image locally
+.\tools\local\deploy-local.ps1 run      # Run container on localhost:50505
+.\tools\local\deploy-local.ps1 stop     # Stop and remove container
 ```
 
-#### Production Deployment to OVH Kubernetes avec Helm
+#### Production Deployment to OVH Kubernetes avec Rancher Catalog
 ```bash
-# Déploiement client principal
-./deploy-helm-client.sh askme.avanteam-online.com deploy
+# Le déploiement se fait exclusivement via askme-rancher-catalog
+# GitHub Actions build et push les images vers Harbor Registry
+# Rancher UI gère les déploiements multi-clients
 
-# Déploiement client QSaaS
-./deploy-helm-client.sh askme-qsaas.avanteam-online.com deploy
-
-# Build local pour tests
-.\deploy-local.ps1 build
-.\deploy-local.ps1 run      # Test sur localhost:50505
+# Build local pour tests uniquement
+.\tools\local\deploy-local.ps1 build
+.\tools\local\deploy-local.ps1 run      # Test sur localhost:50505
 ```
 
 #### CI/CD Deployment
@@ -243,10 +239,42 @@ The application supports multiple data sources configured via environment variab
 
 6. **Error Handling**: The backend includes comprehensive unified error handling across all LLM providers with user-friendly localized messages (see LLM Provider Error Handling section).
 
+## Project Structure (Reorganized September 2024)
+
+After reorganization, the project follows a production-ready structure:
+
+```
+askme-app-aoai/
+├── 📋 Documentation principale (README.md, CLAUDE.md, LICENSE)
+├── 🏗️ Code application (app.py, backend/, frontend/, static/)
+├── 📚 docs/                    # Documentation organisée
+│   ├── deployment/             # Guides K8s, CI/CD, GitHub secrets
+│   ├── api/                   # Documentation API externe
+│   ├── features/              # Fonctionnalités avancées (search system)
+│   └── ovh/                   # Configuration OVH (DNS, API)
+├── 🧪 tests/                  # Tests structurés (unit, integration, functional, API)
+├── 🔧 tools/                  # Scripts utilitaires
+│   ├── local/                 # Développement local Windows (start.cmd, deploy-local.ps1)
+│   ├── data/                  # Scripts préparation données (ex-scripts/)
+│   └── development/           # Debug tools (mongodb-tunnel.cmd, pronunciation)
+├── 📦 deployment/             # Configuration déploiement
+│   ├── docker/                # Dockerfiles et dockerignore
+│   ├── config/                # .env samples et gunicorn.conf.py
+│   └── ci-cd/                 # Backup configurations
+└── 📝 requirements*.txt       # Dépendances Python hiérarchisées
+```
+
+### Key Reorganization Benefits
+- **Windows-focused development**: Removed all Linux/Mac scripts
+- **Documentation centralized**: All .md files organized in docs/
+- **Tools by function**: Scripts grouped by purpose (local, data, development)
+- **Clean root**: Only essential files at project root
+- **Rancher Catalog workflow**: Removed direct Kubernetes deployment scripts
+
 ## Code Quality Standards
 
 **IMPORTANT**: Never write unmaintainable code with hardcoded values. Always:
-- Use environment variables for configuration values
+- Use environment variables for configuration values (see deployment/config/)
 - Create constants for repeated values
 - Use configuration files for settings
 - Implement proper abstraction and modularity
@@ -786,31 +814,15 @@ KUBE_CONFIG        # Fichier kubeconfig encodé en base64
 #### Architecture Helm Multi-Client
 Le projet utilise maintenant Helm pour supporter le déploiement multi-client :
 
-**Scripts de Déploiement :**
-- **`deploy-helm-client.sh`** : Script Linux/WSL pour déploiement Helm multi-client
-- **`deploy-helm-client.ps1`** : Script Windows PowerShell pour déploiement Helm multi-client
-- **`helm-status-all.sh`** : Monitoring global de tous les clients déployés
-- **`deploy-local.ps1`** : Build et test local Docker (conservé)
+**Scripts de Développement (Windows uniquement) :**
+- **`tools/local/deploy-local.ps1`** : Build et test local Docker
+- **`tools/local/start.cmd`** : Démarrage application locale Windows
 
-**Structure Multi-Client :**
-```
-helm-chart/                    # Chart Helm principal
-deployments/clients/           # Configurations spécifiques clients
-├── askme.avanteam-online.com/
-└── askme-qsaas.avanteam-online.com/
-```
-
-**Commandes de Déploiement :**
-```bash
-# Déployer un client spécifique
-./deploy-helm-client.sh <client-domain> deploy
-
-# Mettre à jour un client
-./deploy-helm-client.sh <client-domain> upgrade v1.2.0
-
-# Status de tous les clients
-./helm-status-all.sh
-```
+**Déploiement Multi-Client :**
+- Déploiement exclusivement via **askme-rancher-catalog**
+- Charts Helm gérés dans le repository dédié
+- Interface Rancher pour déploiement et monitoring
+- Support multi-client avec isolation par namespace
 
 ### Workflow de Développement
 
@@ -821,8 +833,8 @@ git checkout test-rg2
 # ... modifications du code ...
 
 # 2. Build et test local (optionnel)
-.\deploy-local.ps1 build
-.\deploy-local.ps1 run     # Test sur localhost:50505
+.\tools\local\deploy-local.ps1 build
+.\tools\local\deploy-local.ps1 run     # Test sur localhost:50505
 
 # 3. Commit et push pour tests
 git add .

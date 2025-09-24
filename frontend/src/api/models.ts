@@ -110,17 +110,17 @@ export type UserInfo = {
   user_id: string
 }
 
-export enum CosmosDBStatus {
-  NotConfigured = 'CosmosDB is not configured',
-  NotWorking = 'CosmosDB is not working',
-  InvalidCredentials = 'CosmosDB has invalid credentials',
-  InvalidDatabase = 'Invalid CosmosDB database name',
-  InvalidContainer = 'Invalid CosmosDB container name',
-  Working = 'CosmosDB is configured and working'
+export enum DatabaseStatus {
+  NotConfigured = 'Database is not configured',
+  NotWorking = 'Database is not working',
+  InvalidCredentials = 'Database has invalid credentials',
+  InvalidDatabase = 'Invalid database name',
+  InvalidContainer = 'Invalid database container name',
+  Working = 'Database is configured and working'
 }
 
-export type CosmosDBHealth = {
-  cosmosDB: boolean
+export type DatabaseHealth = {
+  database: boolean
   status: string
 }
 

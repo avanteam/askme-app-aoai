@@ -3,8 +3,8 @@ import React, { createContext, ReactNode, useEffect, useReducer } from 'react'
 import {
   ChatHistoryLoadingState,
   Conversation,
-  CosmosDBHealth,
-  CosmosDBStatus,
+  DatabaseHealth,
+  DatabaseStatus,
   Feedback,
   FrontendSettings,
   frontendSettings,
@@ -20,7 +20,7 @@ export interface AppState {
   isHelpPanelOpen: boolean
   isCustomizationPanelOpen: boolean
   chatHistoryLoadingState: ChatHistoryLoadingState
-  isCosmosDBAvailable: CosmosDBHealth
+  isDatabaseAvailable: DatabaseHealth
   chatHistory: Conversation[] | null
   filteredChatHistory: Conversation[] | null
   currentChat: Conversation | null
@@ -42,7 +42,7 @@ export type Action =
   | { type: 'TOGGLE_CHAT_HISTORY' }
   | { type: 'TOGGLE_HELP_PANEL' }
   | { type: 'TOGGLE_CUSTOMIZATION_PANEL' }
-  | { type: 'SET_COSMOSDB_STATUS'; payload: CosmosDBHealth }
+  | { type: 'SET_DATABASE_STATUS'; payload: DatabaseHealth }
   | { type: 'UPDATE_CHAT_HISTORY_LOADING_STATE'; payload: ChatHistoryLoadingState }
   | { type: 'UPDATE_CURRENT_CHAT'; payload: Conversation | null }
   | { type: 'UPDATE_FILTERED_CHAT_HISTORY'; payload: Conversation[] | null }
@@ -76,9 +76,9 @@ const initialState: AppState = {
   chatHistory: null,
   filteredChatHistory: null,
   currentChat: null,
-  isCosmosDBAvailable: {
-    cosmosDB: false,
-    status: CosmosDBStatus.NotConfigured
+  isDatabaseAvailable: {
+    database: false,
+    status: DatabaseStatus.NotConfigured
   },
   frontendSettings: null,
   feedbackState: {},
@@ -187,35 +187,35 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
       dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Loading })
       historyEnsure(token)
         .then(response => {
-          if (response?.cosmosDB) {
+          if (response?.database) {
             fetchChatHistory()
               .then(res => {
                 if (res) {
                   dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Success })
-                  dispatch({ type: 'SET_COSMOSDB_STATUS', payload: response })
+                  dispatch({ type: 'SET_DATABASE_STATUS', payload: response })
                 } else {
                   dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
                   dispatch({
-                    type: 'SET_COSMOSDB_STATUS',
-                    payload: { cosmosDB: false, status: CosmosDBStatus.NotWorking }
+                    type: 'SET_DATABASE_STATUS',
+                    payload: { database: false, status: DatabaseStatus.NotWorking }
                   })
                 }
               })
               .catch(_err => {
                 dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
                 dispatch({
-                  type: 'SET_COSMOSDB_STATUS',
-                  payload: { cosmosDB: false, status: CosmosDBStatus.NotWorking }
+                  type: 'SET_DATABASE_STATUS',
+                  payload: { database: false, status: DatabaseStatus.NotWorking }
                 })
               })
           } else {
             dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
-            dispatch({ type: 'SET_COSMOSDB_STATUS', payload: response })
+            dispatch({ type: 'SET_DATABASE_STATUS', payload: response })
           }
         })
         .catch(_err => {
           dispatch({ type: 'UPDATE_CHAT_HISTORY_LOADING_STATE', payload: ChatHistoryLoadingState.Fail })
-          dispatch({ type: 'SET_COSMOSDB_STATUS', payload: { cosmosDB: false, status: CosmosDBStatus.NotConfigured } })
+          dispatch({ type: 'SET_DATABASE_STATUS', payload: { database: false, status: DatabaseStatus.NotConfigured } })
         })
     }
 

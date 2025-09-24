@@ -942,6 +942,20 @@ class _BaseSettings(BaseSettings):
     azure_speech_region: Optional[str] = "westeurope"  # Azure Speech Services region
     azure_speech_voice_fr: str = "fr-FR-DeniseNeural"  # French voice
     azure_speech_voice_en: str = "en-US-JennyNeural"   # English voice
+
+    # External API Configuration
+    external_api_enabled: bool = True  # Enable external REST API for document search
+    external_api_keys: Optional[str] = None  # API keys configuration (client:key:ips format)
+    external_api_rate_limit_per_minute: int = 60  # Default rate limit per minute
+    external_api_rate_limit_per_hour: int = 1000  # Default rate limit per hour
+    external_api_max_results: int = 50  # Maximum results per search request
+    external_api_request_timeout: int = 30  # Request timeout in seconds
+
+    # Swagger/OpenAPI Documentation
+    external_api_swagger_enabled: bool = True  # Enable Swagger UI interface
+    external_api_title: str = "AskMe External API"  # API title in documentation
+    external_api_description: str = "REST API for external document search integration"  # API description
+    external_api_version: str = "1.0.0"  # API version
     
     @field_validator('wake_word_phrases', mode='before')
     @classmethod

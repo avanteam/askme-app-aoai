@@ -36,7 +36,7 @@ import {
   historyUpdate,
   historyClear,
   ChatHistoryLoadingState,
-  CosmosDBStatus,
+  DatabaseStatus,
   ErrorMessage,
   ExecResults,
   authenticate,
@@ -131,19 +131,19 @@ const Chat = () => {
 
   useEffect(() => {
     if (
-      appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.Working &&
-      appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured &&
+      appStateContext?.state.isDatabaseAvailable?.status !== DatabaseStatus.Working &&
+      appStateContext?.state.isDatabaseAvailable?.status !== DatabaseStatus.NotConfigured &&
       appStateContext?.state.chatHistoryLoadingState === ChatHistoryLoadingState.Fail &&
       hideErrorDialog
     ) {
-      let subtitle = `${appStateContext.state.isCosmosDBAvailable.status}. Please contact the site administrator.`
+      let subtitle = `${appStateContext.state.isDatabaseAvailable.status}. Please contact the site administrator.`
       setErrorMsg({
         title: 'Chat history is not enabled',
         subtitle: subtitle
       })
       toggleErrorDialog()
     }
-  }, [appStateContext?.state.isCosmosDBAvailable])
+  }, [appStateContext?.state.isDatabaseAvailable])
 
   const handleErrorDialogClose = () => {
     toggleErrorDialog()
@@ -848,7 +848,7 @@ const Chat = () => {
 
   const clearChat = async () => {
     setClearingChat(true)
-    if (appStateContext?.state.currentChat?.id && appStateContext?.state.isCosmosDBAvailable.cosmosDB) {
+    if (appStateContext?.state.currentChat?.id && appStateContext?.state.isDatabaseAvailable.database) {
       let response = await historyClear(appStateContext?.state.currentChat.id, token, encryptedCurrentUser)
       if (!response.ok) {
         setErrorMsg({
@@ -968,7 +968,7 @@ const Chat = () => {
     }
 
     if (appStateContext && appStateContext.state.currentChat && processMessages === messageStatus.Done) {
-      if (appStateContext.state.isCosmosDBAvailable.cosmosDB) {
+      if (appStateContext.state.isDatabaseAvailable.database) {
         if (!appStateContext?.state.currentChat?.messages) {
           console.error('Failure fetching current chat state.')
           return
@@ -1295,7 +1295,7 @@ const Chat = () => {
                   </Stack>
                 )}
                 <Stack>
-                  {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && (
+                  {appStateContext?.state.isDatabaseAvailable?.status !== DatabaseStatus.NotConfigured && (
                     <CommandBarButton
                       role="button"
                       styles={{
@@ -1340,13 +1340,13 @@ const Chat = () => {
                       }
                     }}
                     className={
-                      appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured
+                      appStateContext?.state.isDatabaseAvailable?.status !== DatabaseStatus.NotConfigured
                         ? styles.clearChatBroom
                         : styles.clearChatBroomNoCosmos
                     }
                     iconProps={{ iconName: 'Broom' }}
                     onClick={
-                      appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured
+                      appStateContext?.state.isDatabaseAvailable?.status !== DatabaseStatus.NotConfigured
                         ? clearChat
                         : newChat
                     }
@@ -1364,7 +1364,7 @@ const Chat = () => {
                   placeholder={localizedStrings.yourQuestionPlaceholder}
                   disabled={isLoading}
                   onSend={(question, id) => {
-                    appStateContext?.state.isCosmosDBAvailable?.cosmosDB
+                    appStateContext?.state.isDatabaseAvailable?.database
                       ? makeApiRequestWithCosmosDB(question, id)
                       : makeApiRequestWithoutCosmosDB(question, id)
                   }}
@@ -1476,7 +1476,7 @@ const Chat = () => {
             </Stack.Item>
           )}
           {appStateContext?.state.isChatHistoryOpen &&
-            appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && <ChatHistoryPanel />}
+            appStateContext?.state.isDatabaseAvailable?.status !== DatabaseStatus.NotConfigured && <ChatHistoryPanel />}
         </Stack>
       )}
     </div>

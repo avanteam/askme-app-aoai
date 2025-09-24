@@ -3,7 +3,7 @@ import { Link, Outlet } from 'react-router-dom'
 import { Dialog, Stack, TextField } from '@fluentui/react'
 import { CopyRegular } from '@fluentui/react-icons'
 
-import { CosmosDBStatus } from '../../api'
+import { DatabaseStatus } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
 import {
   CustomizationButton,
@@ -132,7 +132,7 @@ const Layout = () => {
     setCustomizeLabel(localizedStrings.customize)
   }, [appStateContext?.state.userLanguage])
 
-  useEffect(() => {}, [appStateContext?.state.isCosmosDBAvailable.status])
+  useEffect(() => {}, [appStateContext?.state.isDatabaseAvailable.status])
 
   useEffect(() => {
     const handleResize = () => {
@@ -173,7 +173,7 @@ const Layout = () => {
             </Link>
           </Stack>
           <Stack horizontal tokens={{ childrenGap: 4 }} className={styles.shareButtonContainer}>
-            {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured &&
+            {appStateContext?.state.isDatabaseAvailable?.status !== DatabaseStatus.NotConfigured &&
               ui?.show_chat_history_button !== false && (
                 <HistoryButton
                   onClick={handleHistoryClick}

@@ -1,6 +1,6 @@
 import { chatHistorySampleData } from '../constants/chatHistory'
 
-import { ChatMessage, Conversation, ConversationRequest, CosmosDBHealth, CosmosDBStatus, UserInfo } from './models'
+import { ChatMessage, Conversation, ConversationRequest, DatabaseHealth, DatabaseStatus, UserInfo } from './models'
 
 export async function conversationApi(
   options: ConversationRequest,
@@ -359,7 +359,7 @@ export const historyRename = async (
   return response
 }
 
-export const historyEnsure = async (token: string): Promise<CosmosDBHealth> => {
+export const historyEnsure = async (token: string): Promise<DatabaseHealth> => {
   const response = await fetch('/history/ensure', {
     method: 'GET'
     // Pas d'AuthToken - c'est un test de santé CosmosDB, pas d'authentification utilisateur
@@ -368,26 +368,26 @@ export const historyEnsure = async (token: string): Promise<CosmosDBHealth> => {
       const respJson = await res.json()
       let formattedResponse
       if (respJson.message) {
-        formattedResponse = CosmosDBStatus.Working
+        formattedResponse = DatabaseStatus.Working
       } else {
         if (res.status === 500) {
-          formattedResponse = CosmosDBStatus.NotWorking
+          formattedResponse = DatabaseStatus.NotWorking
         } else if (res.status === 401) {
-          formattedResponse = CosmosDBStatus.InvalidCredentials
+          formattedResponse = DatabaseStatus.InvalidCredentials
         } else if (res.status === 422) {
           formattedResponse = respJson.error
         } else {
-          formattedResponse = CosmosDBStatus.NotConfigured
+          formattedResponse = DatabaseStatus.NotConfigured
         }
       }
       if (!res.ok) {
         return {
-          cosmosDB: false,
+          database: false,
           status: formattedResponse
         }
       } else {
         return {
-          cosmosDB: true,
+          database: true,
           status: formattedResponse
         }
       }
@@ -395,7 +395,7 @@ export const historyEnsure = async (token: string): Promise<CosmosDBHealth> => {
     .catch(err => {
       console.error('There was an issue fetching your data.')
       return {
-        cosmosDB: false,
+        database: false,
         status: err
       }
     })

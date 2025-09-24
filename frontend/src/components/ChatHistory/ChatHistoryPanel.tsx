@@ -208,18 +208,18 @@ export function ChatHistoryPanel(_props: ChatHistoryPanelProps) {
         }}>
         <Stack className={styles.chatHistoryListContainer}>
           {appStateContext?.state.chatHistoryLoadingState === ChatHistoryLoadingState.Success &&
-            appStateContext?.state.isCosmosDBAvailable.cosmosDB && <ChatHistoryList />}
+            appStateContext?.state.isDatabaseAvailable.database && <ChatHistoryList />}
           {appStateContext?.state.chatHistoryLoadingState === ChatHistoryLoadingState.Fail &&
-            appStateContext?.state.isCosmosDBAvailable && (
+            appStateContext?.state.isDatabaseAvailable && (
               <>
                 <Stack>
                   <Stack horizontalAlign="center" verticalAlign="center" style={{ width: '100%', marginTop: 10 }}>
                     <StackItem>
                       <Text style={{ alignSelf: 'center', fontWeight: '400', fontSize: 16 }}>
-                        {appStateContext?.state.isCosmosDBAvailable?.status && (
-                          <span>{appStateContext?.state.isCosmosDBAvailable?.status}</span>
+                        {appStateContext?.state.isDatabaseAvailable?.status && (
+                          <span>{appStateContext?.state.isDatabaseAvailable?.status}</span>
                         )}
-                        {!appStateContext?.state.isCosmosDBAvailable?.status && (
+                        {!appStateContext?.state.isDatabaseAvailable?.status && (
                           <span>{localizedStrings.loadError}</span>
                         )}
                       </Text>

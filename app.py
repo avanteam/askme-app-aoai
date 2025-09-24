@@ -67,6 +67,18 @@ def create_app():
     app = Quart(__name__)
     app.register_blueprint(bp)
     app.config["TEMPLATES_AUTO_RELOAD"] = True
+
+    # Register external API blueprint if enabled
+    if app_settings.base_settings.external_api_enabled:
+        from backend.api.routes import api_v1
+        from backend.api.swagger import docs_bp
+        from backend.api.rate_limiter import limiter
+
+        app.register_blueprint(api_v1)
+        app.register_blueprint(docs_bp)
+
+        # Initialize rate limiter
+        limiter.init_app(app)
     
     @app.before_serving
     async def init():
