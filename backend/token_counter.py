@@ -68,27 +68,11 @@ class TokenCounter:
         if hasattr(app_settings, 'usage_tracker'):
             settings = app_settings.usage_tracker
             self.enabled = settings.enabled
-            self.image_base_tokens = settings.image_base_tokens
-            self.image_weight_multiplier = settings.image_weight_multiplier
-
-            # Build size tiers from settings
-            self.image_size_tiers = [
-                {"max_kb": settings.image_size_tier_small_kb, "multiplier": settings.image_size_tier_small_multiplier, "name": "small"},
-                {"max_kb": settings.image_size_tier_medium_kb, "multiplier": settings.image_size_tier_medium_multiplier, "name": "medium"},
-                {"max_kb": settings.image_size_tier_large_kb, "multiplier": settings.image_size_tier_large_multiplier, "name": "large"},
-                {"max_kb": settings.image_size_tier_xlarge_kb, "multiplier": settings.image_size_tier_xlarge_multiplier, "name": "xlarge"},
-            ]
+            self.image_tokens_per_byte = settings.image_tokens_per_byte
         else:
             # Fallback values if settings not available
             self.enabled = True
-            self.image_base_tokens = 85
-            self.image_weight_multiplier = 1.5
-            self.image_size_tiers = [
-                {"max_kb": 100, "multiplier": 1.0, "name": "small"},
-                {"max_kb": 500, "multiplier": 2.0, "name": "medium"},
-                {"max_kb": 2000, "multiplier": 3.0, "name": "large"},
-                {"max_kb": 10000, "multiplier": 5.0, "name": "xlarge"},
-            ]
+            self.image_tokens_per_byte = 0.001
 
         # Image detail level multipliers (following OpenAI's vision pricing)
         self.image_detail_multipliers = {
@@ -97,7 +81,7 @@ class TokenCounter:
             'auto': 3.0     # Reasonable default
         }
 
-        self.logger.info(f"TokenCounter initialized - enabled: {self.enabled}, image_base_tokens: {self.image_base_tokens}, image_weight: {self.image_weight_multiplier}")
+        self.logger.info(f"TokenCounter initialized - enabled: {self.enabled}, image_tokens_per_byte: {self.image_tokens_per_byte}")
 
     def get_encoding_for_model(self, model_name: str) -> Optional[object]:
         """
@@ -158,15 +142,15 @@ class TokenCounter:
         # Fallback: rough estimation (4 characters per token)
         return max(1, len(text) // 4)
 
-    def _estimate_image_size_kb(self, image_data: str) -> float:
+    def _estimate_image_size_bytes(self, image_data: str) -> int:
         """
-        Estimate image size in KB from base64 data.
+        Estimate image size in bytes from base64 data.
 
         Args:
             image_data: Base64 encoded image data or URL
 
         Returns:
-            Estimated size in KB
+            Estimated size in bytes
         """
         if not image_data:
             return 0
@@ -180,10 +164,10 @@ class TokenCounter:
 
             # Base64 encoded size is ~1.33x the actual size
             estimated_bytes = (len(base64_data) * 3) / 4
-            return estimated_bytes / 1024  # Convert to KB
+            return int(estimated_bytes)
 
         # For URLs, we can't determine size, so use a reasonable default
-        return 500  # Default to medium size
+        return 500 * 1024  # Default to 500KB
 
     def _is_base64_image(self, data: str) -> bool:
         """
@@ -213,30 +197,14 @@ class TokenCounter:
 
         return False
 
-    def _get_size_tier(self, size_kb: float) -> Dict[str, Any]:
-        """
-        Get the appropriate size tier for an image.
-
-        Args:
-            size_kb: Image size in KB
-
-        Returns:
-            Size tier configuration
-        """
-        for tier in self.image_size_tiers:
-            if size_kb <= tier["max_kb"]:
-                return tier
-
-        # If larger than all tiers, use the largest one
-        return self.image_size_tiers[-1]
 
     def count_image_tokens(self, image_data: str, detail_level: str = 'auto') -> Dict[str, Any]:
         """
-        Count tokens for an image with configurable parameters.
+        Count tokens for an image using simple byte-based calculation.
 
         Args:
             image_data: Base64 encoded image data or URL
-            detail_level: Processing detail level ('low', 'high', 'auto')
+            detail_level: Processing detail level ('low', 'high', 'auto') - for compatibility
 
         Returns:
             Dictionary with token count and metadata
@@ -244,37 +212,21 @@ class TokenCounter:
         if not image_data:
             return {"tokens": 0, "metadata": {}}
 
-        # Estimate image size
-        size_kb = self._estimate_image_size_kb(image_data)
-        size_tier = self._get_size_tier(size_kb)
+        # Estimate image size in bytes
+        size_bytes = self._estimate_image_size_bytes(image_data)
 
-        # Calculate base tokens
-        base_tokens = self.image_base_tokens
-
-        # Apply detail level multiplier
-        detail_multiplier = self.image_detail_multipliers.get(detail_level, 1.0)
-
-        # Apply size tier multiplier
-        size_multiplier = size_tier["multiplier"]
-
-        # Calculate final tokens with all multipliers
-        tokens = base_tokens * detail_multiplier * size_multiplier * self.image_weight_multiplier
-
-        # Round to nearest integer
-        tokens = int(round(tokens))
+        # Simple calculation: bytes × multiplier
+        tokens = int(round(size_bytes * self.image_tokens_per_byte))
 
         metadata = {
-            "size_kb": round(size_kb, 2),
-            "size_tier": size_tier["name"],
+            "size_bytes": size_bytes,
+            "size_kb": round(size_bytes / 1024, 2),
             "detail_level": detail_level,
-            "base_tokens": base_tokens,
-            "detail_multiplier": detail_multiplier,
-            "size_multiplier": size_multiplier,
-            "weight_multiplier": self.image_weight_multiplier,
+            "tokens_per_byte": self.image_tokens_per_byte,
             "is_base64": self._is_base64_image(image_data)
         }
 
-        self.logger.debug(f"Image tokens: {tokens} (size: {size_kb:.1f}KB, tier: {size_tier['name']}, detail: {detail_level})")
+        self.logger.debug(f"Image tokens: {tokens} (size: {size_bytes} bytes, {size_bytes/1024:.1f}KB)")
 
         return {"tokens": tokens, "metadata": metadata}
 
@@ -428,9 +380,7 @@ class TokenCounter:
                 "search_context_length": len(search_context) if search_context else 0,
                 "azure_role_information_length": len(azure_role_information) if azure_role_information else 0,
                 "settings": {
-                    "image_base_tokens": self.image_base_tokens,
-                    "image_weight_multiplier": self.image_weight_multiplier,
-                    "size_tiers": self.image_size_tiers
+                    "image_tokens_per_byte": self.image_tokens_per_byte
                 }
             }
         }

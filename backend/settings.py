@@ -909,22 +909,8 @@ class _UsageTrackerSettings(BaseSettings):
     # General settings
     enabled: bool = True
 
-    # Image token counting settings
-    image_base_tokens: int = 85
-    image_weight_multiplier: float = 1.5
-
-    # Image size tiers configuration
-    image_size_tier_small_kb: int = 100
-    image_size_tier_small_multiplier: float = 1.0
-
-    image_size_tier_medium_kb: int = 500
-    image_size_tier_medium_multiplier: float = 2.0
-
-    image_size_tier_large_kb: int = 2000
-    image_size_tier_large_multiplier: float = 3.0
-
-    image_size_tier_xlarge_kb: int = 10000
-    image_size_tier_xlarge_multiplier: float = 5.0
+    # Image token counting settings - Simple rule: bytes × multiplier
+    image_tokens_per_byte: float = 0.001
 
     # CosmosDB configuration for usage tracking
     cosmos_container_name: str = "token_usage"

@@ -68,14 +68,7 @@ class UsageRecord:
         if hasattr(app_settings, 'usage_tracker'):
             settings = app_settings.usage_tracker
             return {
-                'image_base_tokens': settings.image_base_tokens,
-                'image_weight_multiplier': settings.image_weight_multiplier,
-                'size_tiers': {
-                    'small': {'max_kb': settings.image_size_tier_small_kb, 'multiplier': settings.image_size_tier_small_multiplier},
-                    'medium': {'max_kb': settings.image_size_tier_medium_kb, 'multiplier': settings.image_size_tier_medium_multiplier},
-                    'large': {'max_kb': settings.image_size_tier_large_kb, 'multiplier': settings.image_size_tier_large_multiplier},
-                    'xlarge': {'max_kb': settings.image_size_tier_xlarge_kb, 'multiplier': settings.image_size_tier_xlarge_multiplier},
-                }
+                'image_tokens_per_byte': settings.image_tokens_per_byte
             }
         return {}
 
