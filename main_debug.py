@@ -8,7 +8,7 @@ def check_port_in_use(port):
     """Vérifie si un port est déjà utilisé"""
     try:
         if os.name == 'nt':  # Windows
-            result = subprocess.run(["netstat", "-an"], capture_output=True, text=True)
+            result = subprocess.run(["netstat", "-an"], capture_output=True, text=True, encoding='utf-8', errors='ignore')
             return f":{port}" in result.stdout
         else:  # Linux/Mac
             result = subprocess.run(["lsof", f"-i:{port}"], capture_output=True, text=True)
@@ -18,13 +18,13 @@ def check_port_in_use(port):
 
 def start_mongodb_tunnel():
     """Démarre le tunnel MongoDB vers Kubernetes"""
-    print("\n[MongoDB] Démarrage du tunnel Kubernetes...")
+    print("\n[MongoDB] Démarrage du tunnel Kubernetes en arrière-plan...")
 
     try:
         # Vérifier si le port 27017 est déjà utilisé
         if check_port_in_use(27017):
             print("[MongoDB] Port 27017 déjà utilisé - tunnel probablement actif")
-            print("[MongoDB] Connexion MongoDB disponible sur localhost:27017")
+            print("[MongoDB] Tunnel MongoDB disponible sur localhost:27017")
             return True
 
         # Vérifier si kubectl est disponible
@@ -34,17 +34,26 @@ def start_mongodb_tunnel():
             print("[AVERTISSEMENT] kubectl non disponible. Tunnel MongoDB ignoré.")
             return False
 
-        # Démarrer le tunnel MongoDB
+        # Démarrer le tunnel MongoDB dans une nouvelle fenêtre (Windows)
         if os.name == 'nt':  # Windows
-            # Utiliser le script mongodb-tunnel.cmd sur Windows
-            subprocess.Popen(["mongodb-tunnel.cmd", "start"], shell=True)
+            subprocess.Popen([
+                "cmd", "/c", "start", "MongoDB Tunnel", "cmd", "/k",
+                "kubectl port-forward -n askme-mongodb service/mongodb-shared 27017:27017"
+            ], shell=True)
         else:  # Linux/Mac
-            # Commande directe sur Linux
             subprocess.Popen(["kubectl", "port-forward", "-n", "askme-mongodb",
                             "service/mongodb-shared", "27017:27017"])
 
-        print("[MongoDB] Tunnel démarré en arrière-plan sur localhost:27017")
-        time.sleep(2)  # Attendre l'établissement du tunnel
+        print("[MongoDB] Tunnel lancé dans une nouvelle fenêtre.")
+        print("[MongoDB] Attente de l'établissement du tunnel...")
+        time.sleep(5)  # Attendre l'établissement du tunnel
+
+        # Vérifier si le tunnel est établi
+        if check_port_in_use(27017):
+            print("[MongoDB] Tunnel MongoDB disponible sur localhost:27017")
+        else:
+            print("[MongoDB] Tunnel en cours d'établissement... (vérifiez la fenêtre MongoDB Tunnel)")
+
         return True
 
     except subprocess.TimeoutExpired:
@@ -59,7 +68,8 @@ if __name__ == "__main__":
     start_mongodb_tunnel()
 
     print("\n[Debug Server] Démarrage du serveur de développement...")
-    print("[Debug Server] Serveur disponible sur http://localhost:50505")
+    print("[Debug Server] Serveur disponible sur http://localhost:5007")
     print("[Debug Server] MongoDB tunnel sur localhost:27017 (si disponible)")
 
-    uvicorn.run("app:app", host="0.0.0.0", port=50505, reload=True)
+    # Lancer exactement comme start.cmd (sans spécifier le host explicitement)
+    uvicorn.run("app:app", port=5007, reload=True)
