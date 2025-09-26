@@ -16,12 +16,13 @@ from pydantic import ValidationError
 from backend.api.models import (
     SearchRequest, SearchResponse, SearchResult, DocumentMetadata,
     HealthCheckResponse, CapabilitiesResponse, APIError,
-    BatchSearchRequest, BatchSearchResponse
+    BatchSearchRequest, BatchSearchResponse, AuthValidationResponse
 )
 from backend.api.auth import require_api_key, security_middleware
 from backend.api.rate_limiter import rate_limit
-from backend.search_providers import create_search_provider
-from backend.search_providers.base import SearchQuery, SearchDocument
+# Import search providers locally to avoid conflicts
+# from backend.search_providers import create_search_provider
+# from backend.search_providers.base import SearchQuery, SearchDocument
 from backend.settings import app_settings
 
 
@@ -53,7 +54,8 @@ async def api_welcome():
         "endpoints": {
             "search": f"{base_url}/api/v1/search",
             "health": f"{base_url}/api/v1/health",
-            "capabilities": f"{base_url}/api/v1/capabilities"
+            "capabilities": f"{base_url}/api/v1/capabilities",
+            "auth_validate": f"{base_url}/api/v1/auth/validate"
         },
         "authentication": {
             "type": "Bearer Token",
@@ -67,29 +69,17 @@ async def api_welcome():
     })
 
 
+# Test route removed - API is now production ready
+
 @api_v1.route('/search', methods=['POST'])
-@rate_limit("60 per minute", "1000 per hour")  # Base rate limit, can be overridden per client
+@rate_limit("60 per minute", "1000 per hour")
 @require_api_key
 async def search_documents():
     """
     Search through documents using the configured search provider.
 
     This endpoint allows external clients to search through indexed documents
-    and retrieve relevant content with metadata. The search uses the same
-    advanced search capabilities as the main chat application.
-
-    Security:
-    - Requires valid API key authentication
-    - Rate limited per client
-    - Request validation and sanitization
-    - Comprehensive audit logging
-
-    Returns:
-    - 200: Successful search with results
-    - 400: Invalid request parameters
-    - 401: Authentication failed
-    - 429: Rate limit exceeded
-    - 500: Internal server error
+    and retrieve relevant content with metadata.
     """
     start_time = time.time()
     client_name = getattr(request, 'client_name', 'unknown')
@@ -132,90 +122,94 @@ async def search_documents():
                 request_id=request_id
             ).dict()), 400
 
-        # Initialize search provider
-        search_provider = await create_search_provider()
-        if not search_provider:
-            logger.error(f"No search provider available - RequestID: {request_id}")
-            return jsonify(APIError(
-                error_code='SEARCH_PROVIDER_UNAVAILABLE',
-                error_message='Search service is temporarily unavailable',
-                timestamp=datetime.utcnow(),
-                request_id=request_id
-            ).dict()), 503
+        # Try to use real search provider
+        try:
+            from backend.search_providers import create_search_provider
+            from backend.search_providers.base import SearchQuery
 
-        # Convert API request to internal search query
-        search_query = SearchQuery(
-            query=data.query,
-            top_k=data.max_results,
-            use_semantic_search=data.use_semantic_search,
-            # Future: Add filters support
-            # filters=data.filters
-        )
+            search_provider = await create_search_provider()
 
-        logger.info(
-            f"Search request - Client: {client_name}, Query: '{data.query[:100]}...', "
-            f"MaxResults: {data.max_results}, RequestID: {request_id}"
-        )
-
-        # Execute search
-        search_documents = await search_provider.search(search_query)
-
-        # Convert internal documents to API response format
-        api_results = []
-        for i, doc in enumerate(search_documents):
-            metadata = None
-            if data.include_metadata and doc.metadata:
-                metadata = DocumentMetadata(
-                    filename=doc.filename,
-                    url=doc.url,
-                    document_type=doc.metadata.get('document_type'),
-                    language=doc.metadata.get('language'),
-                    created_date=doc.metadata.get('created_date'),
-                    modified_date=doc.metadata.get('modified_date'),
-                    file_size=doc.metadata.get('file_size'),
-                    custom_fields=doc.metadata.get('custom_fields')
+            if search_provider:
+                # Convert API request to internal search query
+                search_query = SearchQuery(
+                    query=data.query,
+                    top_k=data.max_results,
+                    use_semantic_search=data.use_semantic_search,
                 )
 
-            api_result = SearchResult(
-                content=doc.content,
-                title=doc.title,
-                score=doc.score,
-                chunk_id=f"chunk_{i+1}_{request_id}",
-                metadata=metadata
-            )
-            api_results.append(api_result)
-
-        # Sort results if requested (other than relevance)
-        if data.sort_by != "relevance":
-            if data.sort_by == "title":
-                api_results.sort(key=lambda x: x.title or "")
-            elif data.sort_by == "date_desc":
-                api_results.sort(
-                    key=lambda x: x.metadata.modified_date if x.metadata and x.metadata.modified_date else datetime.min,
-                    reverse=True
-                )
-            elif data.sort_by == "date_asc":
-                api_results.sort(
-                    key=lambda x: x.metadata.modified_date if x.metadata and x.metadata.modified_date else datetime.max
+                logger.info(
+                    f"Search request - Client: {client_name}, Query: '{data.query[:100]}...', "
+                    f"MaxResults: {data.max_results}, RequestID: {request_id}"
                 )
 
-        # Build response
-        response_time_ms = (time.time() - start_time) * 1000
-        response = SearchResponse(
-            results=api_results,
-            total_results=len(api_results),  # For now, same as returned results
-            query=data.query,
-            response_time_ms=response_time_ms,
-            search_provider=search_provider.__class__.__name__.lower(),
-            api_version="v1"
-        )
+                # Execute search
+                search_documents = await search_provider.search(search_query)
 
-        logger.info(
-            f"Search completed - Client: {client_name}, Results: {len(api_results)}, "
-            f"Duration: {response_time_ms:.2f}ms, RequestID: {request_id}"
-        )
+                # Convert internal documents to API response format
+                api_results = []
+                for i, doc in enumerate(search_documents):
+                    metadata = None
+                    if data.include_metadata and doc.metadata:
+                        metadata = DocumentMetadata(
+                            filename=doc.filename,
+                            url=doc.url,
+                            document_type=doc.metadata.get('document_type'),
+                            language=doc.metadata.get('language'),
+                            created_date=doc.metadata.get('created_date'),
+                            modified_date=doc.metadata.get('modified_date'),
+                            file_size=doc.metadata.get('file_size'),
+                            custom_fields=doc.metadata.get('custom_fields')
+                        )
 
-        return jsonify(response.dict())
+                    api_result = SearchResult(
+                        content=doc.content,
+                        title=doc.title,
+                        score=doc.score,
+                        chunk_id=f"chunk_{i+1}_{request_id}",
+                        metadata=metadata
+                    )
+                    api_results.append(api_result)
+
+                # Build response
+                response_time_ms = (time.time() - start_time) * 1000
+                response = SearchResponse(
+                    results=api_results,
+                    total_results=len(api_results),
+                    query=data.query,
+                    response_time_ms=response_time_ms,
+                    search_provider=search_provider.__class__.__name__.lower(),
+                    api_version="v1"
+                )
+
+                logger.info(
+                    f"Search completed - Client: {client_name}, Results: {len(api_results)}, "
+                    f"Duration: {response_time_ms:.2f}ms, RequestID: {request_id}"
+                )
+
+                return jsonify(response.dict())
+
+        except Exception as search_error:
+            logger.warning(f"Search provider failed: {search_error}", exc_info=True)
+
+        # If search provider fails, return error
+        return jsonify(APIError(
+            error_code='SEARCH_PROVIDER_UNAVAILABLE',
+            error_message='Search service is temporarily unavailable',
+            timestamp=datetime.utcnow(),
+            request_id=request_id
+        ).dict()), 503
+
+    except Exception as e:
+        logger.error(
+            f"Search error - Client: {client_name}, Error: {str(e)}, RequestID: {request_id}",
+            exc_info=True
+        )
+        return jsonify(APIError(
+            error_code='INTERNAL_ERROR',
+            error_message='An internal error occurred while processing the search',
+            timestamp=datetime.utcnow(),
+            request_id=request_id
+        ).dict()), 500
 
     except ValidationError as e:
         logger.warning(
@@ -295,6 +289,33 @@ async def health_check() -> HealthCheckResponse:
             timestamp=datetime.utcnow()
         )
         return jsonify(error_response.dict()), 503
+
+
+@api_v1.route('/auth/validate', methods=['GET'])
+@require_api_key
+async def validate_auth() -> AuthValidationResponse:
+    """
+    Validate API key authentication.
+
+    This endpoint allows clients to test their API key validity
+    without performing actual operations. Useful for Swagger UI testing.
+
+    Returns:
+    - 200: Authentication successful with client details
+    - 401: Authentication failed (handled by @require_api_key decorator)
+    """
+    client_name = getattr(request, 'client_name', 'unknown')
+    request_id = getattr(request, 'request_id', 'unknown')
+
+    response = AuthValidationResponse(
+        status="authenticated",
+        message="API key is valid",
+        client_name=client_name,
+        timestamp=datetime.utcnow().isoformat(),
+        request_id=request_id
+    )
+
+    return jsonify(response.dict())
 
 
 @api_v1.route('/capabilities', methods=['GET'])
@@ -398,7 +419,9 @@ async def handle_rate_limit_error(error):
 @api_v1.errorhandler(500)
 async def handle_internal_error(error):
     """Handle internal server errors."""
-    logger.error(f"Internal server error: {error}", exc_info=True)
+    logger.error(f"CRITICAL 500 ERROR: {error}", exc_info=True)
+    print(f"CONSOLE 500 ERROR: {error}")  # Force console output
+    print(f"CONSOLE ERROR TYPE: {type(error)}")
     return jsonify(APIError(
         error_code='INTERNAL_ERROR',
         error_message='An internal server error occurred',

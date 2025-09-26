@@ -291,6 +291,40 @@ class CapabilitiesResponse(BaseModel):
     )
 
 
+class AuthValidationResponse(BaseModel):
+    """Authentication validation response model."""
+
+    status: str = Field(
+        ...,
+        description="Authentication status",
+        example="authenticated"
+    )
+
+    message: str = Field(
+        ...,
+        description="Human-readable status message",
+        example="API key is valid"
+    )
+
+    client_name: str = Field(
+        ...,
+        description="Authenticated client name",
+        example="lighton"
+    )
+
+    timestamp: str = Field(
+        ...,
+        description="Validation timestamp",
+        example="2025-01-25T10:30:00.000Z"
+    )
+
+    request_id: str = Field(
+        ...,
+        description="Unique request identifier",
+        example="req_1758815923_9134"
+    )
+
+
 class APIError(BaseModel):
     """Standard API error response model."""
 

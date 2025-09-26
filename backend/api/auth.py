@@ -43,7 +43,7 @@ class APIKeyManager:
         # V1: Load from environment variables
         # V2: Will load from database/Redis for dynamic management
 
-        raw_keys = getattr(app_settings, 'external_api_keys', '').strip()
+        raw_keys = getattr(app_settings.base_settings, 'external_api_keys', '').strip()
         if not raw_keys:
             logger.warning("No external API keys configured")
             return
@@ -332,3 +332,43 @@ def handle_rate_limit_exceeded(e):
         'retry_after_seconds': e.retry_after,
         'timestamp': datetime.utcnow().isoformat()
     }), 429
+
+
+def get_remote_address(request) -> str:
+    """
+    Get the remote IP address from the request.
+
+    Handles various proxy headers to get the real client IP.
+    Based on Quart/Flask documentation.
+    """
+    try:
+        # Check for forwarded headers first (proxy/load balancer)
+        forwarded_for = request.headers.get('X-Forwarded-For')
+        if forwarded_for:
+            # Take the first IP in the list (original client)
+            return forwarded_for.split(',')[0].strip()
+
+        # Check for other proxy headers
+        real_ip = request.headers.get('X-Real-IP')
+        if real_ip:
+            return real_ip
+
+        # Check HTTP_X_REAL_IP in environ (nginx proxy)
+        if hasattr(request, 'environ'):
+            real_ip_environ = request.environ.get('HTTP_X_REAL_IP')
+            if real_ip_environ:
+                return real_ip_environ
+
+        # Fall back to remote address (standard Quart/Flask way)
+        if request.remote_addr:
+            return request.remote_addr
+
+        # Last resort: check environ directly
+        if hasattr(request, 'environ'):
+            return request.environ.get('REMOTE_ADDR', 'unknown')
+
+    except Exception as e:
+        logger.warning(f"Error getting remote address: {e}")
+
+    # Default fallback
+    return 'unknown'

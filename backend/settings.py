@@ -30,6 +30,7 @@ DOTENV_PATH = os.environ.get(
         ".env"
     )
 )
+# Debug logs removed
 MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION = "2024-05-01-preview"
 
 
@@ -945,7 +946,7 @@ class _BaseSettings(BaseSettings):
 
     # External API Configuration
     external_api_enabled: bool = True  # Enable external REST API for document search
-    external_api_keys: Optional[str] = None  # API keys configuration (client:key:ips format)
+    external_api_keys: Optional[str] = Field(None, env="EXTERNAL_API_KEYS")  # API keys configuration (client:key:ips format)
     external_api_rate_limit_per_minute: int = 60  # Default rate limit per minute
     external_api_rate_limit_per_hour: int = 1000  # Default rate limit per hour
     external_api_max_results: int = 50  # Maximum results per search request

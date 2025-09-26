@@ -1,4 +1,5 @@
 import copy
+
 import json
 import os
 import logging
@@ -70,15 +71,20 @@ def create_app():
 
     # Register external API blueprint if enabled
     if app_settings.base_settings.external_api_enabled:
-        from backend.api.routes import api_v1
-        from backend.api.swagger import docs_bp
-        from backend.api.rate_limiter import limiter
+        try:
+            # Import locally to avoid circular dependencies during module loading
+            from backend.api.routes import api_v1
+            from backend.api.swagger import docs_bp
+            from backend.api.rate_limiter import limiter
 
-        app.register_blueprint(api_v1)
-        app.register_blueprint(docs_bp)
+            app.register_blueprint(api_v1)
+            app.register_blueprint(docs_bp)
+            limiter.init_app(app)
 
-        # Initialize rate limiter
-        limiter.init_app(app)
+            logging.info("External API enabled and registered successfully")
+        except Exception as e:
+            logging.error(f"Failed to register external API: {e}", exc_info=True)
+            raise
     
     @app.before_serving
     async def init():
