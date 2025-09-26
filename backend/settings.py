@@ -895,7 +895,7 @@ class _GeminiSettings(BaseSettings):
 
 
 class _CustomAvanteamSettings(BaseSettings):
-    
+
     model_config = SettingsConfigDict(
         env_prefix="AVANTEAM_",
         env_file=DOTENV_PATH,
@@ -907,9 +907,45 @@ class _CustomAvanteamSettings(BaseSettings):
     licencehub_handlerurl: Optional[str] = None
     licencehub_key: Optional[str] = None
     threshold_remaining_alert: Optional[int] = 100000
-        
 
 
+
+class _UsageTrackerSettings(BaseSettings):
+    """Configuration for the Usage Tracker system with token counting."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="USAGE_TRACKER_",
+        env_file=DOTENV_PATH,
+        extra="ignore",
+        env_ignore_empty=True
+    )
+
+    # General settings
+    enabled: bool = True
+
+    # Image token counting settings - Simple rule: bytes × multiplier
+    image_tokens_per_byte: float = 0.001
+
+    # CosmosDB configuration for usage tracking
+    cosmos_container_name: str = "token_usage"
+    store_detailed_metrics: bool = True
+
+    # Providers with native token counting (comma-separated string converted to list)
+    providers_with_native_counting: Optional[List[str]] = None
+
+    @field_validator('providers_with_native_counting', mode='before')
+    @classmethod
+    def split_providers(cls, value) -> List[str]:
+        if value is None:
+            # Use default from environment variable if available
+            import os
+            env_value = os.getenv("USAGE_TRACKER_PROVIDERS_WITH_NATIVE_COUNTING", "azure_openai,openai_direct,claude")
+            return [provider.strip() for provider in env_value.split(',')]
+        elif isinstance(value, str) and len(value) > 0:
+            return [provider.strip() for provider in value.split(',')]
+        elif isinstance(value, list):
+            return value
+        return ["azure_openai", "openai_direct", "claude"]  # Default providers
 
 
 class _BaseSettings(BaseSettings):
@@ -1022,7 +1058,8 @@ class _AppSettings(BaseModel):
     search: _SearchCommonSettings = _SearchCommonSettings()
     ui: Optional[_UiSettings] = _UiSettings()
     custom_avanteam_settings: _CustomAvanteamSettings = _CustomAvanteamSettings()
-    
+    usage_tracker: _UsageTrackerSettings = _UsageTrackerSettings()
+
     # Constructed properties
     chat_history: Optional[_ChatHistorySettings] = None
     mongo_history: Optional[_MongoHistorySettings] = None

@@ -14,10 +14,11 @@ Key Design Principles:
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, AsyncGenerator, Union
+from typing import Any, Dict, List, AsyncGenerator, Union, Optional
+from datetime import datetime
 import functools
 
-from .models import StandardResponse, StandardResponseAdapter
+from .models import StandardResponse, StandardResponseAdapter, StandardUsage
 from .language_detection import get_system_message_for_language
 
 
@@ -40,7 +41,23 @@ class LLMProvider(ABC):
         """Initialize the provider."""
         self.initialized = False
         self.logger = logging.getLogger(self.__class__.__name__)
-    
+
+        # Track current search context for token counting
+        self._current_search_context = ""
+
+        # Initialize token counter
+        try:
+            from backend.token_counter import token_counter
+            self.token_counter = token_counter
+        except ImportError as e:
+            self.logger.warning(f"Token counter not available: {e}")
+            self.token_counter = None
+
+    @property
+    def current_search_context(self) -> str:
+        """Get the current search context used by this provider."""
+        return self._current_search_context
+
     def _get_max_tokens_for_response_size(self, provider_name: str, response_size: str) -> int:
         """
         Get max_tokens based on provider and response size preference.
@@ -286,7 +303,119 @@ Language code:"""
         except Exception as e:
             self.logger.debug(f"Failed to extract language from response: {e}")
             return ""
-    
+
+    def _get_provider_name(self) -> str:
+        """
+        Get the provider name for this LLM provider.
+
+        Returns:
+            Provider name (e.g., 'claude', 'azure_openai', etc.)
+        """
+        class_name = self.__class__.__name__.lower()
+        if 'claude' in class_name:
+            return 'claude'
+        elif 'azure' in class_name and 'openai' in class_name:
+            return 'azure_openai'
+        elif 'openai' in class_name and 'direct' in class_name:
+            return 'openai_direct'
+        elif 'mistral' in class_name:
+            return 'mistral'
+        elif 'gemini' in class_name:
+            return 'gemini'
+        else:
+            return class_name.replace('provider', '')
+
+    def _has_native_token_counting(self) -> bool:
+        """
+        Check if this provider has native token counting support.
+
+        Returns:
+            True if the provider returns token counts natively
+        """
+        provider_name = self._get_provider_name()
+        try:
+            from backend.settings import app_settings
+            if hasattr(app_settings, 'usage_tracker'):
+                native_providers = app_settings.usage_tracker.providers_with_native_counting
+                if isinstance(native_providers, list):
+                    return provider_name in native_providers
+                elif isinstance(native_providers, str):
+                    return provider_name in [p.strip() for p in native_providers.split(',')]
+            return provider_name in ['azure_openai', 'openai_direct', 'claude']
+        except:
+            return provider_name in ['azure_openai', 'openai_direct', 'claude']
+
+    async def _estimate_input_tokens(
+        self,
+        messages: List[Dict[str, Any]],
+        search_context: str = "",
+        model_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Estimate input tokens for the request.
+
+        Args:
+            messages: Messages to send to LLM
+            search_context: Additional search context
+            model_name: Model name for token counting
+
+        Returns:
+            Input tokens breakdown dictionary
+        """
+        if not self.token_counter:
+            return {"total": 0, "metadata": {"error": "Token counter not available"}}
+
+        try:
+            # Use model name from the provider or fallback
+            if not model_name:
+                model_name = getattr(self, 'model', 'gpt-4')
+
+            # Analyze input tokens
+            result = self.token_counter.analyze_input_tokens(
+                messages=messages,
+                search_context=search_context,
+                model_name=model_name
+            )
+
+            return result
+        except Exception as e:
+            self.logger.error(f"Failed to estimate input tokens: {e}")
+            return {"total": 0, "metadata": {"error": str(e)}}
+
+    def _enhance_usage_with_input_tokens(
+        self,
+        usage: StandardUsage,
+        input_token_details: Dict[str, Any]
+    ) -> StandardUsage:
+        """
+        Enhance usage object with detailed input token information.
+
+        Args:
+            usage: Existing StandardUsage object
+            input_token_details: Input token breakdown from token counter
+
+        Returns:
+            Enhanced StandardUsage with detailed information
+        """
+        if not usage:
+            usage = StandardUsage()
+
+        # Add detailed input token breakdown
+        usage.input_tokens_detail = input_token_details
+
+        # Add metadata for usage tracking
+        if not usage.usage_metadata:
+            usage.usage_metadata = {}
+
+        usage.usage_metadata.update({
+            'provider': self._get_provider_name(),
+            'has_native_counting': self._has_native_token_counting(),
+            'token_counter_enabled': self.token_counter is not None,
+            'enhanced_at': datetime.utcnow().isoformat()
+        })
+
+        return usage
+
     @abstractmethod
     async def init_client(self):
         """

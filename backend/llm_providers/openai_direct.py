@@ -410,6 +410,10 @@ class OpenAIDirectProvider(LLMProvider):
                 if search_results:
                     # Build context and citations
                     search_context, citations = build_search_context(search_results, app_settings.base_settings.citation_content_max_length)
+
+                    # Store search context for token counting
+                    self._current_search_context = search_context
+
                     self._current_search_citations = citations
         
         # Build enhanced system message with localization

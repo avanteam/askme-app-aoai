@@ -42,11 +42,17 @@ class StandardChoice:
 @dataclass
 class StandardUsage:
     """
-    Standard usage statistics for LLM responses.
+    Standard usage statistics for LLM responses with detailed breakdown.
     """
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+
+    # Detailed input token breakdown (new for usage tracking)
+    input_tokens_detail: Optional[Dict[str, Any]] = None
+
+    # Additional metadata for usage tracking
+    usage_metadata: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -113,6 +119,14 @@ class StandardResponse:
                 "completion_tokens": self.usage.completion_tokens,
                 "total_tokens": self.usage.total_tokens
             }
+
+            # Add detailed token breakdown if available
+            if self.usage.input_tokens_detail:
+                result["usage"]["input_tokens_detail"] = self.usage.input_tokens_detail
+
+            # Add usage metadata if available
+            if self.usage.usage_metadata:
+                result["usage"]["usage_metadata"] = self.usage.usage_metadata
         
         return result
 
@@ -129,7 +143,7 @@ class StandardResponseAdapter:
     def __init__(self, standard_response: StandardResponse):
         """
         Initialize adapter with a StandardResponse.
-        
+
         Args:
             standard_response: The StandardResponse to adapt
         """
@@ -138,9 +152,12 @@ class StandardResponseAdapter:
         self.model = standard_response.model
         self.created = standard_response.created
         self.object = standard_response.object
-        
+
         # Create choice adapters
         self.choices = [ChoiceAdapter(choice) for choice in standard_response.choices]
+
+        # Include usage information for compatibility
+        self.usage = standard_response.usage
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format for compatibility."""
