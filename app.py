@@ -55,7 +55,7 @@ from backend.speech_services import synthesize_speech_azure, clean_text_for_spee
 from backend.pronunciation_dict import get_pronunciation_dict, add_pronunciation, remove_pronunciation
 from backend.chat_commands import command_parser, ChatCommandExecutor
 from backend.version import get_version_info, get_display_version
-from backend.usage_service import init_usage_service, get_usage_service
+from backend.usage.usage_factory import init_usage_service, get_usage_service
 
 # Global variable to store current provider instance for token counting
 _current_provider_instance = None
@@ -95,20 +95,20 @@ def create_app():
         try:
             app.cosmos_conversation_client = await init_history_client()
 
-            # Initialize usage tracking service with same CosmosDB client
+            # Initialize usage tracking service
             if app.cosmos_conversation_client and hasattr(app.cosmos_conversation_client, 'cosmosdb_client'):
-                init_usage_service(app.cosmos_conversation_client.cosmosdb_client)
+                await init_usage_service(app.cosmos_conversation_client.cosmosdb_client)
                 logging.info("Usage tracking service initialized with CosmosDB client")
             else:
-                init_usage_service(None)
-                logging.warning("Usage tracking service initialized without CosmosDB client")
+                await init_usage_service(None)
+                logging.info("Usage tracking service initialized")
             cosmos_db_ready.set()
         except Exception as e:
             logging.exception("Failed to initialize history provider client")
             app.cosmos_conversation_client = None
 
             # Still try to initialize usage service even if CosmosDB fails
-            init_usage_service(None)
+            await init_usage_service(None)
 
             raise e
     
