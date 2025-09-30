@@ -710,7 +710,7 @@ EOF
 
 ```bash
 # 1. Build de l'image Docker
-docker build -f WebApp.Dockerfile \
+docker build -f deployment/docker/WebApp.Dockerfile \
   -t 7wpjr0wh.c1.gra9.container-registry.ovh.net/votre-projet/votre-app:latest .
 
 # 2. Push vers Harbor
@@ -783,7 +783,7 @@ kubectl cluster-info >/dev/null 2>&1 || { echo "Cluster non accessible"; exit 1;
 
 # Build et push de l'image
 echo "🐳 Build de l'image Docker..."
-docker build -f WebApp.Dockerfile -t $REGISTRY_URL/$PROJECT_NAME/$APP_NAME:latest .
+docker build -f deployment/docker/WebApp.Dockerfile -t $REGISTRY_URL/$PROJECT_NAME/$APP_NAME:latest .
 
 echo "📤 Push vers Harbor..."
 docker push $REGISTRY_URL/$PROJECT_NAME/$APP_NAME:latest
@@ -824,7 +824,7 @@ chmod +x deploy-new-app.sh
 ```bash
 # 1. Modifier votre code source
 # 2. Build nouvelle version
-docker build -f WebApp.Dockerfile \
+docker build -f deployment/docker/WebApp.Dockerfile \
   -t 7wpjr0wh.c1.gra9.container-registry.ovh.net/askme/askme-app:v1.2.0 .
 
 # 3. Push vers Harbor
@@ -935,7 +935,7 @@ kubectl get deployment $APP_NAME -n $NAMESPACE -o yaml > backup-$APP_NAME-$(date
 
 # Build et push
 echo "🐳 Build de la nouvelle version..."
-docker build -f WebApp.Dockerfile -t $REGISTRY_URL/askme/$APP_NAME:$NEW_VERSION .
+docker build -f deployment/docker/WebApp.Dockerfile -t $REGISTRY_URL/askme/$APP_NAME:$NEW_VERSION .
 docker push $REGISTRY_URL/askme/$APP_NAME:$NEW_VERSION
 
 # Mise à jour

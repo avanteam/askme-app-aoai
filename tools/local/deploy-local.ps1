@@ -13,7 +13,7 @@ Write-Host "Action: $Action" -ForegroundColor Yellow
 switch ($Action) {
     "build" {
         Write-Host "🔨 Building local Docker image..." -ForegroundColor Green
-        docker build -f WebApp.Dockerfile -t $LOCAL_TAG .
+        docker build -f deployment/docker/WebApp.Dockerfile -t $LOCAL_TAG .
         
         Write-Host "✅ Local build completed!" -ForegroundColor Green
         Write-Host "Images created:" -ForegroundColor Yellow

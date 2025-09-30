@@ -220,7 +220,7 @@ The application supports multiple data sources configured via environment variab
 - MongoDB (`DATASOURCE_TYPE=MongoDB`)
 
 ### Deployment
-- **Docker**: `WebApp.Dockerfile` for containerized deployment
+- **Docker**: `deployment/docker/WebApp.Dockerfile` for containerized deployment
 - **Helm Multi-Client**: Chart Helm dans `/helm-chart` pour déploiement multi-client
 - **OVH Kubernetes**: Architecture Helm multi-client avec Harbor registry integration
 - **GitHub Actions**: Automated deployment workflow (`.github/workflows/deploy.yml`)
