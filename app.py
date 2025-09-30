@@ -55,7 +55,7 @@ from backend.speech_services import synthesize_speech_azure, clean_text_for_spee
 from backend.pronunciation_dict import get_pronunciation_dict, add_pronunciation, remove_pronunciation
 from backend.chat_commands import command_parser, ChatCommandExecutor
 from backend.version import get_version_info, get_display_version
-from backend.usage_service import init_usage_service, get_usage_service
+from backend.usage.usage_factory import init_usage_service, get_usage_service
 
 # Global variable to store current provider instance for token counting
 _current_provider_instance = None
@@ -95,20 +95,20 @@ def create_app():
         try:
             app.cosmos_conversation_client = await init_history_client()
 
-            # Initialize usage tracking service with same CosmosDB client
+            # Initialize usage tracking service
             if app.cosmos_conversation_client and hasattr(app.cosmos_conversation_client, 'cosmosdb_client'):
-                init_usage_service(app.cosmos_conversation_client.cosmosdb_client)
+                await init_usage_service(app.cosmos_conversation_client.cosmosdb_client)
                 logging.info("Usage tracking service initialized with CosmosDB client")
             else:
-                init_usage_service(None)
-                logging.warning("Usage tracking service initialized without CosmosDB client")
+                await init_usage_service(None)
+                logging.info("Usage tracking service initialized")
             cosmos_db_ready.set()
         except Exception as e:
             logging.exception("Failed to initialize history provider client")
             app.cosmos_conversation_client = None
 
             # Still try to initialize usage service even if CosmosDB fails
-            init_usage_service(None)
+            await init_usage_service(None)
 
             raise e
     
@@ -1965,71 +1965,97 @@ async def get_usage_logs():
         # Force l'initialisation du container (le créé s'il n'existe pas)
         await usage_service.init_container()
 
-        if not usage_service.container:
-            return jsonify({"error": "Container not available after initialization"}), 503
+        # Vérifier si le service est initialisé (MongoDB utilise collection, pas container)
+        if not usage_service.initialized:
+            return jsonify({"error": "Usage service not available after initialization"}), 503
 
         # Récupération des paramètres de plage de dates (optionnels)
         start_date = request.args.get('start_date')  # Format: YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS
         end_date = request.args.get('end_date')      # Format: YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS
 
-        # Construction de la requête avec filtrage par dates si spécifiées
-        query = "SELECT * FROM c"
-        query_params = []
+        # Conversion des dates si spécifiées
+        start_datetime = None
+        end_datetime = None
 
-        # Filtrage par plage de dates si spécifiée
-        where_clauses = []
         if start_date:
             try:
-                # Conversion de la date de début
                 if 'T' not in start_date:
-                    start_date += 'T00:00:00'  # Début de journée si pas d'heure spécifiée
-                where_clauses.append("c.timestamp >= @start_date")
-                query_params.append({"name": "@start_date", "value": start_date})
+                    start_date += 'T00:00:00'
+                start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
             except ValueError:
                 return jsonify({"error": "Invalid start_date format. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS"}), 400
 
         if end_date:
             try:
-                # Conversion de la date de fin
                 if 'T' not in end_date:
-                    end_date += 'T23:59:59'  # Fin de journée si pas d'heure spécifiée
-                where_clauses.append("c.timestamp <= @end_date")
-                query_params.append({"name": "@end_date", "value": end_date})
+                    end_date += 'T23:59:59'
+                end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
             except ValueError:
                 return jsonify({"error": "Invalid end_date format. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS"}), 400
 
-        # Ajout des clauses WHERE si nécessaires
-        if where_clauses:
-            query += " WHERE " + " AND ".join(where_clauses)
-
-        query += " ORDER BY c.timestamp DESC"
-
+        # Utiliser la méthode du service compatible MongoDB/CosmosDB
+        # Pour récupérer tous les utilisateurs, on utilise une méthode générique
         items = []
-        # Exécution de la requête avec paramètres si spécifiés
-        if query_params:
-            async for item in usage_service.container.query_items(query=query, parameters=query_params):
-                items.append({
-                    'id': item.get('id'),
-                    "timestamp": item.get('timestamp'),
-                    "user_id": item.get('user_id'),
-                    "provider": item.get('provider'),
-                    "input_tokens": item.get('input_tokens', {}).get('total', 0),
-                    "output_tokens": item.get('output_tokens', 0),
-                    "total_tokens": item.get('total_tokens', 0),
-                    "conversation_id": item.get('conversation_id')
-                })
-        else:
-            async for item in usage_service.container.query_items(query=query):
-                items.append({
-                    'id': item.get('id'),
-                    "timestamp": item.get('timestamp'),
-                    "user_id": item.get('user_id'),
-                    "provider": item.get('provider'),
-                    "input_tokens": item.get('input_tokens', {}).get('total', 0),
-                    "output_tokens": item.get('output_tokens', 0),
-                    "total_tokens": item.get('total_tokens', 0),
-                    "conversation_id": item.get('conversation_id')
-                })
+        try:
+            if hasattr(usage_service, 'collection'):  # MongoDB
+                query_filter = {}
+                if start_datetime:
+                    query_filter.setdefault('timestamp', {})['$gte'] = start_datetime.isoformat()
+                if end_datetime:
+                    query_filter.setdefault('timestamp', {})['$lte'] = end_datetime.isoformat()
+
+                async for item in usage_service.collection.find(query_filter).sort('timestamp', -1):
+                    items.append({
+                        'id': str(item.get('_id', '')),
+                        "timestamp": item.get('timestamp'),
+                        "user_id": item.get('user_id'),
+                        "provider": item.get('provider'),
+                        "input_tokens": item.get('input_tokens', {}).get('total', 0) if isinstance(item.get('input_tokens'), dict) else item.get('input_tokens', 0),
+                        "output_tokens": item.get('output_tokens', 0),
+                        "total_tokens": item.get('total_tokens', 0),
+                        "conversation_id": item.get('conversation_id')
+                    })
+            else:  # CosmosDB fallback
+                query = "SELECT * FROM c"
+                if start_datetime or end_datetime:
+                    where_clauses = []
+                    query_params = []
+                    if start_datetime:
+                        where_clauses.append("c.timestamp >= @start_date")
+                        query_params.append({"name": "@start_date", "value": start_datetime.isoformat()})
+                    if end_datetime:
+                        where_clauses.append("c.timestamp <= @end_date")
+                        query_params.append({"name": "@end_date", "value": end_datetime.isoformat()})
+                    query += " WHERE " + " AND ".join(where_clauses)
+
+                    query += " ORDER BY c.timestamp DESC"
+                    async for item in usage_service.container.query_items(query=query, parameters=query_params):
+                        items.append({
+                            'id': item.get('id'),
+                            "timestamp": item.get('timestamp'),
+                            "user_id": item.get('user_id'),
+                            "provider": item.get('provider'),
+                            "input_tokens": item.get('input_tokens', {}).get('total', 0),
+                            "output_tokens": item.get('output_tokens', 0),
+                            "total_tokens": item.get('total_tokens', 0),
+                            "conversation_id": item.get('conversation_id')
+                        })
+                else:
+                    query += " ORDER BY c.timestamp DESC"
+                    async for item in usage_service.container.query_items(query=query):
+                        items.append({
+                            'id': item.get('id'),
+                            "timestamp": item.get('timestamp'),
+                            "user_id": item.get('user_id'),
+                            "provider": item.get('provider'),
+                            "input_tokens": item.get('input_tokens', {}).get('total', 0),
+                            "output_tokens": item.get('output_tokens', 0),
+                            "total_tokens": item.get('total_tokens', 0),
+                            "conversation_id": item.get('conversation_id')
+                        })
+        except Exception as query_error:
+            logging.error(f"Error querying usage logs: {query_error}")
+            return jsonify({"error": "Error retrieving usage logs"}), 500
 
         # Construction de la réponse avec informations sur le filtrage
         response_data = {
@@ -2065,32 +2091,50 @@ async def get_usage_log_details(log_id: str):
         # Force l'initialisation du container (le créé s'il n'existe pas)
         await usage_service.init_container()
 
-        if not usage_service.container:
-            return jsonify({"error": "Container not available after initialization"}), 503
+        # Vérifier si le service est initialisé (MongoDB utilise collection, pas container)
+        if not usage_service.initialized:
+            return jsonify({"error": "Usage service not available after initialization"}), 503
 
         # Validation basique de l'ID
         if not log_id or len(log_id.strip()) == 0:
             return jsonify({"error": "Log ID is required"}), 400
 
         # Recherche du log par ID
-        query = "SELECT * FROM c WHERE c.id = @log_id"
-        query_params = [{"name": "@log_id", "value": log_id.strip()}]
-
         items = []
-        async for item in usage_service.container.query_items(query=query, parameters=query_params):
-            # Retourner tous les détails disponibles
-            items.append({
-                'id': item.get('id'),
-                'timestamp': item.get('timestamp'),
-                'user_id': item.get('user_id'),
-                'conversation_id': item.get('conversation_id'),
-                'message_id': item.get('message_id'),
-                'provider': item.get('provider'),
-                'input_tokens': item.get('input_tokens', {}),  # Détails complets des tokens d'entrée
-                'output_tokens': item.get('output_tokens', 0),
-                'total_tokens': item.get('total_tokens', 0),
-                'metadata': item.get('metadata', {})  # Métadonnées complètes
-            })
+
+        if hasattr(usage_service, 'collection'):  # MongoDB
+            # MongoDB utilise _id pour l'identifiant principal
+            item = await usage_service.collection.find_one({'_id': log_id.strip()})
+            if item:
+                items.append({
+                    'id': str(item.get('_id', '')),
+                    'timestamp': item.get('timestamp'),
+                    'user_id': item.get('user_id'),
+                    'conversation_id': item.get('conversation_id'),
+                    'message_id': item.get('message_id'),
+                    'provider': item.get('provider'),
+                    'input_tokens': item.get('input_tokens', {}),
+                    'output_tokens': item.get('output_tokens', 0),
+                    'total_tokens': item.get('total_tokens', 0),
+                    'metadata': item.get('metadata', {})
+                })
+        else:  # CosmosDB
+            query = "SELECT * FROM c WHERE c.id = @log_id"
+            query_params = [{"name": "@log_id", "value": log_id.strip()}]
+
+            async for item in usage_service.container.query_items(query=query, parameters=query_params):
+                items.append({
+                    'id': item.get('id'),
+                    'timestamp': item.get('timestamp'),
+                    'user_id': item.get('user_id'),
+                    'conversation_id': item.get('conversation_id'),
+                    'message_id': item.get('message_id'),
+                    'provider': item.get('provider'),
+                    'input_tokens': item.get('input_tokens', {}),
+                    'output_tokens': item.get('output_tokens', 0),
+                    'total_tokens': item.get('total_tokens', 0),
+                    'metadata': item.get('metadata', {})
+                })
 
         if not items:
             return jsonify({
@@ -2320,235 +2364,6 @@ async def clean_text_for_browser():
         logging.error(f"Error cleaning text: {str(e)}")
         return jsonify({"error": f"Text cleaning failed: {str(e)}"}), 500
 
-
-## Usage Tracking API Endpoints ##
-
-@bp.route("/api/usage/current", methods=["GET"])
-async def get_current_usage():
-    """Get current session usage statistics."""
-    if not CheckAuthenticate(request):
-        return jsonify({"error": "Authentication required"}), 401
-
-    try:
-        # Get user details
-        user_details = get_authenticated_user_details(request_headers=dict(request.headers))
-        user_id = user_details.get("user_principal_id") if user_details else "anonymous"
-
-        usage_service = get_usage_service()
-        if not usage_service or not usage_service.enabled:
-            return jsonify({"enabled": False, "message": "Usage tracking not enabled"}), 200
-
-        # Get recent usage (last 1 day)
-        summary = await usage_service.get_usage_summary(user_id, days=1)
-        summary["period"] = "current_session"
-
-        return jsonify(summary), 200
-
-    except Exception as e:
-        logging.exception("Exception in /api/usage/current")
-        return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/api/usage/history", methods=["GET"])
-async def get_usage_history():
-    """Get usage history with optional filters."""
-    if not CheckAuthenticate(request):
-        return jsonify({"error": "Authentication required"}), 401
-
-    try:
-        # Get user details
-        user_details = get_authenticated_user_details(request_headers=dict(request.headers))
-        user_id = user_details.get("user_principal_id") if user_details else "anonymous"
-
-        usage_service = get_usage_service()
-        if not usage_service or not usage_service.enabled:
-            return jsonify({"enabled": False, "message": "Usage tracking not enabled"}), 200
-
-        # Get query parameters
-        days = int(request.args.get('days', 7))  # Default to 7 days
-        provider = request.args.get('provider')  # Optional provider filter
-
-        # Limit days to reasonable range
-        days = min(days, 365)  # Max 1 year
-
-        # Calculate date range from days parameter
-        from datetime import datetime, timedelta
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=days)
-
-        # Get usage records
-        records = await usage_service.get_user_usage(
-            user_id=user_id,
-            start_date=start_date,
-            end_date=end_date,
-            provider=provider
-        )
-
-        return jsonify({
-            "enabled": True,
-            "days": days,
-            "provider_filter": provider,
-            "record_count": len(records),
-            "records": records
-        }), 200
-
-    except Exception as e:
-        logging.exception("Exception in /api/usage/history")
-        return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/api/usage/summary", methods=["GET"])
-async def get_usage_summary():
-    """Get usage summary for different time periods."""
-    if not CheckAuthenticate(request):
-        return jsonify({"error": "Authentication required"}), 401
-
-    try:
-        # Get user details
-        user_details = get_authenticated_user_details(request_headers=dict(request.headers))
-        user_id = user_details.get("user_principal_id") if user_details else "anonymous"
-
-        usage_service = get_usage_service()
-        if not usage_service or not usage_service.enabled:
-            return jsonify({"enabled": False, "message": "Usage tracking not enabled"}), 200
-
-        # Get summaries for different periods
-        summary_today = await usage_service.get_usage_summary(user_id, days=1)
-        summary_week = await usage_service.get_usage_summary(user_id, days=7)
-        summary_month = await usage_service.get_usage_summary(user_id, days=30)
-
-        return jsonify({
-            "enabled": True,
-            "user_id": user_id,
-            "today": summary_today,
-            "this_week": summary_week,
-            "this_month": summary_month
-        }), 200
-
-    except Exception as e:
-        logging.exception("Exception in /api/usage/summary")
-        return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/api/usage/conversation/<conversation_id>", methods=["GET"])
-async def get_conversation_usage(conversation_id):
-    """Get usage summary for a specific conversation."""
-    if not CheckAuthenticate(request):
-        return jsonify({"error": "Authentication required"}), 401
-
-    try:
-        usage_service = get_usage_service()
-        if not usage_service or not usage_service.enabled:
-            return jsonify({"enabled": False, "message": "Usage tracking not enabled"}), 200
-
-        # Get conversation usage
-        usage_summary = await usage_service.get_conversation_usage(conversation_id)
-
-        return jsonify(usage_summary), 200
-
-    except Exception as e:
-        logging.exception(f"Exception in /api/usage/conversation/{conversation_id}")
-        return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/api/admin/usage/stats", methods=["GET"])
-async def get_system_usage_stats():
-    """Get system-wide usage statistics (admin only)."""
-    if not CheckAuthenticate(request):
-        return jsonify({"error": "Authentication required"}), 401
-
-    try:
-        # TODO: Add admin role check here when available
-        # For now, any authenticated user can access this
-
-        usage_service = get_usage_service()
-        if not usage_service or not usage_service.enabled:
-            return jsonify({"enabled": False, "message": "Usage tracking not enabled"}), 200
-
-        # Get query parameters
-        days = int(request.args.get('days', 7))  # Default to 7 days
-        days = min(days, 365)  # Max 1 year
-
-        # Get system stats
-        stats = await usage_service.get_system_usage_stats(days=days)
-
-        return jsonify(stats), 200
-
-    except Exception as e:
-        logging.exception("Exception in /api/admin/usage/stats")
-        return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/api/usage/settings", methods=["GET"])
-async def get_usage_settings():
-    """Get current usage tracking settings."""
-    if not CheckAuthenticate(request):
-        return jsonify({"error": "Authentication required"}), 401
-
-    try:
-        # Return current usage tracker settings (read-only)
-        if hasattr(app_settings, 'usage_tracker'):
-            settings = app_settings.usage_tracker
-            return jsonify({
-                "enabled": settings.enabled,
-                "image_tokens_per_byte": settings.image_tokens_per_byte,
-                "container_name": settings.cosmos_container_name,
-                "providers_with_native_counting": settings.providers_with_native_counting
-            }), 200
-        else:
-            return jsonify({"enabled": False, "message": "Usage tracking not configured"}), 200
-
-    except Exception as e:
-        logging.exception("Exception in /api/usage/settings")
-        return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/api/usage/all", methods=["GET"])
-async def get_all_usage_logs():
-    """Get ALL token usage logs (all users, all providers) - Simple endpoint for debugging."""
-    if not CheckAuthenticate(request):
-        return jsonify({"error": "Authentication required"}), 401
-
-    try:
-        usage_service = get_usage_service()
-
-        if not usage_service or not usage_service.enabled:
-            return jsonify({"error": "Usage tracking not enabled"}), 503
-
-        # Initialize container
-        await usage_service.init_container()
-
-        if not usage_service.container:
-            return jsonify({"error": "Usage tracking container not available"}), 503
-
-        # Query ALL records from CosmosDB (no user filter)
-        query = "SELECT * FROM c ORDER BY c.timestamp DESC"
-
-        items = []
-        async for item in usage_service.container.query_items(query=query):
-            # Format the record for easy viewing
-            formatted_record = {
-                "message_id": item.get('message_id'),
-                "user_id": item.get('user_id'),
-                "conversation_id": item.get('conversation_id'),
-                "provider": item.get('provider'),
-                "input_tokens": item.get('input_tokens', {}).get('total', 0),
-                "output_tokens": item.get('output_tokens', 0),
-                "total_tokens": item.get('total_tokens', 0),
-                "timestamp": item.get('timestamp'),
-                "metadata": item.get('metadata', {})
-            }
-            items.append(formatted_record)
-
-        return jsonify({
-            "success": True,
-            "total_records": len(items),
-            "records": items
-        }), 200
-
-    except Exception as e:
-        logging.exception("Exception in /api/usage/all")
-        return jsonify({"error": str(e)}), 500
 
 
 app = create_app()
