@@ -2000,9 +2000,9 @@ async def get_usage_logs():
             if hasattr(usage_service, 'collection'):  # MongoDB
                 query_filter = {}
                 if start_datetime:
-                    query_filter.setdefault('timestamp', {})['$gte'] = start_datetime
+                    query_filter.setdefault('timestamp', {})['$gte'] = start_datetime.isoformat()
                 if end_datetime:
-                    query_filter.setdefault('timestamp', {})['$lte'] = end_datetime
+                    query_filter.setdefault('timestamp', {})['$lte'] = end_datetime.isoformat()
 
                 async for item in usage_service.collection.find(query_filter).sort('timestamp', -1):
                     items.append({
