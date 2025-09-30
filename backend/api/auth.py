@@ -43,7 +43,12 @@ class APIKeyManager:
         # V1: Load from environment variables
         # V2: Will load from database/Redis for dynamic management
 
-        raw_keys = getattr(app_settings.base_settings, 'external_api_keys', '').strip()
+        if app_settings.base_settings is None:
+            logger.warning("Base settings not initialized - cannot load API keys")
+            return
+
+        raw_keys = getattr(app_settings.base_settings, 'external_api_keys', '') or ''
+        raw_keys = raw_keys.strip()
         if not raw_keys:
             logger.warning("No external API keys configured")
             return
@@ -149,9 +154,17 @@ class APIKeyManager:
 
 
 # Global instances
-api_key_manager = APIKeyManager()
+api_key_manager = None  # Initialized lazily when needed
 
 # Rate limiter will be imported when needed to avoid circular imports
+
+
+def get_api_key_manager() -> APIKeyManager:
+    """Get or initialize the global API key manager instance."""
+    global api_key_manager
+    if api_key_manager is None:
+        api_key_manager = APIKeyManager()
+    return api_key_manager
 
 
 def require_api_key(f):
@@ -180,7 +193,8 @@ def require_api_key(f):
         api_key = auth_header[7:]  # Remove 'Bearer ' prefix
 
         # Validate API key and IP
-        is_valid, client_name, error_message = api_key_manager.validate_key(api_key, client_ip)
+        manager = get_api_key_manager()
+        is_valid, client_name, error_message = manager.validate_key(api_key, client_ip)
 
         if not is_valid:
             # Audit log for failed authentication
