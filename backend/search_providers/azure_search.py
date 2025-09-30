@@ -283,8 +283,8 @@ class AzureSearchProvider(SearchProvider):
             self.logger.info(f"[AZURE SEARCH ENHANCED] Processing query: '{search_query.query}' with advanced optimizations")
             self.logger.debug(f"Azure Search query: '{search_query.query}' with params: {search_params}")
             
-            # DEBUG: Final parameters being sent to Azure Search
-            print(f"[FINAL DEBUG] Final search_params being sent to Azure Search API: {search_params}")
+            # DEBUG: Final parameters being sent to Azure Search (commented to reduce log noise)
+            # print(f"[FINAL DEBUG] Final search_params being sent to Azure Search API: {search_params}")
             
             # DIRECT COMPARISON TEST: Execute the exact same search that Azure OpenAI would do
             # Test if the issue is in our parameter mapping

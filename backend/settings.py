@@ -883,7 +883,7 @@ class _GeminiSettings(BaseSettings):
         extra="ignore",
         env_ignore_empty=True
     )
-    
+
     api_key: Optional[str] = None
     model: str
     temperature: float
@@ -892,6 +892,198 @@ class _GeminiSettings(BaseSettings):
     response_very_short_max_tokens: int
     response_normal_max_tokens: int
     response_comprehensive_max_tokens: int
+
+
+class _OvhSettings(BaseSettings):
+    """
+    Configuration settings for OVH AI Endpoints provider.
+
+    OVH AI Endpoints offers 40+ open-source AI models through a unified OpenAI-compatible API.
+    This provider supports automatic model selection based on query type and context.
+
+    Features:
+    - Unified API endpoint for all models
+    - Automatic model selection (conversation, coding, reasoning, vision)
+    - Manual model switching via chat commands
+    - Reasoning content display for supported models
+    - European data sovereignty (Gravelines datacenter)
+    - Pay-as-you-go pricing with 400 requests/minute limit
+
+    Environment Variables:
+    - OVH_AI_ENDPOINTS_ACCESS_TOKEN: Your OVH AI Endpoints access token (required)
+    - OVH_MODEL: Default model name (default: llama-3.3-70b)
+    - OVH_AUTO_MODEL_SELECTION: Enable automatic model selection (default: true)
+    - OVH_BASE_URL: API endpoint URL (default: unified endpoint)
+    - OVH_TEMPERATURE: Response creativity (0.0-2.0)
+    - OVH_TOP_P: Response diversity control (0.0-1.0)
+    - OVH_REASONING_EFFORT: Reasoning intensity for reasoning models (low/medium/high)
+    - OVH_SHOW_REASONING_IN_UI: Display reasoning content in interface
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="OVH_",
+        env_file=DOTENV_PATH,
+        extra="ignore",
+        env_ignore_empty=True
+    )
+
+    # Authentication
+    ai_endpoints_access_token: Optional[str] = Field(
+        default=None,
+        description="OVH AI Endpoints access token. Get it from OVH Control Panel > Public Cloud > AI Endpoints"
+    )
+
+    # Model Configuration
+    model: str = Field(
+        default="Meta-Llama-3_3-70B-Instruct",
+        description="Default model name. Available: Meta-Llama-3_3-70B-Instruct, Mixtral-8x7B-Instruct-v0_1, Qwen3-32B, gpt-oss-20b, etc."
+    )
+
+    auto_model_selection: bool = Field(
+        default=True,
+        description="Enable automatic model selection based on query type (coding, vision, reasoning, conversation)"
+    )
+
+    # API Configuration
+    base_url: str = Field(
+        default="https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+        description="OVH AI Endpoints API base URL. Use unified endpoint for best model switching support"
+    )
+
+    # Generation Parameters
+    temperature: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=2.0,
+        description="Controls response creativity and randomness (0.0 = deterministic, 2.0 = very creative)"
+    )
+
+    top_p: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Controls response diversity via nucleus sampling (0.1 = focused, 1.0 = diverse)"
+    )
+
+    # Response Length Configuration
+    response_very_short_max_tokens: int = Field(
+        default=150,
+        ge=1,
+        le=4096,
+        description="Maximum tokens for very short responses"
+    )
+
+    response_normal_max_tokens: int = Field(
+        default=1000,
+        ge=1,
+        le=32768,
+        description="Maximum tokens for normal responses"
+    )
+
+    response_comprehensive_max_tokens: int = Field(
+        default=2500,
+        ge=1,
+        le=32768,
+        description="Maximum tokens for comprehensive responses"
+    )
+
+    # System Message
+    system_message: str = Field(
+        default="Tu es un assistant IA serviable, précis et détaillé. Tu réponds en français sauf si on te demande explicitement une autre langue.",
+        description="Default system message for conversations"
+    )
+
+    # Reasoning Models Configuration (GPT-OSS-20B, DeepSeek-R1)
+    reasoning_effort: Literal["low", "medium", "high"] = Field(
+        default="medium",
+        description="Reasoning intensity for reasoning models (gpt-oss-20b, deepseek-r1). Higher effort = more detailed reasoning"
+    )
+
+    show_reasoning_in_ui: bool = Field(
+        default=True,
+        description="Display reasoning content in the user interface for reasoning models"
+    )
+
+    # Rate Limiting Configuration
+    max_requests_per_minute: int = Field(
+        default=380,
+        ge=1,
+        le=400,
+        description="Max requests per minute (OVH limit: 400/min with auth, 2/min anonymous)"
+    )
+
+    retry_after_429: bool = Field(
+        default=True,
+        description="Automatically retry after rate limit errors (429) with exponential backoff"
+    )
+
+    # Advanced Model Configuration
+    available_models: Optional[List[str]] = Field(
+        default=None,
+        description="List of available models. Auto-detected from API if not specified"
+    )
+
+    conversation_models: List[str] = Field(
+        default=["llama-3.3-70b", "mixtral-8x7b", "qwen-3-32b", "llama-3.1-8b", "mistral-nemo"],
+        description="Models optimized for general conversation"
+    )
+
+    reasoning_models: List[str] = Field(
+        default=["gpt-oss-20b", "deepseek-r1-distill-llama-70b"],
+        description="Models with advanced reasoning capabilities"
+    )
+
+    coding_models: List[str] = Field(
+        default=["qwen-2.5-coder-32b", "codestral-mamba"],
+        description="Models specialized for code generation and programming"
+    )
+
+    vision_models: List[str] = Field(
+        default=["qwen-2.5-vl-72b"],
+        description="Models with vision and multimodal capabilities"
+    )
+
+    @field_validator('available_models', mode='before')
+    @classmethod
+    def split_available_models(cls, comma_separated_string: str) -> Optional[List[str]]:
+        """Parse comma-separated model names from environment variable."""
+        if isinstance(comma_separated_string, str) and len(comma_separated_string) > 0:
+            return [model.strip() for model in comma_separated_string.split(',') if model.strip()]
+        return None
+
+    @model_validator(mode="after")
+    def validate_model_in_available_models(self) -> Self:
+        """Ensure the default model is available."""
+        if self.available_models and self.model not in self.available_models:
+            logging.warning(
+                f"OVH model '{self.model}' not in available models list {self.available_models}. "
+                f"Using first available model: {self.available_models[0]}"
+            )
+            self.model = self.available_models[0]
+        return self
+
+    def get_model_category(self, model_name: str) -> str:
+        """Determine the category of a given model."""
+        model_lower = model_name.lower()
+
+        if model_lower in [m.lower() for m in self.reasoning_models]:
+            return "reasoning"
+        elif model_lower in [m.lower() for m in self.coding_models]:
+            return "coding"
+        elif model_lower in [m.lower() for m in self.vision_models]:
+            return "vision"
+        elif model_lower in [m.lower() for m in self.conversation_models]:
+            return "conversation"
+        else:
+            return "conversation"  # Default to conversation
+
+    def supports_reasoning(self, model_name: str) -> bool:
+        """Check if a model supports reasoning content."""
+        return model_name.lower() in [m.lower() for m in self.reasoning_models]
+
+    def supports_multimodal(self, model_name: str) -> bool:
+        """Check if a model supports multimodal input (images, etc.)."""
+        return model_name.lower() in [m.lower() for m in self.vision_models]
 
 
 class _CustomAvanteamSettings(BaseSettings):
@@ -1055,6 +1247,7 @@ class _AppSettings(BaseModel):
     openai_direct: _OpenAIDirectSettings = _OpenAIDirectSettings()
     mistral: _MistralSettings = _MistralSettings()
     gemini: _GeminiSettings = _GeminiSettings()
+    ovh: _OvhSettings = _OvhSettings()
     search: _SearchCommonSettings = _SearchCommonSettings()
     ui: Optional[_UiSettings] = _UiSettings()
     custom_avanteam_settings: _CustomAvanteamSettings = _CustomAvanteamSettings()

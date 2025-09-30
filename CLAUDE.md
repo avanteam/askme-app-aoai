@@ -3,10 +3,9 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Environment
-- **Development OS**: Windows with WSL (Windows Subsystem for Linux)
-- **File paths**: Use `/mnt/c/` to access Windows C: drive from WSL
+- **Development OS**: Windows 
 - **Line endings**: Be aware of CRLF (Windows) vs LF (Unix) differences
-- **Scripts**: Prefer `.cmd` or PowerShell scripts for Windows, but can use bash scripts in WSL
+- **Scripts**: Prefer `.cmd` or PowerShell scripts for Windows
 
 ## LLM Provider Configuration
 
@@ -17,6 +16,7 @@ The application supports multiple LLM providers that can be configured via envir
 - `CLAUDE`: Anthropic Claude AI
 - `OPENAI_DIRECT`: Direct OpenAI API access
 - `MISTRAL`: Mistral AI services
+- `OVH`: OVH AI Endpoints (40+ open-source models with automatic selection)
 
 ### Configuration Variables
 ```env
@@ -49,6 +49,95 @@ MISTRAL_MAX_TOKENS=1000
 MISTRAL_TEMPERATURE=0.7
 MISTRAL_TOP_P=1.0
 MISTRAL_SYSTEM_MESSAGE="Tu es un assistant IA serviable et précis."
+
+# OVH AI Endpoints
+OVH_AI_ENDPOINTS_ACCESS_TOKEN=your_ovh_token
+OVH_MODEL=llama-3.3-70b
+OVH_AUTO_MODEL_SELECTION=true
+OVH_BASE_URL=https://oai.endpoints.kepler.ai.cloud.ovh.net/v1
+OVH_TEMPERATURE=0.7
+OVH_TOP_P=1.0
+OVH_REASONING_EFFORT=medium
+OVH_SHOW_REASONING_IN_UI=true
+OVH_SYSTEM_MESSAGE="Tu es un assistant IA serviable, précis et détaillé."
+```
+
+## OVH AI Endpoints Provider - Janvier 2025
+
+L'application intègre maintenant le provider OVH AI Endpoints, offrant accès à 40+ modèles open-source avec sélection automatique intelligente.
+
+### Fonctionnalités OVH AI Endpoints
+
+#### Sélection Automatique de Modèles
+Le provider OVH utilise une intelligence artificielle pour sélectionner automatiquement le meilleur modèle selon le contexte :
+
+- **Modèles de Conversation** : Llama 3.3 70B, Mixtral 8x7B, Qwen 3 32B, Mistral Nemo
+  - Utilisés pour les discussions générales et les réponses informatives
+
+- **Modèles de Raisonnement** : GPT-OSS-20B, DeepSeek-R1-Distill-Llama-70B
+  - Sélectionnés pour les analyses complexes, résolution de problèmes, raisonnement étape par étape
+  - GPT-OSS-20B affiche le processus de raisonnement visible dans l'interface
+
+- **Modèles de Code** : Qwen 2.5 Coder 32B, Codestral Mamba
+  - Activés automatiquement pour les requêtes de programmation et développement
+
+- **Modèles de Vision** : Qwen 2.5 VL 72B
+  - Utilisés automatiquement quand des images sont détectées dans la conversation
+
+#### Commandes Chat Spécialisées OVH
+
+**Sélection de Modèles Spécifiques :**
+```
+"Modifie la config pour utiliser Llama 70B"
+"Passe sur Qwen vision pour analyser des images"
+"Utilise le modèle de code Qwen pour cette tâche"
+"Switche sur GPT reasoning pour ce problème complexe"
+"Change pour DeepSeek avec des réponses détaillées"
+```
+
+**Modèles Supportés en Commandes :**
+- **Conversation** : `llama`, `llama 70b`, `mixtral`, `qwen`, `mistral nemo`
+- **Raisonnement** : `gpt reasoning`, `gpt-oss`, `deepseek`, `deepseek r1`
+- **Code** : `qwen coder`, `qwen code`, `codestral`, `codestral mamba`
+- **Vision** : `qwen vision`, `qwen vl`, `qwen multimodal`
+
+#### Fonctionnalités Avancées
+
+**Affichage du Raisonnement (GPT-OSS-20B)**
+- Le modèle GPT-OSS-20B expose son processus de raisonnement interne
+- Configurable via `OVH_SHOW_REASONING_IN_UI=true`
+- Permet de comprendre comment le modèle arrive à ses conclusions
+
+**Rate Limiting Intelligent**
+- Gestion automatique de la limite OVH (400 requêtes/minute avec authentification)
+- Retry automatique avec backoff exponentiel sur les erreurs 429
+- Concurrence optimisée pour maximiser le throughput
+
+**Intégration RAG Complète**
+- Compatible avec le système Azure Search existant
+- Support multilingue avec détection automatique de langue
+- Enrichissement automatique des requêtes pour les modèles de vision
+
+#### Souveraineté des Données
+- **Infrastructure européenne** : Datacenter de Gravelines, France
+- **Conformité RGPD** : Protection contre les régulations non-européennes
+- **Modèles open-source** : Transparence et contrôle total des modèles utilisés
+
+### Configuration Recommandée
+
+```env
+# Configuration minimale
+OVH_AI_ENDPOINTS_ACCESS_TOKEN=your_token
+AVAILABLE_LLM_PROVIDERS=OVH,CLAUDE,AZURE_OPENAI
+LLM_PROVIDER=OVH
+
+# Configuration optimisée
+OVH_MODEL=llama-3.3-70b
+OVH_AUTO_MODEL_SELECTION=true
+OVH_REASONING_EFFORT=medium
+OVH_SHOW_REASONING_IN_UI=true
+OVH_MAX_REQUESTS_PER_MINUTE=380
+OVH_RETRY_AFTER_429=true
 ```
 
 ## Enhanced Search System (RAG) - Septembre 2025
@@ -58,7 +147,7 @@ L'application dispose maintenant d'un système de recherche RAG unifié et optim
 ### Architecture de Recherche
 
 #### Nouveau Système Unifié
-Tous les LLM providers (Claude, Gemini, Mistral, OpenAI Direct) utilisent maintenant un système de recherche optimisé qui égale les performances d'Azure OpenAI "On Your Data".
+Tous les LLM providers (Claude, Gemini, Mistral, OpenAI Direct, OVH) utilisent maintenant un système de recherche optimisé qui égale les performances d'Azure OpenAI "On Your Data".
 
 **Améliorations apportées:**
 - **Semantic Search avancée** : Recherche sémantique automatique quand configurée
@@ -280,6 +369,7 @@ askme-app-aoai/
 - Implement proper abstraction and modularity
 - Avoid magic numbers and strings
 - Make code reusable and configurable
+- Do not use emoji in windows code
 
 ## LLM Provider Error Handling
 
@@ -738,43 +828,6 @@ AskMe: Nouvelle conversation créée avec succès.
 [L'interface se réinitialise avec une conversation vide]
 ```
 
-## État de la Session - 01/09/2025
-
-### Problèmes Résolus Aujourd'hui
-1. ✅ **GitHub Actions Workflow Optimisé** : Correction des déclencheurs pour éviter builds inutiles sur test-rg2
-2. ✅ **Branche de Déploiement Corrigée** : Workflow utilise maintenant `prod` au lieu de `main`
-3. ✅ **Catalog Rancher Fonctionnel** : Workflow utilise les commandes Helm officielles avec packaging .tgz
-4. ✅ **Branche prod Créée** : askme-rancher-catalog a maintenant une branche `prod` 
-5. ✅ **Configuration Rancher** : Catalog pointe vers la branche `prod` 
-
-### Problème en Cours
-❌ **Certificat SSL Fake** : Application déployée mais utilise un certificat "Kubernetes Ingress Controller Fake Certificate"
-- **Cause** : Configuration cert-manager manquante dans le chart Helm
-- **Solution Appliquée** : Ajout configuration ingress avec annotations cert-manager dans helm-chart/values.yaml
-- **Status** : Commit fait sur test-rg2, prêt à merger vers prod
-
-### Actions à Faire Demain
-1. **Merger les corrections vers prod** :
-   ```bash
-   git checkout prod
-   git merge test-rg2  
-   git push origin prod
-   git tag v1.0.2
-   git push origin v1.0.2
-   ```
-
-2. **Upgrader le déploiement Rancher** :
-   - Rancher → Apps & Marketplace → Repositories → Refresh
-   - Installed Apps → AskMe → Upgrade vers v1.0.2
-   - Vérifier génération certificat Let's Encrypt
-
-### État Technique Actuel
-- **Branch active** : test-rg2 (commits prêts à merger)
-- **Dernière version catalog** : v1.0.1 
-- **Prochaine version** : v1.0.2 (avec fix SSL)
-- **Workflow** : Fonctionnel avec commandes Helm correctes
-- **Déploiement** : App fonctionne mais certificat à corriger
-
 ## CI/CD et Déploiement OVH Kubernetes
 
 L'application dispose d'un pipeline CI/CD complet pour déployer automatiquement sur l'infrastructure Kubernetes OVH.
@@ -791,9 +844,7 @@ L'application dispose d'un pipeline CI/CD complet pour déployer automatiquement
 
 #### Workflow Principal (`.github/workflows/deploy.yml`)
 **Déclencheurs automatiques :**
-- Push sur `main` → Déploiement production
-- Push sur `test-rg2` → Déploiement staging
-- Pull Request → Tests uniquement
+- Push sur `prod` → Déploiement production
 
 **Pipeline en 4 étapes :**
 1. **🧪 Tests** : Python pytest + Frontend npm test + ESLint
@@ -824,52 +875,9 @@ Le projet utilise maintenant Helm pour supporter le déploiement multi-client :
 - Interface Rancher pour déploiement et monitoring
 - Support multi-client avec isolation par namespace
 
-### Workflow de Développement
-
-#### Développement Standard
-```bash
-# 1. Développement local
-git checkout test-rg2
-# ... modifications du code ...
-
-# 2. Build et test local (optionnel)
-.\tools\local\deploy-local.ps1 build
-.\tools\local\deploy-local.ps1 run     # Test sur localhost:50505
-
-# 3. Commit et push pour tests
-git add .
-git commit -m "feat: nouvelle fonctionnalité"
-git push origin test-rg2
-# → Tests et build automatique (pas de catalog sync)
-
-# 4. Vérification développement sur environnement staging
-```
-
 #### Workflow Release avec Synchronisation Rancher Catalog
 
 **🎯 Process de Release Automatique :**
-```bash
-# 1. Développement terminé et testé sur test-rg2
-git checkout test-rg2
-git push origin test-rg2  # Derniers tests
-
-# 2. Prêt pour release : merger vers branche prod
-git checkout prod
-git merge test-rg2
-git push origin prod
-
-# 3. Créer tag de version (DÉCLENCHEUR du catalog Rancher)
-git tag v1.0.2
-git push origin v1.0.2
-
-# 4. 🚀 GitHub Actions pipeline automatique :
-# ✅ Tests complets (Python + Frontend + Linting)
-# ✅ Build Docker image avec tag v1.0.2
-# ✅ Push vers Harbor Registry OVH
-# ✅ Deploy sur Kubernetes
-# ✅ 📦 NOUVEAU: Synchronisation Rancher Catalog automatique
-# ✅ Version v1.0.2 disponible dans Rancher UI
-```
 
 **📋 Déclencheurs Workflow GitHub Actions :**
 
@@ -894,19 +902,7 @@ git push origin v1.0.2
 
 ### Résolution des Problèmes Courants
 
-#### Images Docker Non Mises à Jour
-**Problème** : Kubernetes utilise l'image en cache même après un nouveau build
-
-**Solutions** :
-1. **Tags avec timestamp** : `./deploy.ps1 deploy` utilise des tags uniques
-2. **Force pull** : `imagePullPolicy: Always` dans les manifestes K8s
-3. **Rollout restart** : `kubectl rollout restart deployment/askme-app -n askme-app`
-
-#### Dockerfile Permissions Issues
-**Correction appliquée** : Ajout de `--chown=node:node` pour les fichiers package.json
-```dockerfile
-COPY --chown=node:node ./frontend/package*.json ./
-```
+``
 
 #### Problèmes de Synchronisation Rancher Catalog
 

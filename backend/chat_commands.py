@@ -54,7 +54,53 @@ class ChatCommandParser:
             'open ai': 'OPENAI_DIRECT',
             'mistral': 'MISTRAL',
             'gemini': 'GEMINI',
-            'google': 'GEMINI'
+            'google': 'GEMINI',
+            'ovh': 'OVH',
+            'ovhcloud': 'OVH',
+            'ovh cloud': 'OVH'
+        }
+
+        # Dictionnaire des modèles OVH spécifiques (pour sélection fine)
+        self.ovh_models = {
+            # Modèles de conversation
+            'llama': 'llama-3.3-70b',
+            'llama 70b': 'llama-3.3-70b',
+            'llama 3.3': 'llama-3.3-70b',
+            'llama leger': 'llama-3.1-8b',
+            'llama léger': 'llama-3.1-8b',
+            'llama 8b': 'llama-3.1-8b',
+            'llama 3.1': 'llama-3.1-8b',
+            'mixtral': 'mixtral-8x7b',
+            'mixtral 8x7b': 'mixtral-8x7b',
+            'qwen': 'qwen-3-32b',
+            'qwen 32b': 'qwen-3-32b',
+            'qwen 3': 'qwen-3-32b',
+            'mistral nemo': 'mistral-nemo',
+            'nemo': 'mistral-nemo',
+
+            # Modèles de raisonnement
+            'gpt reasoning': 'gpt-oss-20b',
+            'gpt-oss': 'gpt-oss-20b',
+            'gpt oss': 'gpt-oss-20b',
+            'gpt raisonnement': 'gpt-oss-20b',
+            'deepseek': 'deepseek-r1-distill-llama-70b',
+            'deepseek r1': 'deepseek-r1-distill-llama-70b',
+            'deep seek': 'deepseek-r1-distill-llama-70b',
+
+            # Modèles de code
+            'qwen coder': 'qwen-2.5-coder-32b',
+            'qwen code': 'qwen-2.5-coder-32b',
+            'qwen codeur': 'qwen-2.5-coder-32b',
+            'qwen programmation': 'qwen-2.5-coder-32b',
+            'codestral': 'codestral-mamba',
+            'codestral mamba': 'codestral-mamba',
+            'code mamba': 'codestral-mamba',
+
+            # Modèles de vision
+            'qwen vision': 'qwen-2.5-vl-72b',
+            'qwen vl': 'qwen-2.5-vl-72b',
+            'qwen multimodal': 'qwen-2.5-vl-72b',
+            'qwen image': 'qwen-2.5-vl-72b',
         }
         
         # Dictionnaire des types de réponses (ordre important pour regex)
@@ -192,6 +238,22 @@ class ChatCommandParser:
         match = self.llm_pattern.search(text)
         if match:
             llm_name = match.group(1).lower()
+
+            # Check d'abord si c'est un modèle OVH spécifique
+            if llm_name in self.ovh_models:
+                ovh_model = self.ovh_models[llm_name]
+                return ChatCommand(
+                    command_type=CommandType.CHANGE_LLM,
+                    parameters={
+                        'provider': 'OVH',
+                        'provider_name': llm_name,
+                        'ovh_model': ovh_model
+                    },
+                    original_text=text,
+                    confidence=0.95  # Haute confiance pour les modèles spécifiques
+                )
+
+            # Sinon, check les providers généraux
             provider = self.llm_providers.get(llm_name)
             if provider:
                 return ChatCommand(
@@ -462,10 +524,11 @@ class ChatCommandExecutor:
             }
     
     async def _execute_change_llm(self, command: ChatCommand, user_session: Dict[str, Any]) -> Dict[str, Any]:
-        """Exécute le changement de provider LLM"""
+        """Exécute le changement de provider LLM avec support des modèles OVH spécifiques"""
         provider = command.parameters['provider']
         provider_name = command.parameters['provider_name']
-        
+        ovh_model = command.parameters.get('ovh_model')  # Modèle OVH spécifique (optionnel)
+
         # Vérifier que le provider est disponible
         if provider not in self.app_settings.base_settings.available_llm_providers:
             return {
@@ -473,15 +536,22 @@ class ChatCommandExecutor:
                 'message': f"Le modèle {provider_name} n'est pas disponible. Modèles disponibles: {', '.join(self.app_settings.base_settings.available_llm_providers)}",
                 'command_type': CommandType.CHANGE_LLM.value
             }
-        
+
         # Sauvegarder dans la session utilisateur
         if user_session is None:
             user_session = {}
         user_session['llm_provider'] = provider
-        
+
+        # Pour OVH, sauvegarder aussi le modèle spécifique
+        if provider == 'OVH' and ovh_model:
+            user_session['ovh_model'] = ovh_model
+            message = f"Configuration modifiée avec succès. Le modèle OVH {provider_name} ({ovh_model}) est maintenant utilisé."
+        else:
+            message = f"Configuration modifiée avec succès. Le modèle {provider_name} est maintenant utilisé."
+
         return {
             'success': True,
-            'message': f"Configuration modifiée avec succès. Le modèle {provider_name} est maintenant utilisé.",
+            'message': message,
             'command_type': CommandType.CHANGE_LLM.value,
             'provider': provider,
             'provider_name': provider_name,
