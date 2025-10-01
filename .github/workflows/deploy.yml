@@ -465,16 +465,16 @@ jobs:
       run: |
         cd rancher-catalog
         VERSION="${{ steps.version.outputs.version }}"
-        
-        # Package avec vérification
+
+        # Package avec vérification dans releases/
         echo "📦 Création du package..."
-        if ! helm package charts/askme --destination . ; then
+        if ! helm package charts/askme --destination ./releases ; then
           echo "❌ Échec de création du package"
           exit 1
         fi
-        
+
         # Vérification du package
-        PACKAGE_FILE="askme-${VERSION}.tgz"
+        PACKAGE_FILE="releases/askme-${VERSION}.tgz"
         if [[ ! -f "$PACKAGE_FILE" ]]; then
           echo "❌ Package non trouvé: $PACKAGE_FILE"
           exit 1
@@ -491,15 +491,18 @@ jobs:
         
         # Backup de l'index existant
         cp index.yaml index.yaml.bak
-        
+
         # Mise à jour de l'index avec validation
         echo "📝 Mise à jour de l'index..."
-        if ! helm repo index . --merge index.yaml \
-          --url https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod; then
+        if ! helm repo index releases --merge index.yaml \
+          --url https://raw.githubusercontent.com/avanteam/askme-rancher-catalog/prod/releases; then
           echo "❌ Échec de mise à jour de l'index"
           mv index.yaml.bak index.yaml
           exit 1
         fi
+
+        # Déplacer l'index généré vers la racine
+        mv releases/index.yaml ./
         
         # Validation de l'index
         if ! grep -q "version: ${VERSION}" index.yaml; then
