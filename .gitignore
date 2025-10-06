@@ -13,3 +13,4 @@ k8s/secret.yaml
 
 # Déploiements clients locaux (pour tests CLI uniquement)
 deployments/clients/
+venv
