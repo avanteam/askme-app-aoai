@@ -1,3 +1,4 @@
+import { Dictionary } from 'lodash'
 import { chatHistorySampleData } from '../constants/chatHistory'
 
 import { ChatMessage, Conversation, ConversationRequest, DatabaseHealth, DatabaseStatus, UserInfo } from './models'
@@ -8,6 +9,7 @@ export async function conversationApi(
   token: string,
   username: string,
   userFullDefinition: string,
+  userCustomData: Dictionary<string>,
   customizationPreferences?: any
 ): Promise<Response> {
   const response = await fetch('/conversation', {
@@ -21,7 +23,8 @@ export async function conversationApi(
       currentUser: username,
       userFullDefinition: userFullDefinition,
       customizationPreferences: customizationPreferences,
-      provider: customizationPreferences?.llmProvider
+      provider: customizationPreferences?.llmProvider,
+      userCustomData: userCustomData
     }),
     signal: abortSignal
   })
@@ -170,6 +173,7 @@ export const historyGenerate = async (
   options: ConversationRequest,
   abortSignal: AbortSignal,
   userFullDefinition: string,
+  userCustomData: Dictionary<string>,
   customizationPreferences?: any,
   convId?: string
 ): Promise<Response> => {
@@ -180,14 +184,16 @@ export const historyGenerate = async (
       messages: options.messages,
       userFullDefinition: userFullDefinition,
       customizationPreferences: customizationPreferences,
-      provider: customizationPreferences?.llmProvider
+      provider: customizationPreferences?.llmProvider,
+      userCustomData: userCustomData
     })
   } else {
     body = JSON.stringify({
       messages: options.messages,
       userFullDefinition: userFullDefinition,
       customizationPreferences: customizationPreferences,
-      provider: customizationPreferences?.llmProvider
+      provider: customizationPreferences?.llmProvider,
+      userCustomData: userCustomData
     })
   }
   const response = await fetch('/history/generate', {
