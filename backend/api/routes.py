@@ -7,6 +7,8 @@ using the configured search providers.
 
 import time
 import logging
+import asyncio
+import json
 from datetime import datetime
 from typing import List, Dict, Any
 
@@ -125,117 +127,139 @@ async def search_documents():
         try:
             search_provider = await create_search_provider()
 
-            if search_provider:
-                # Build filters string from API filters
-                filter_string = None
-                if data.filters:
-                    filter_parts = []
-                    for key, value in data.filters.items():
-                        # Sanitize filter key (allow only alphanumeric and underscore)
-                        safe_key = ''.join(c for c in key if c.isalnum() or c == '_')
+            # Build filters string from API filters
+            filter_string = None
+            if data.filters:
+                filter_parts = []
+                for key, value in data.filters.items():
+                    # Sanitize filter key (allow only alphanumeric and underscore)
+                    safe_key = ''.join(c for c in key if c.isalnum() or c == '_')
 
-                        if isinstance(value, list):
-                            # Multiple values: (field eq 'value1' or field eq 'value2')
-                            # Escape single quotes in values to prevent OData injection
+                    # Special handling for collection fields (like securityRights)
+                    # These need search.in() function instead of eq operator
+                    collection_fields = ['securityRights', 'securityrights']
+
+                    if isinstance(value, list):
+                        if safe_key in collection_fields:
+                            # Use any() lambda for collection fields: field/any(r: r eq 'val1' or r eq 'val2')
+                            escaped_values = [str(v).replace(chr(39), chr(39)+chr(39)) for v in value]
+                            or_conditions = [f"r eq '{v}'" for v in escaped_values]
+                            filter_parts.append(f"{safe_key}/any(r: {' or '.join(or_conditions)})")
+                        else:
+                            # Regular fields: (field eq 'value1' or field eq 'value2')
                             or_parts = [f"{safe_key} eq '{str(v).replace(chr(39), chr(39)+chr(39))}'" for v in value]
                             filter_parts.append(f"({' or '.join(or_parts)})")
+                    else:
+                        if safe_key in collection_fields:
+                            # Single value for collection field: field/any(r: r eq 'value')
+                            safe_value = str(value).replace(chr(39), chr(39)+chr(39))
+                            filter_parts.append(f"{safe_key}/any(r: r eq '{safe_value}')")
                         else:
-                            # Single value: field eq 'value'
-                            # Escape single quotes in value to prevent OData injection
+                            # Single value for regular field: field eq 'value'
                             safe_value = str(value).replace(chr(39), chr(39)+chr(39))
                             filter_parts.append(f"{safe_key} eq '{safe_value}'")
-                    filter_string = " and ".join(filter_parts) if filter_parts else None
+                filter_string = " and ".join(filter_parts) if filter_parts else None
 
-                # Convert API request to internal search query
-                search_query = SearchQuery(
-                    query=data.query,
-                    top_k=data.max_results,
-                    use_semantic_search=data.use_semantic_search,
-                    filters=filter_string,
+            # Convert API request to internal search query
+            search_query = SearchQuery(
+                query=data.query,
+                top_k=data.max_results,
+                use_semantic_search=data.use_semantic_search,
+                filters=filter_string,
+            )
+
+            # Safely truncate query for logging
+            query_preview = data.query[:100] + '...' if len(data.query) > 100 else data.query
+            logger.info(
+                f"Search request - Client: {client_name}, Query: '{query_preview}', "
+                f"MaxResults: {data.max_results}, RequestID: {request_id}"
+            )
+
+            # Execute search with timeout
+            try:
+                search_documents = await asyncio.wait_for(
+                    search_provider.search(search_query),
+                    timeout=app_settings.base_settings.external_api_request_timeout
                 )
-
-                # Safely truncate query for logging
-                query_preview = data.query[:100] + '...' if len(data.query) > 100 else data.query
-                logger.info(
-                    f"Search request - Client: {client_name}, Query: '{query_preview}', "
-                    f"MaxResults: {data.max_results}, RequestID: {request_id}"
+            except asyncio.TimeoutError:
+                logger.error(
+                    f"Search timeout - Client: {client_name}, RequestID: {request_id}"
                 )
+                return jsonify(APIError(
+                    error_code='SEARCH_TIMEOUT',
+                    error_message='Search operation timed out. Please try again with a more specific query.',
+                    timestamp=datetime.utcnow(),
+                    request_id=request_id
+                ).dict()), 504
 
-                # Execute search with timeout
-                try:
-                    search_documents = await asyncio.wait_for(
-                        search_provider.search(search_query),
-                        timeout=app_settings.base_settings.external_api_request_timeout
+            # Convert internal documents to API response format
+            api_results = []
+            for i, doc in enumerate(search_documents):
+                metadata = None
+                if data.include_metadata and doc.metadata:
+                    # Parse custom_fields if it's a JSON string
+                    custom_fields_value = doc.metadata.get('custom_fields')
+                    if isinstance(custom_fields_value, str) and custom_fields_value:
+                        try:
+                            custom_fields_value = json.loads(custom_fields_value)
+                        except json.JSONDecodeError:
+                            custom_fields_value = None
+
+                    metadata = DocumentMetadata(
+                        filename=doc.filename,
+                        url=doc.url,
+                        document_type=doc.metadata.get('document_type'),
+                        language=doc.metadata.get('language'),
+                        created_date=doc.metadata.get('created_date'),
+                        modified_date=doc.metadata.get('modified_date'),
+                        file_size=doc.metadata.get('file_size'),
+                        custom_fields=custom_fields_value,
+                        security_rights=doc.metadata.get('security_rights')
                     )
-                except asyncio.TimeoutError:
-                    logger.error(
-                        f"Search timeout - Client: {client_name}, RequestID: {request_id}"
-                    )
-                    return jsonify(APIError(
-                        error_code='SEARCH_TIMEOUT',
-                        error_message='Search operation timed out. Please try again with a more specific query.',
-                        timestamp=datetime.utcnow(),
-                        request_id=request_id
-                    ).dict()), 504
 
-                # Convert internal documents to API response format
-                api_results = []
-                for i, doc in enumerate(search_documents):
-                    metadata = None
-                    if data.include_metadata and doc.metadata:
-                        metadata = DocumentMetadata(
-                            filename=doc.filename,
-                            url=doc.url,
-                            document_type=doc.metadata.get('document_type'),
-                            language=doc.metadata.get('language'),
-                            created_date=doc.metadata.get('created_date'),
-                            modified_date=doc.metadata.get('modified_date'),
-                            file_size=doc.metadata.get('file_size'),
-                            custom_fields=doc.metadata.get('custom_fields'),
-                            security_rights=doc.metadata.get('security_rights')
-                        )
-
-                    api_result = SearchResult(
-                        content=doc.content,
-                        title=doc.title,
-                        score=doc.score,
-                        chunk_id=f"chunk_{i+1}_{request_id}",
-                        metadata=metadata
-                    )
-                    api_results.append(api_result)
-
-                # Apply sorting if requested
-                if data.sort_by != "relevance":
-                    api_results = sort_search_results(api_results, data.sort_by)
-
-                # Build response
-                response_time_ms = (time.time() - start_time) * 1000
-                response = SearchResponse(
-                    results=api_results,
-                    total_results=len(api_results),
-                    query=data.query,
-                    response_time_ms=response_time_ms,
-                    search_provider=search_provider.__class__.__name__.lower(),
-                    api_version="v1"
+                api_result = SearchResult(
+                    content=doc.content,
+                    title=doc.title,
+                    score=doc.score,
+                    chunk_id=f"chunk_{i+1}_{request_id}",
+                    metadata=metadata
                 )
+                api_results.append(api_result)
 
-                logger.info(
-                    f"Search completed - Client: {client_name}, Results: {len(api_results)}, "
-                    f"Duration: {response_time_ms:.2f}ms, RequestID: {request_id}"
-                )
+            # Apply sorting if requested
+            if data.sort_by != "relevance":
+                api_results = sort_search_results(api_results, data.sort_by)
 
-                return jsonify(response.dict())
+            # Build response
+            response_time_ms = (time.time() - start_time) * 1000
+            response = SearchResponse(
+                results=api_results,
+                total_results=len(api_results),
+                query=data.query,
+                response_time_ms=response_time_ms,
+                search_provider=search_provider.__class__.__name__.lower(),
+                api_version="v1"
+            )
+
+            logger.info(
+                f"Search completed - Client: {client_name}, Results: {len(api_results)}, "
+                f"Duration: {response_time_ms:.2f}ms, RequestID: {request_id}"
+            )
+
+            return jsonify(response.dict())
 
         except Exception as search_error:
-            logger.warning(f"Search provider failed: {search_error}", exc_info=True)
-
-        # If search provider fails, return error
-        return jsonify(APIError(
-            error_code='SEARCH_PROVIDER_UNAVAILABLE',
-            error_message='Search service is temporarily unavailable',
-            timestamp=datetime.utcnow(),
-            request_id=request_id
-        ).dict()), 503
+            logger.error(
+                f"Search provider error - Client: {client_name}, Error: {str(search_error)}, RequestID: {request_id}",
+                exc_info=True
+            )
+            return jsonify(APIError(
+                error_code='SEARCH_PROVIDER_UNAVAILABLE',
+                error_message='Search service is temporarily unavailable',
+                details={'error': str(search_error)},
+                timestamp=datetime.utcnow(),
+                request_id=request_id
+            ).dict()), 503
 
     except Exception as e:
         logger.error(
@@ -344,20 +368,27 @@ async def get_capabilities() -> CapabilitiesResponse:
     - 200: Capabilities information
     """
     try:
-        # Get search provider capabilities
-        supported_features = ["basic_search", "metadata_inclusion"]
-        search_providers = []
+        # Features exposed via External API (user-controllable parameters)
+        # These are the only features clients can directly control via API parameters
+        supported_features = [
+            "basic_search",              # Basic keyword search
+            "semantic_search",           # Semantic/AI-powered search (use_semantic_search param)
+            "filtered_search",           # OData filtering (filters param)
+            "metadata_inclusion",        # Include document metadata (include_metadata param)
+            "permission_filtering",      # Filter by security rights (via filters.securityRights)
+        ]
 
+        # Get available search providers
+        search_providers = []
         try:
             search_provider = await create_search_provider()
             if search_provider:
-                supported_features.extend(search_provider.get_supported_features())
                 search_providers.append(search_provider.__class__.__name__.lower())
         except Exception as e:
             logger.warning(f"Could not get search provider capabilities: {e}")
 
         response = CapabilitiesResponse(
-            supported_features=list(set(supported_features)),  # Remove duplicates
+            supported_features=supported_features,
             max_results_limit=50,
             supported_sort_options=["relevance", "date_asc", "date_desc", "title"],
             rate_limits={

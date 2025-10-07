@@ -427,7 +427,7 @@ class AzureSearchProvider(SearchProvider):
             if "query_type" in azure_params:
                 azure_query_type = azure_params["query_type"]
                 mapped_query_type = self._map_azure_openai_query_type(azure_query_type)
-                
+
                 if mapped_query_type:
                     search_params["query_type"] = mapped_query_type
                     print(f"[SEARCH MODE] Mapped Azure OpenAI query_type '{azure_query_type}' -> '{mapped_query_type}'")
@@ -437,6 +437,23 @@ class AzureSearchProvider(SearchProvider):
             else:
                 # No query type found - using default
                 pass
+
+            # Override with explicit use_semantic_search parameter from External API
+            if hasattr(search_query, 'use_semantic_search') and search_query.use_semantic_search is not None:
+                if search_query.use_semantic_search is False:
+                    # Explicitly disable semantic search
+                    search_params["query_type"] = "simple"
+                    print(f"[SEARCH MODE] Overriding to 'simple' (use_semantic_search=False)")
+                elif search_query.use_semantic_search is True:
+                    # Explicitly enable semantic search
+                    if self.semantic_config:
+                        search_params["query_type"] = "semantic"
+                        print(f"[SEARCH MODE] Overriding to 'semantic' (use_semantic_search=True)")
+                    else:
+                        print(f"[SEARCH MODE] Cannot enable semantic search: no semantic_config available")
+            else:
+                # use_semantic_search is None or not provided - use configuration from Azure OpenAI/settings
+                print(f"[SEARCH MODE] Using default from config (use_semantic_search=None, config query_type='{search_params.get('query_type', 'not set')}')")
             
             # Apply semantic configuration if present
             if "semantic_configuration" in azure_params and azure_params["semantic_configuration"]:
@@ -562,15 +579,20 @@ class AzureSearchProvider(SearchProvider):
                 self.logger.debug("[HYBRID] Using simple query_type with vector_queries for hybrid search")
                 return "simple"
 
-        # Semantic search requested
-        if hasattr(search_query, 'use_semantic_search') and search_query.use_semantic_search:
-            if self.semantic_config:
-                self.logger.debug("[2025-API] Using enhanced semantic search capabilities")
-                return "semantic"
+        # Explicit semantic search control from query parameter
+        if hasattr(search_query, 'use_semantic_search') and search_query.use_semantic_search is not None:
+            if search_query.use_semantic_search is True:
+                if self.semantic_config:
+                    self.logger.debug("[2025-API] Using enhanced semantic search capabilities (parameter=true)")
+                    return "semantic"
+            elif search_query.use_semantic_search is False:
+                # Explicitly disabled - use simple search even if global setting is enabled
+                self.logger.debug("[2025-API] Semantic search explicitly disabled (parameter=false)")
+                return "simple"
 
-        # Global semantic search setting
+        # Global semantic search setting (only if parameter not provided or None)
         if self.use_semantic_search and self.semantic_config:
-            self.logger.debug("[2025-API] Using enhanced semantic search capabilities")
+            self.logger.debug("[2025-API] Using enhanced semantic search capabilities (global setting)")
             return "semantic"
 
         # Pure vector search (rare case, usually we want hybrid)

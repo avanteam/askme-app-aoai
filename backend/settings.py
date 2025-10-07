@@ -894,11 +894,11 @@ class _GeminiSettings(BaseSettings):
     response_comprehensive_max_tokens: int
 
 
-class _OvhSettings(BaseSettings):
+class AvanteamAISettings(BaseSettings):
     """
-    Configuration settings for OVH AI Endpoints provider.
+    Configuration settings for Avanteam AI provider.
 
-    OVH AI Endpoints offers 40+ open-source AI models through a unified OpenAI-compatible API.
+    Avanteam AI offers 40+ open-source AI models through a unified OpenAI-compatible API.
     This provider supports automatic model selection based on query type and context.
 
     Features:
@@ -910,18 +910,18 @@ class _OvhSettings(BaseSettings):
     - Pay-as-you-go pricing with 400 requests/minute limit
 
     Environment Variables:
-    - OVH_AI_ENDPOINTS_ACCESS_TOKEN: Your OVH AI Endpoints access token (required)
-    - OVH_MODEL: Default model name (default: llama-3.3-70b)
-    - OVH_AUTO_MODEL_SELECTION: Enable automatic model selection (default: true)
-    - OVH_BASE_URL: API endpoint URL (default: unified endpoint)
-    - OVH_TEMPERATURE: Response creativity (0.0-2.0)
-    - OVH_TOP_P: Response diversity control (0.0-1.0)
-    - OVH_REASONING_EFFORT: Reasoning intensity for reasoning models (low/medium/high)
-    - OVH_SHOW_REASONING_IN_UI: Display reasoning content in interface
+    - AVANTEAM_AI_AI_ENDPOINTS_ACCESS_TOKEN: Your Avanteam AI access token (required)
+    - AVANTEAM_AI_MODEL: Default model name (default: llama-3.3-70b)
+    - AVANTEAM_AI_AUTO_MODEL_SELECTION: Enable automatic model selection (default: true)
+    - AVANTEAM_AI_BASE_URL: API endpoint URL (default: unified endpoint)
+    - AVANTEAM_AI_TEMPERATURE: Response creativity (0.0-2.0)
+    - AVANTEAM_AI_TOP_P: Response diversity control (0.0-1.0)
+    - AVANTEAM_AI_REASONING_EFFORT: Reasoning intensity for reasoning models (low/medium/high)
+    - AVANTEAM_AI_SHOW_REASONING_IN_UI: Display reasoning content in interface
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="OVH_",
+        env_prefix="AVANTEAM_AI_",
         env_file=DOTENV_PATH,
         extra="ignore",
         env_ignore_empty=True
@@ -930,7 +930,7 @@ class _OvhSettings(BaseSettings):
     # Authentication
     ai_endpoints_access_token: Optional[str] = Field(
         default=None,
-        description="OVH AI Endpoints access token. Get it from OVH Control Panel > Public Cloud > AI Endpoints"
+        description="Avanteam AI access token. Get it from Avanteam AI Control Panel > Public Cloud > AI Endpoints"
     )
 
     # Model Configuration
@@ -947,7 +947,7 @@ class _OvhSettings(BaseSettings):
     # API Configuration
     base_url: str = Field(
         default="https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
-        description="OVH AI Endpoints API base URL. Use unified endpoint for best model switching support"
+        description="Avanteam AI API base URL. Use unified endpoint for best model switching support"
     )
 
     # Generation Parameters
@@ -1009,7 +1009,7 @@ class _OvhSettings(BaseSettings):
         default=380,
         ge=1,
         le=400,
-        description="Max requests per minute (OVH limit: 400/min with auth, 2/min anonymous)"
+        description="Max requests per minute (Avanteam AI limit: 400/min with auth, 2/min anonymous)"
     )
 
     retry_after_429: bool = Field(
@@ -1056,7 +1056,7 @@ class _OvhSettings(BaseSettings):
         """Ensure the default model is available."""
         if self.available_models and self.model not in self.available_models:
             logging.warning(
-                f"OVH model '{self.model}' not in available models list {self.available_models}. "
+                f"Avanteam AI model '{self.model}' not in available models list {self.available_models}. "
                 f"Using first available model: {self.available_models[0]}"
             )
             self.model = self.available_models[0]
@@ -1248,7 +1248,7 @@ class _AppSettings(BaseModel):
     openai_direct: _OpenAIDirectSettings = _OpenAIDirectSettings()
     mistral: _MistralSettings = _MistralSettings()
     gemini: _GeminiSettings = _GeminiSettings()
-    ovh: _OvhSettings = _OvhSettings()
+    avanteam_ai: AvanteamAISettings = AvanteamAISettings()
     search: _SearchCommonSettings = _SearchCommonSettings()
     ui: Optional[_UiSettings] = _UiSettings()
     custom_avanteam_settings: _CustomAvanteamSettings = _CustomAvanteamSettings()

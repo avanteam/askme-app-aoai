@@ -55,13 +55,13 @@ class ChatCommandParser:
             'mistral': 'MISTRAL',
             'gemini': 'GEMINI',
             'google': 'GEMINI',
-            'ovh': 'OVH',
-            'ovhcloud': 'OVH',
-            'ovh cloud': 'OVH'
+            'avanteam': 'AVANTEAM_AI',
+            'avanteamcloud': 'AVANTEAM_AI',
+            'avanteam cloud': 'AVANTEAM_AI'
         }
 
-        # Dictionnaire des modèles OVH spécifiques (pour sélection fine)
-        self.ovh_models = {
+        # Dictionnaire des modèles Avanteam AI spécifiques (pour sélection fine)
+        self.avanteam_ai_models = {
             # Modèles de conversation
             'llama': 'llama-3.3-70b',
             'llama 70b': 'llama-3.3-70b',
@@ -239,15 +239,15 @@ class ChatCommandParser:
         if match:
             llm_name = match.group(1).lower()
 
-            # Check d'abord si c'est un modèle OVH spécifique
-            if llm_name in self.ovh_models:
-                ovh_model = self.ovh_models[llm_name]
+            # Check d'abord si c'est un modèle Avanteam AI spécifique
+            if llm_name in self.avanteam_ai_models:
+                avanteam_ai_model = self.avanteam_ai_models[llm_name]
                 return ChatCommand(
                     command_type=CommandType.CHANGE_LLM,
                     parameters={
-                        'provider': 'OVH',
+                        'provider': 'AVANTEAM_AI',
                         'provider_name': llm_name,
-                        'ovh_model': ovh_model
+                        'avanteam_ai_model': avanteam_ai_model
                     },
                     original_text=text,
                     confidence=0.95  # Haute confiance pour les modèles spécifiques
@@ -524,10 +524,10 @@ class ChatCommandExecutor:
             }
     
     async def _execute_change_llm(self, command: ChatCommand, user_session: Dict[str, Any]) -> Dict[str, Any]:
-        """Exécute le changement de provider LLM avec support des modèles OVH spécifiques"""
+        """Exécute le changement de provider LLM avec support des modèles Avanteam AI spécifiques"""
         provider = command.parameters['provider']
         provider_name = command.parameters['provider_name']
-        ovh_model = command.parameters.get('ovh_model')  # Modèle OVH spécifique (optionnel)
+        avanteam_ai_model = command.parameters.get('avanteam_ai_model')  # Modèle Avanteam AI spécifique (optionnel)
 
         # Vérifier que le provider est disponible
         if provider not in self.app_settings.base_settings.available_llm_providers:
@@ -542,10 +542,10 @@ class ChatCommandExecutor:
             user_session = {}
         user_session['llm_provider'] = provider
 
-        # Pour OVH, sauvegarder aussi le modèle spécifique
-        if provider == 'OVH' and ovh_model:
-            user_session['ovh_model'] = ovh_model
-            message = f"Configuration modifiée avec succès. Le modèle OVH {provider_name} ({ovh_model}) est maintenant utilisé."
+        # Pour AVANTEAM_AI, sauvegarder aussi le modèle spécifique
+        if provider == 'AVANTEAM_AI' and avanteam_ai_model:
+            user_session['avanteam_ai_model'] = avanteam_ai_model
+            message = f"Configuration modifiée avec succès. Le modèle Avanteam AI {provider_name} ({avanteam_ai_model}) est maintenant utilisé."
         else:
             message = f"Configuration modifiée avec succès. Le modèle {provider_name} est maintenant utilisé."
 

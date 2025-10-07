@@ -101,9 +101,15 @@ class SearchRequest(BaseModel):
         example={"securityRights": ["QDMAdmin", "QDMLecteur"]}
     )
 
-    use_semantic_search: bool = Field(
-        default=True,
-        description="**Enable semantic search** for better relevance using AI understanding. Recommended: true for natural language queries",
+    use_semantic_search: Optional[bool] = Field(
+        default=None,
+        description="""**Enable semantic search** for better relevance using AI understanding.
+
+- `true`: Force semantic search ON (AI-powered relevance ranking)
+- `false`: Force semantic search OFF (basic keyword search)
+- `null` or omit: Use server configuration default (from AZURE_SEARCH_USE_SEMANTIC_SEARCH)
+
+Recommended: `true` for natural language queries, `false` for exact keyword matching.""",
         example=True
     )
 

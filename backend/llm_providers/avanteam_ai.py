@@ -1,12 +1,12 @@
 """
-OVH AI Endpoints provider implementation.
+AVANTEAM_AI AI Endpoints provider implementation.
 
-This module implements the LLM provider for OVH AI Endpoints, which offers 40+ open-source AI models
+This module implements the LLM provider for AVANTEAM_AI AI Endpoints, which offers 40+ open-source AI models
 through a unified OpenAI-compatible API. The provider supports automatic model selection based on
 query type and context, providing optimal model routing for different use cases.
 
 Key Features:
-- Unified API endpoint for all 40+ OVH models
+- Unified API endpoint for all 40+ AVANTEAM_AI models
 - Automatic model selection (conversation, coding, reasoning, vision)
 - Manual model switching via chat commands
 - Reasoning content display for GPT-OSS-20B and DeepSeek models
@@ -22,12 +22,12 @@ Supported Model Categories:
 - Vision: Qwen 2.5 VL 72B (multimodal)
 
 Configuration:
-Set OVH_AI_ENDPOINTS_ACCESS_TOKEN and other OVH_* environment variables.
+Set AVANTEAM_AI_AI_ENDPOINTS_ACCESS_TOKEN and other AVANTEAM_AI_* environment variables.
 The provider uses the unified endpoint for seamless model switching.
 
 Architecture:
 This provider inherits from LLMProvider and reuses much of the OpenAI-compatible infrastructure,
-adding OVH-specific features like automatic model selection and reasoning content handling.
+adding AVANTEAM_AI-specific features like automatic model selection and reasoning content handling.
 """
 
 import asyncio
@@ -47,11 +47,11 @@ from .language_detection import get_system_message_for_language
 from .i18n import get_documents_header, get_default_system_message, get_emergency_keywords
 
 
-class OvhProvider(LLMProvider):
+class AvanteamAIProvider(LLMProvider):
     """
-    OVH AI Endpoints provider with automatic model selection and multi-model support.
+    AVANTEAM_AI AI Endpoints provider with automatic model selection and multi-model support.
 
-    This provider handles communication with OVH's unified AI Endpoints API, supporting
+    This provider handles communication with AVANTEAM_AI's unified AI Endpoints API, supporting
     40+ open-source models through a single interface. It provides intelligent model
     selection based on query type and context.
 
@@ -78,11 +78,11 @@ class OvhProvider(LLMProvider):
     """
 
     def __init__(self):
-        """Initialize the OVH AI Endpoints provider."""
+        """Initialize the AVANTEAM_AI AI Endpoints provider."""
         super().__init__()
         self.client = None
         self.search_service = AzureSearchService()
-        self.logger = logging.getLogger("OvhProvider")
+        self.logger = logging.getLogger("AvanteamAIProvider")
 
         # Model management
         self.current_model = None
@@ -96,10 +96,10 @@ class OvhProvider(LLMProvider):
 
     async def init_client(self):
         """
-        Initialize OVH AI Endpoints client with authentication and model discovery.
+        Initialize AVANTEAM_AI AI Endpoints client with authentication and model discovery.
 
         This method:
-        1. Validates the OVH access token
+        1. Validates the AVANTEAM_AI access token
         2. Initializes the OpenAI-compatible client
         3. Discovers available models from the API
         4. Sets up rate limiting controls
@@ -112,49 +112,49 @@ class OvhProvider(LLMProvider):
             return
 
         try:
-            self.logger.info("Initializing OVH AI Endpoints provider...")
+            self.logger.info("Initializing AVANTEAM_AI AI Endpoints provider...")
 
-            # Check OVH configuration
-            if not hasattr(app_settings, 'ovh') or not app_settings.ovh.ai_endpoints_access_token:
+            # Check AVANTEAM_AI configuration
+            if not hasattr(app_settings, 'avanteam_ai') or not app_settings.avanteam_ai.ai_endpoints_access_token:
                 raise ValueError(
-                    "OVH AI Endpoints access token not configured. "
-                    "Please set OVH_AI_ENDPOINTS_ACCESS_TOKEN environment variable."
+                    "AVANTEAM_AI AI Endpoints access token not configured. "
+                    "Please set AVANTEAM_AI_AI_ENDPOINTS_ACCESS_TOKEN environment variable."
                 )
 
             # Initialize the OpenAI-compatible client
             self.client = AsyncOpenAI(
-                api_key=app_settings.ovh.ai_endpoints_access_token,
-                base_url=app_settings.ovh.base_url
+                api_key=app_settings.avanteam_ai.ai_endpoints_access_token,
+                base_url=app_settings.avanteam_ai.base_url
             )
 
             # Initialize rate limiting semaphore
-            max_concurrent = min(app_settings.ovh.max_requests_per_minute // 4, 20)  # Conservative concurrency
+            max_concurrent = min(app_settings.avanteam_ai.max_requests_per_minute // 4, 20)  # Conservative concurrency
             self.request_semaphore = asyncio.Semaphore(max_concurrent)
 
             # Load available models and capabilities
             await self._discover_available_models()
 
             # Set up the current model
-            self.current_model = app_settings.ovh.model
+            self.current_model = app_settings.avanteam_ai.model
             self._validate_current_model()
 
             self.initialized = True
-            self.logger.info(f"OVH AI Endpoints provider initialized successfully with model: {self.current_model}")
+            self.logger.info(f"AVANTEAM_AI AI Endpoints provider initialized successfully with model: {self.current_model}")
             self.logger.info(f"Available models: {len(self.available_models)} discovered")
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize OVH AI Endpoints provider: {e}")
-            raise LLMProviderInitializationError(f"OVH initialization failed: {e}")
+            self.logger.error(f"Failed to initialize AVANTEAM_AI AI Endpoints provider: {e}")
+            raise LLMProviderInitializationError(f"AVANTEAM_AI initialization failed: {e}")
 
     async def _discover_available_models(self):
         """
-        Discover available models from OVH API and build capability map.
+        Discover available models from AVANTEAM_AI API and build capability map.
 
-        This method queries the OVH models endpoint to get the current list of available models
+        This method queries the AVANTEAM_AI models endpoint to get the current list of available models
         and builds a capability map for intelligent model selection.
         """
         try:
-            self.logger.debug("Discovering available OVH models...")
+            self.logger.debug("Discovering available AVANTEAM_AI models...")
 
             # Try to get models from API
             models_response = await self.client.models.list()
@@ -162,7 +162,7 @@ class OvhProvider(LLMProvider):
 
             if api_models:
                 self.available_models = api_models
-                self.logger.info(f"Discovered {len(api_models)} models from OVH API: {api_models}")
+                self.logger.info(f"Discovered {len(api_models)} models from AVANTEAM_AI API: {api_models}")
             else:
                 # Fallback to configured models if API call fails
                 self._use_configured_models()
@@ -177,20 +177,20 @@ class OvhProvider(LLMProvider):
     def _use_configured_models(self):
         """Use models from configuration when API discovery fails."""
         all_configured_models = (
-            app_settings.ovh.conversation_models +
-            app_settings.ovh.reasoning_models +
-            app_settings.ovh.coding_models +
-            app_settings.ovh.vision_models
+            app_settings.avanteam_ai.conversation_models +
+            app_settings.avanteam_ai.reasoning_models +
+            app_settings.avanteam_ai.coding_models +
+            app_settings.avanteam_ai.vision_models
         )
 
         # Remove duplicates while preserving order
         self.available_models = list(dict.fromkeys(all_configured_models))
 
-        if app_settings.ovh.available_models:
+        if app_settings.avanteam_ai.available_models:
             # Filter to only include explicitly configured models
             self.available_models = [
                 model for model in self.available_models
-                if model in app_settings.ovh.available_models
+                if model in app_settings.avanteam_ai.available_models
             ]
 
         self.logger.info(f"Using configured models: {self.available_models}")
@@ -203,15 +203,15 @@ class OvhProvider(LLMProvider):
             model_lower = model.lower()
 
             # Determine model category
-            category = app_settings.ovh.get_model_category(model)
+            category = app_settings.avanteam_ai.get_model_category(model)
 
             # Build capability profile
             capabilities = {
                 'category': category,
-                'supports_reasoning': app_settings.ovh.supports_reasoning(model),
-                'supports_multimodal': app_settings.ovh.supports_multimodal(model),
-                'supports_function_calls': True,  # All OVH models support function calls
-                'supports_streaming': True,       # All OVH models support streaming
+                'supports_reasoning': app_settings.avanteam_ai.supports_reasoning(model),
+                'supports_multimodal': app_settings.avanteam_ai.supports_multimodal(model),
+                'supports_function_calls': True,  # All AVANTEAM_AI models support function calls
+                'supports_streaming': True,       # All AVANTEAM_AI models support streaming
                 'context_length': self._estimate_context_length(model_lower),
                 'specialties': self._get_model_specialties(model_lower)
             }
@@ -311,7 +311,7 @@ class OvhProvider(LLMProvider):
         Returns:
             Optimal model name or None if current model should be kept
         """
-        if not app_settings.ovh.auto_model_selection:
+        if not app_settings.avanteam_ai.auto_model_selection:
             return None  # Auto-selection disabled
 
         if not messages:
@@ -341,7 +341,7 @@ class OvhProvider(LLMProvider):
 
         # Priority 1: Vision models for image content
         if has_images:
-            vision_models = [m for m in self.available_models if m in app_settings.ovh.vision_models]
+            vision_models = [m for m in self.available_models if m in app_settings.avanteam_ai.vision_models]
             if vision_models:
                 self.logger.debug(f"Selecting vision model for image content: {vision_models[0]}")
                 return vision_models[0]
@@ -355,7 +355,7 @@ class OvhProvider(LLMProvider):
         ]
 
         if any(keyword in text_lower for keyword in coding_keywords):
-            coding_models = [m for m in self.available_models if m in app_settings.ovh.coding_models]
+            coding_models = [m for m in self.available_models if m in app_settings.avanteam_ai.coding_models]
             if coding_models:
                 self.logger.debug(f"Selecting coding model for programming task: {coding_models[0]}")
                 return coding_models[0]
@@ -380,7 +380,7 @@ class OvhProvider(LLMProvider):
             any(re.search(pattern, text_lower) for pattern in reasoning_patterns) or
             len(text_content.split()) > 50):  # Long queries often need reasoning
 
-            reasoning_models = [m for m in self.available_models if m in app_settings.ovh.reasoning_models]
+            reasoning_models = [m for m in self.available_models if m in app_settings.avanteam_ai.reasoning_models]
             if reasoning_models:
                 self.logger.debug(f"Selecting reasoning model for complex analysis: {reasoning_models[0]}")
                 return reasoning_models[0]
@@ -398,7 +398,7 @@ class OvhProvider(LLMProvider):
             return None  # Keep current model
 
         # Fallback: Select best conversation model
-        conversation_models = [m for m in self.available_models if m in app_settings.ovh.conversation_models]
+        conversation_models = [m for m in self.available_models if m in app_settings.avanteam_ai.conversation_models]
         if conversation_models:
             return conversation_models[0]
 
@@ -442,7 +442,7 @@ class OvhProvider(LLMProvider):
 
         return False
 
-    @handle_provider_errors("OVH")
+    @handle_provider_errors("AVANTEAM_AI")
     async def send_request(
         self,
         messages: List[Dict[str, Any]],
@@ -450,11 +450,11 @@ class OvhProvider(LLMProvider):
         **kwargs
     ) -> Tuple[Any, Optional[str]]:
         """
-        Send request to OVH AI Endpoints with intelligent model selection and rate limiting.
+        Send request to AVANTEAM_AI AI Endpoints with intelligent model selection and rate limiting.
 
         This method handles:
         - Automatic model selection based on query analysis
-        - Rate limiting compliance with OVH's 400/min limit
+        - Rate limiting compliance with AVANTEAM_AI's 400/min limit
         - Retry logic for 429 errors
         - Azure Search RAG integration
         - Language detection and localization
@@ -506,7 +506,7 @@ class OvhProvider(LLMProvider):
             )
 
             # Log the model being used for this request
-            self.logger.info(f"[OVH MODEL] Using model: {optimal_model}")
+            self.logger.info(f"[AVANTEAM_AI MODEL] Using model: {optimal_model}")
 
             # Execute request with retry logic
             response = await self._execute_request_with_retry(request_params)
@@ -516,12 +516,12 @@ class OvhProvider(LLMProvider):
                 response = self._inject_citations_in_stream(response)
 
             # Generate request ID
-            request_id = f"ovh-{response.id}" if hasattr(response, 'id') else f"ovh-{id(response)}"
+            request_id = f"avanteam_ai-{response.id}" if hasattr(response, 'id') else f"avanteam_ai-{id(response)}"
 
             return response, request_id
 
     async def _apply_rate_limiting(self):
-        """Apply intelligent rate limiting to respect OVH's 400 requests/minute limit."""
+        """Apply intelligent rate limiting to respect AVANTEAM_AI's 400 requests/minute limit."""
         import time
 
         current_time = time.time()
@@ -532,7 +532,7 @@ class OvhProvider(LLMProvider):
             self.request_count = 0
 
         # Apply delay if we're approaching the limit
-        if self.request_count >= app_settings.ovh.max_requests_per_minute:
+        if self.request_count >= app_settings.avanteam_ai.max_requests_per_minute:
             delay = 60 - time_since_last + 1  # Wait until next minute
             if delay > 0:
                 self.logger.info(f"Rate limiting: waiting {delay:.1f} seconds")
@@ -570,10 +570,10 @@ class OvhProvider(LLMProvider):
         model: str,
         **kwargs
     ) -> Dict[str, Any]:
-        """Build the complete request parameters for the OVH API call."""
+        """Build the complete request parameters for the AVANTEAM_AI API call."""
         # Get max_tokens based on response size
         response_size = kwargs.get("response_size", "medium")
-        max_tokens = self._get_max_tokens_for_response_size("ovh", response_size)
+        max_tokens = self._get_max_tokens_for_response_size("avanteam_ai", response_size)
 
         # Base parameters
         request_params = {
@@ -581,14 +581,14 @@ class OvhProvider(LLMProvider):
             "stream": stream,
             "model": model,
             "max_tokens": max_tokens,
-            "temperature": kwargs.get("temperature", app_settings.ovh.temperature),
-            "top_p": kwargs.get("top_p", app_settings.ovh.top_p),
+            "temperature": kwargs.get("temperature", app_settings.avanteam_ai.temperature),
+            "top_p": kwargs.get("top_p", app_settings.avanteam_ai.top_p),
         }
 
         # Add reasoning parameters for reasoning models
         # Note: reasoning_effort parameter temporarily disabled due to API compatibility issues
-        # if app_settings.ovh.supports_reasoning(model):
-        #     reasoning_effort = kwargs.get("reasoning_effort", app_settings.ovh.reasoning_effort)
+        # if app_settings.avanteam_ai.supports_reasoning(model):
+        #     reasoning_effort = kwargs.get("reasoning_effort", app_settings.avanteam_ai.reasoning_effort)
         #     request_params["reasoning_effort"] = reasoning_effort
         #     self.logger.debug(f"Added reasoning_effort: {reasoning_effort} for model: {model}")
 
@@ -615,7 +615,7 @@ class OvhProvider(LLMProvider):
             except Exception as e:
                 # Check if this is a rate limit error
                 if hasattr(e, 'status_code') and e.status_code == 429:
-                    if attempt < max_retries - 1 and app_settings.ovh.retry_after_429:
+                    if attempt < max_retries - 1 and app_settings.avanteam_ai.retry_after_429:
                         # Extract retry-after header if available
                         retry_after = getattr(e, 'retry_after', None)
                         if retry_after:
@@ -643,7 +643,7 @@ class OvhProvider(LLMProvider):
         **kwargs
     ) -> List[Dict[str, Any]]:
         """
-        Enhance OVH messages with Azure Search context if configured, with multilingual support.
+        Enhance AVANTEAM_AI messages with Azure Search context if configured, with multilingual support.
 
         This method reuses the Azure Search integration from the existing providers,
         ensuring consistent RAG functionality across all LLM providers.
@@ -660,7 +660,7 @@ class OvhProvider(LLMProvider):
         enhanced_messages = messages.copy()
 
         # Build system message with language awareness and response size preference
-        base_system_message = getattr(app_settings.ovh, 'system_message',
+        base_system_message = getattr(app_settings.avanteam_ai, 'system_message',
                                      get_default_system_message(detected_language))
         response_size = kwargs.get("response_size", "medium")
         system_message = get_system_message_for_language(detected_language, base_system_message, response_size)
@@ -754,9 +754,9 @@ class OvhProvider(LLMProvider):
 
     def _inject_citations_in_stream(self, stream_response):
         """
-        Inject citations into OVH streaming response.
+        Inject citations into AVANTEAM_AI streaming response.
 
-        This creates a wrapper around the OVH stream that first yields
+        This creates a wrapper around the AVANTEAM_AI stream that first yields
         a citation chunk, then yields the actual content chunks.
         Compatible with the existing format_stream_response function.
         """
@@ -769,7 +769,7 @@ class OvhProvider(LLMProvider):
                 if first_chunk and hasattr(self, '_current_search_citations') and self._current_search_citations:
                     # Create a citation chunk similar to other providers
                     citation_chunk = {
-                        'id': f'ovh-citations-{int(time.time())}',
+                        'id': f'avanteam_ai-citations-{int(time.time())}',
                         'object': 'chat.completion.chunk',
                         'created': int(time.time()),
                         'model': self.current_model,
@@ -821,9 +821,9 @@ class OvhProvider(LLMProvider):
         stream: bool = True
     ) -> Union[StandardResponseAdapter, Any]:
         """
-        Format OVH response to standard format.
+        Format AVANTEAM_AI response to standard format.
 
-        Since OVH uses OpenAI-compatible responses, minimal transformation is needed.
+        Since AVANTEAM_AI uses OpenAI-compatible responses, minimal transformation is needed.
         We primarily handle reasoning content display and ensure compatibility.
 
         Args:
@@ -837,19 +837,19 @@ class OvhProvider(LLMProvider):
         response, request_id = raw_response
 
         if stream:
-            # For streaming responses, OVH format is OpenAI-compatible
-            self.logger.debug("Returning OVH streaming response (OpenAI-compatible)")
+            # For streaming responses, AVANTEAM_AI format is OpenAI-compatible
+            self.logger.debug("Returning AVANTEAM_AI streaming response (OpenAI-compatible)")
             return response
         else:
             # For non-streaming responses, convert to our standard format
-            self.logger.debug("Converting OVH non-streaming response to standard format")
+            self.logger.debug("Converting AVANTEAM_AI non-streaming response to standard format")
 
             # Handle reasoning content for reasoning models
             if hasattr(response, 'choices') and response.choices:
                 choice = response.choices[0]
                 if hasattr(choice, 'message') and hasattr(choice.message, 'reasoning_content'):
                     reasoning_content = choice.message.reasoning_content
-                    if reasoning_content and app_settings.ovh.show_reasoning_in_ui:
+                    if reasoning_content and app_settings.avanteam_ai.show_reasoning_in_ui:
                         # Add reasoning to context for UI display
                         if not hasattr(choice.message, 'context'):
                             choice.message.context = {}
@@ -858,22 +858,22 @@ class OvhProvider(LLMProvider):
                         self.logger.debug("Added reasoning content to response context")
 
             # Convert to standard format
-            standard_response = self._convert_ovh_response(response)
+            standard_response = self._convert_avanteam_ai_response(response)
             return StandardResponseAdapter(standard_response)
 
-    def _convert_ovh_response(self, ovh_response) -> StandardResponse:
+    def _convert_avanteam_ai_response(self, avanteam_ai_response) -> StandardResponse:
         """
-        Convert OVH response to StandardResponse format.
+        Convert AVANTEAM_AI response to StandardResponse format.
 
         Args:
-            ovh_response: Raw OVH response object (OpenAI-compatible)
+            avanteam_ai_response: Raw AVANTEAM_AI response object (OpenAI-compatible)
 
         Returns:
             StandardResponse object
         """
         # Convert choices
         choices = []
-        for choice in ovh_response.choices:
+        for choice in avanteam_ai_response.choices:
             # Convert message
             message = None
             if hasattr(choice, 'message') and choice.message:
@@ -906,18 +906,18 @@ class OvhProvider(LLMProvider):
 
         # Convert usage if available
         usage = None
-        if hasattr(ovh_response, 'usage') and ovh_response.usage:
+        if hasattr(avanteam_ai_response, 'usage') and avanteam_ai_response.usage:
             usage = StandardUsage(
-                prompt_tokens=ovh_response.usage.prompt_tokens,
-                completion_tokens=ovh_response.usage.completion_tokens,
-                total_tokens=ovh_response.usage.total_tokens
+                prompt_tokens=avanteam_ai_response.usage.prompt_tokens,
+                completion_tokens=avanteam_ai_response.usage.completion_tokens,
+                total_tokens=avanteam_ai_response.usage.total_tokens
             )
 
         return StandardResponse(
-            id=ovh_response.id,
-            object=ovh_response.object,
-            created=ovh_response.created,
-            model=ovh_response.model,
+            id=avanteam_ai_response.id,
+            object=avanteam_ai_response.object,
+            created=avanteam_ai_response.created,
+            model=avanteam_ai_response.model,
             choices=choices,
             usage=usage
         )
@@ -954,13 +954,13 @@ class OvhProvider(LLMProvider):
         return True
 
     async def close(self):
-        """Close the OVH client and clean up resources."""
+        """Close the AVANTEAM_AI client and clean up resources."""
         await super().close()
         if self.client:
             # OpenAI client cleanup
             await self.client.close()
             self.client = None
-            self.logger.debug("OVH AI Endpoints client cleaned up")
+            self.logger.debug("AVANTEAM_AI AI Endpoints client cleaned up")
 
         # Close search service
         if self.search_service:
