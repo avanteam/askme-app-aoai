@@ -68,8 +68,8 @@ class SearchRequest(BaseModel):
 
     filters: Optional[Dict[str, Union[str, List[str]]]] = Field(
         default=None,
-        description="Optional filters to apply (future feature)",
-        example={"document_type": "pdf", "language": "fr"}
+        description="Optional OData filters to apply to search results. Supports single values or lists for OR conditions.",
+        example={"metadata_storage_name": "report.pdf"}
     )
 
     use_semantic_search: bool = Field(

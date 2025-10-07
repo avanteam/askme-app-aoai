@@ -126,11 +126,26 @@ async def search_documents():
             search_provider = await create_search_provider()
 
             if search_provider:
+                # Build filters string from API filters
+                filter_string = None
+                if data.filters:
+                    filter_parts = []
+                    for key, value in data.filters.items():
+                        if isinstance(value, list):
+                            # Multiple values: (field eq 'value1' or field eq 'value2')
+                            or_parts = [f"{key} eq '{v}'" for v in value]
+                            filter_parts.append(f"({' or '.join(or_parts)})")
+                        else:
+                            # Single value: field eq 'value'
+                            filter_parts.append(f"{key} eq '{value}'")
+                    filter_string = " and ".join(filter_parts) if filter_parts else None
+
                 # Convert API request to internal search query
                 search_query = SearchQuery(
                     query=data.query,
                     top_k=data.max_results,
                     use_semantic_search=data.use_semantic_search,
+                    filters=filter_string,
                 )
 
                 logger.info(
@@ -165,6 +180,10 @@ async def search_documents():
                         metadata=metadata
                     )
                     api_results.append(api_result)
+
+                # Apply sorting if requested
+                if data.sort_by != "relevance":
+                    api_results = sort_search_results(api_results, data.sort_by)
 
                 # Build response
                 response_time_ms = (time.time() - start_time) * 1000
@@ -426,6 +445,46 @@ async def handle_internal_error(error):
 
 
 # Utility functions for route handlers
+def sort_search_results(results: List[SearchResult], sort_by: str) -> List[SearchResult]:
+    """
+    Sort search results based on the specified criteria.
+
+    Args:
+        results: List of SearchResult objects
+        sort_by: Sort criteria ('relevance', 'date_asc', 'date_desc', 'title')
+
+    Returns:
+        Sorted list of SearchResult objects
+    """
+    if sort_by == "relevance":
+        # Already sorted by score (default)
+        return results
+    elif sort_by == "date_desc":
+        # Sort by modified_date descending (most recent first)
+        return sorted(
+            results,
+            key=lambda x: x.metadata.modified_date if x.metadata and x.metadata.modified_date else "",
+            reverse=True
+        )
+    elif sort_by == "date_asc":
+        # Sort by modified_date ascending (oldest first)
+        return sorted(
+            results,
+            key=lambda x: x.metadata.modified_date if x.metadata and x.metadata.modified_date else "",
+            reverse=False
+        )
+    elif sort_by == "title":
+        # Sort by title alphabetically
+        return sorted(
+            results,
+            key=lambda x: x.title.lower() if x.title else "",
+            reverse=False
+        )
+    else:
+        # Unknown sort option, return as-is
+        return results
+
+
 async def get_search_provider():
     """
     Get the configured search provider.
