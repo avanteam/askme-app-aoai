@@ -3,7 +3,12 @@ test_env/
 frontend/node_modules
 .env
 .env-rn
-# static
+# Frontend build artifacts
+static/*/*.js
+static/*/*.css
+static/*/*.map
+static/*.html
+frontend/vite.config.ts.timestamp-*
 .azure/
 __pycache__/
 .ipynb_checkpoints/
@@ -14,3 +19,4 @@ k8s/secret.yaml
 # Déploiements clients locaux (pour tests CLI uniquement)
 deployments/clients/
 venv
+static/index.html
