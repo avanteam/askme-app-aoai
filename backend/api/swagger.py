@@ -361,12 +361,10 @@ def _generate_schemas() -> Dict[str, Any]:
                 "properties": {
                     "filename": {"type": "string", "nullable": True},
                     "url": {"type": "string", "nullable": True},
-                    "document_type": {"type": "string", "nullable": True},
-                    "language": {"type": "string", "nullable": True},
                     "created_date": {"type": "string", "format": "date-time", "nullable": True},
                     "modified_date": {"type": "string", "format": "date-time", "nullable": True},
-                    "file_size": {"type": "integer", "nullable": True},
-                    "custom_fields": {"type": "object", "nullable": True}
+                    "custom_fields": {"type": "object", "nullable": True},
+                    "security_rights": {"type": "array", "items": {"type": "string"}, "nullable": True}
                 }
             },
             "SearchResult": {
@@ -462,11 +460,43 @@ def _generate_schemas() -> Dict[str, Any]:
 
 
 def _update_refs_recursive(obj):
-    """Recursively update $ref paths in a schema object."""
+    """Recursively update $ref paths in a schema object and fix oneOf/anyOf for nullable types."""
     if isinstance(obj, dict):
         result = {}
+
+        # Fix oneOf/anyOf patterns for nullable types
+        # Pydantic v2 generates: {"anyOf": [{"type": "string"}, {"type": "null"}]}
+        # OpenAPI 3.0 prefers: {"type": "string", "nullable": true}
+        if 'anyOf' in obj or 'oneOf' in obj:
+            variants_key = 'anyOf' if 'anyOf' in obj else 'oneOf'
+            variants = obj[variants_key]
+
+            # Check if this is a simple nullable pattern
+            if len(variants) == 2:
+                type_schema = None
+                has_null = False
+
+                for variant in variants:
+                    if isinstance(variant, dict):
+                        if variant.get('type') == 'null':
+                            has_null = True
+                        else:
+                            type_schema = variant
+
+                # If it's a simple nullable type, convert it
+                if has_null and type_schema:
+                    result = _update_refs_recursive(type_schema)
+                    result['nullable'] = True
+                    return result
+
+            # Otherwise keep the anyOf/oneOf structure
+            result[variants_key] = [_update_refs_recursive(v) for v in variants]
+
         for key, value in obj.items():
-            if key == '$ref' and isinstance(value, str):
+            if key in ('anyOf', 'oneOf'):
+                # Already handled above
+                continue
+            elif key == '$ref' and isinstance(value, str):
                 # Update reference from #/$defs/... to #/components/schemas/...
                 if value.startswith('#/$defs/'):
                     result[key] = value.replace('#/$defs/', '#/components/schemas/')

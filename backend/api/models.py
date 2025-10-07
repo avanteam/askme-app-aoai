@@ -145,18 +145,6 @@ class DocumentMetadata(BaseModel):
         example="https://poc-ng-lighton.avanteam-online.com/GED/PageLoader.ashx?Open&IdDoc=bbafb8c8-6613-40ed-9a77-8927b34c6681&ext=1"
     )
 
-    document_type: Optional[str] = Field(
-        None,
-        description="**Document type/format** (e.g., pdf, docx, xlsx)",
-        example="pdf"
-    )
-
-    language: Optional[str] = Field(
-        None,
-        description="**Detected language** of the document content (ISO 639-1 code)",
-        example="fr"
-    )
-
     created_date: Optional[datetime] = Field(
         None,
         description="**Document creation date** in ISO 8601 format (UTC)",
@@ -167,12 +155,6 @@ class DocumentMetadata(BaseModel):
         None,
         description="**Last modification date** in ISO 8601 format (UTC). Useful for sorting by recency",
         example="2025-10-07T09:42:50Z"
-    )
-
-    file_size: Optional[int] = Field(
-        None,
-        description="**File size in bytes**. Example: 2048576 = ~2 MB",
-        example=2048576
     )
 
     custom_fields: Optional[Dict[str, Any]] = Field(

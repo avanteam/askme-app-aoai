@@ -208,11 +208,8 @@ async def search_documents():
                     metadata = DocumentMetadata(
                         filename=doc.filename,
                         url=doc.url,
-                        document_type=doc.metadata.get('document_type'),
-                        language=doc.metadata.get('language'),
                         created_date=doc.metadata.get('created_date'),
                         modified_date=doc.metadata.get('modified_date'),
-                        file_size=doc.metadata.get('file_size'),
                         custom_fields=custom_fields_value,
                         security_rights=doc.metadata.get('security_rights')
                     )
