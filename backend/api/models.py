@@ -273,7 +273,10 @@ Maximum length: 50 (as specified by max_results)"""
     total_results: int = Field(
         ...,
         ge=0,
-        description="**Total number of results** returned in this response. May be less than max_results if fewer documents matched",
+        description="""**Number of results returned** in this response.
+
+This is the count of results actually returned (length of results array), not the total number of
+matching documents in the index. The value will be at most equal to max_results from your request.""",
         example=10
     )
 

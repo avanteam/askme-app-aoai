@@ -131,13 +131,19 @@ async def search_documents():
                 if data.filters:
                     filter_parts = []
                     for key, value in data.filters.items():
+                        # Sanitize filter key (allow only alphanumeric and underscore)
+                        safe_key = ''.join(c for c in key if c.isalnum() or c == '_')
+
                         if isinstance(value, list):
                             # Multiple values: (field eq 'value1' or field eq 'value2')
-                            or_parts = [f"{key} eq '{v}'" for v in value]
+                            # Escape single quotes in values to prevent OData injection
+                            or_parts = [f"{safe_key} eq '{str(v).replace(chr(39), chr(39)+chr(39))}'" for v in value]
                             filter_parts.append(f"({' or '.join(or_parts)})")
                         else:
                             # Single value: field eq 'value'
-                            filter_parts.append(f"{key} eq '{value}'")
+                            # Escape single quotes in value to prevent OData injection
+                            safe_value = str(value).replace(chr(39), chr(39)+chr(39))
+                            filter_parts.append(f"{safe_key} eq '{safe_value}'")
                     filter_string = " and ".join(filter_parts) if filter_parts else None
 
                 # Convert API request to internal search query
@@ -148,13 +154,29 @@ async def search_documents():
                     filters=filter_string,
                 )
 
+                # Safely truncate query for logging
+                query_preview = data.query[:100] + '...' if len(data.query) > 100 else data.query
                 logger.info(
-                    f"Search request - Client: {client_name}, Query: '{data.query[:100]}...', "
+                    f"Search request - Client: {client_name}, Query: '{query_preview}', "
                     f"MaxResults: {data.max_results}, RequestID: {request_id}"
                 )
 
-                # Execute search
-                search_documents = await search_provider.search(search_query)
+                # Execute search with timeout
+                try:
+                    search_documents = await asyncio.wait_for(
+                        search_provider.search(search_query),
+                        timeout=app_settings.base_settings.external_api_request_timeout
+                    )
+                except asyncio.TimeoutError:
+                    logger.error(
+                        f"Search timeout - Client: {client_name}, RequestID: {request_id}"
+                    )
+                    return jsonify(APIError(
+                        error_code='SEARCH_TIMEOUT',
+                        error_message='Search operation timed out. Please try again with a more specific query.',
+                        timestamp=datetime.utcnow(),
+                        request_id=request_id
+                    ).dict()), 504
 
                 # Convert internal documents to API response format
                 api_results = []
@@ -214,30 +236,6 @@ async def search_documents():
             timestamp=datetime.utcnow(),
             request_id=request_id
         ).dict()), 503
-
-    except Exception as e:
-        logger.error(
-            f"Search error - Client: {client_name}, Error: {str(e)}, RequestID: {request_id}",
-            exc_info=True
-        )
-        return jsonify(APIError(
-            error_code='INTERNAL_ERROR',
-            error_message='An internal error occurred while processing the search',
-            timestamp=datetime.utcnow(),
-            request_id=request_id
-        ).dict()), 500
-
-    except ValidationError as e:
-        logger.warning(
-            f"Validation error - Client: {client_name}, Error: {str(e)}, RequestID: {request_id}"
-        )
-        return jsonify(APIError(
-            error_code='VALIDATION_ERROR',
-            error_message='Request validation failed',
-            details={'validation_errors': e.errors()},
-            timestamp=datetime.utcnow(),
-            request_id=request_id
-        ).dict()), 400
 
     except Exception as e:
         logger.error(
@@ -486,43 +484,7 @@ def sort_search_results(results: List[SearchResult], sort_by: str) -> List[Searc
         return results
 
 
-async def get_search_provider():
-    """
-    Get the configured search provider.
-
-    Returns the initialized search provider or None if unavailable.
-    This function handles the connection to the search backend.
-    """
-    try:
-        # Use the create_search_provider factory function
-        provider = await create_search_provider()
-        return provider
-
-    except Exception as e:
-        logger.error(f"Failed to initialize search provider: {e}")
-        return None
-
-
-def format_search_error(error: Exception, request_id: str) -> Dict[str, Any]:
-    """Format search provider errors for API response."""
-    error_message = "Search operation failed"
-
-    # Map common search provider errors
-    if "connection" in str(error).lower():
-        error_code = "SEARCH_CONNECTION_ERROR"
-        error_message = "Could not connect to search service"
-    elif "timeout" in str(error).lower():
-        error_code = "SEARCH_TIMEOUT"
-        error_message = "Search operation timed out"
-    elif "quota" in str(error).lower() or "limit" in str(error).lower():
-        error_code = "SEARCH_QUOTA_EXCEEDED"
-        error_message = "Search service quota exceeded"
-    else:
-        error_code = "SEARCH_ERROR"
-
-    return {
-        'error_code': error_code,
-        'error_message': error_message,
-        'timestamp': datetime.utcnow().isoformat(),
-        'request_id': request_id
-    }
+# Utility functions removed - unused in current implementation
+# The following functions were defined but never called:
+# - get_search_provider(): Replaced by create_search_provider() factory
+# - format_search_error(): Error formatting is done inline in route handlers
