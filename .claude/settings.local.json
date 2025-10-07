@@ -83,7 +83,8 @@
       "Bash(netstat:*)",
       "Bash(taskkill:*)",
       "Bash(git log:*)",
-      "WebFetch(domain:endpoints.ai.cloud.ovh.net)"
+      "WebFetch(domain:endpoints.ai.cloud.ovh.net)",
+      "Bash(kubectl exec:*)"
     ],
     "deny": []
   }

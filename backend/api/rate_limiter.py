@@ -269,7 +269,7 @@ def rate_limit(*rules: str):
         @wraps(f)
         async def decorated_function(*args, **kwargs):
             from quart import request, jsonify
-            from backend.api.auth import api_key_manager
+            from backend.api.auth import get_api_key_manager
 
             # Determine client identifier
             client_id = get_client_ip()  # Default to IP
@@ -278,6 +278,7 @@ def rate_limit(*rules: str):
             auth_header = request.headers.get('Authorization', '')
             if auth_header.startswith('Bearer '):
                 api_key = auth_header[7:]
+                api_key_manager = get_api_key_manager()
                 client_info = api_key_manager.get_client_info(api_key)
                 if client_info:
                     client_id = f"client_{client_info['client_name']}"
