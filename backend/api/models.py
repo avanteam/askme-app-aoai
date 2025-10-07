@@ -136,6 +136,12 @@ class DocumentMetadata(BaseModel):
         example={"department": "IT", "classification": "internal"}
     )
 
+    security_rights: Optional[List[str]] = Field(
+        default=None,
+        description="Access rights/permissions required to view this document",
+        example=["QDMAdmin", "QDMLecteur"]
+    )
+
 
 class SearchResult(BaseModel):
     """Individual search result model."""

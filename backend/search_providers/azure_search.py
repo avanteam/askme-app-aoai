@@ -698,6 +698,7 @@ class AzureSearchProvider(SearchProvider):
                     "created_date": result.get("metadata_creation_date"),
                     "modified_date": result.get("metadata_storage_last_modified"),
                     "file_size": result.get("metadata_storage_size"),
+                    "security_rights": result.get("securityRights"),
                     **scoring_metadata
                 }
 

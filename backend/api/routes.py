@@ -169,7 +169,8 @@ async def search_documents():
                             created_date=doc.metadata.get('created_date'),
                             modified_date=doc.metadata.get('modified_date'),
                             file_size=doc.metadata.get('file_size'),
-                            custom_fields=doc.metadata.get('custom_fields')
+                            custom_fields=doc.metadata.get('custom_fields'),
+                            security_rights=doc.metadata.get('security_rights')
                         )
 
                     api_result = SearchResult(
