@@ -788,7 +788,7 @@ class AzureSearchProvider(SearchProvider):
             return None
 
         # Check if Avanteam URL base is configured
-        if not hasattr(app_settings, 'avanteam') or not app_settings.avanteam or not app_settings.avanteam.url_base:
+        if not hasattr(app_settings, 'custom_avanteam_settings') or not app_settings.custom_avanteam_settings or not app_settings.custom_avanteam_settings.url_base:
             return blob_url  # Return original if not configured
 
         try:
@@ -801,7 +801,7 @@ class AzureSearchProvider(SearchProvider):
             if match:
                 guid = match.group(1)
                 # Construct Avanteam URL
-                base_url = app_settings.avanteam.url_base.rstrip('/')
+                base_url = app_settings.custom_avanteam_settings.url_base.rstrip('/')
                 avanteam_url = f"{base_url}/PageLoader.ashx?Open&IdDoc={guid}&ext=1"
                 return avanteam_url
             else:
