@@ -1099,6 +1099,7 @@ class _CustomAvanteamSettings(BaseSettings):
     licencehub_handlerurl: Optional[str] = None
     licencehub_key: Optional[str] = None
     threshold_remaining_alert: Optional[int] = 100000
+    url_base: Optional[str] = None
 
 
 

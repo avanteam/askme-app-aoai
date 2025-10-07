@@ -665,7 +665,9 @@ class AzureSearchProvider(SearchProvider):
                 
                 # Extract metadata fields
                 title = self._extract_field(result, self.title_column)
-                url = self._extract_field(result, self.url_column)
+                blob_url = self._extract_field(result, self.url_column)
+                # Transform blob URL to Avanteam URL
+                url = self._transform_blob_url_to_avanteam(blob_url)
                 filename = self._extract_field(result, self.filename_column)
                 
                 # Get and normalize search score with hybrid support
@@ -688,6 +690,21 @@ class AzureSearchProvider(SearchProvider):
                     "final_score": final_score
                 }
 
+                # Extract Azure Search metadata fields
+                azure_metadata = {
+                    "id": result.get("id", ""),
+                    "source": filename or "Document",
+                    "search_highlights": result.get("@search.highlights", {}),
+                    "created_date": result.get("metadata_creation_date"),
+                    "modified_date": result.get("metadata_storage_last_modified"),
+                    "file_size": result.get("metadata_storage_size"),
+                    **scoring_metadata
+                }
+
+                # Add custom fields if present
+                if "fieldMetadata" in result:
+                    azure_metadata["custom_fields"] = result["fieldMetadata"]
+
                 # Create SearchDocument
                 doc = SearchDocument(
                     content=content,
@@ -695,12 +712,7 @@ class AzureSearchProvider(SearchProvider):
                     url=url,
                     filename=filename,
                     score=normalized_score,
-                    metadata={
-                        "id": result.get("id", ""),
-                        "source": filename or "Document",
-                        "search_highlights": result.get("@search.highlights", {}),
-                        **scoring_metadata
-                    }
+                    metadata=azure_metadata
                 )
                 
                 documents.append(doc)
@@ -752,11 +764,53 @@ class AzureSearchProvider(SearchProvider):
         """Extract a specific field from search result."""
         if not field_name or field_name not in result:
             return None
-        
+
         value = result[field_name]
         if isinstance(value, list):
             return " ".join(str(item) for item in value)
         return str(value) if value else None
+
+    def _transform_blob_url_to_avanteam(self, blob_url: Optional[str]) -> Optional[str]:
+        """
+        Transform Azure Blob Storage URL to Avanteam PageLoader URL.
+
+        Example:
+        From: https://askmestorageprod.blob.core.windows.net/askme-navalgroup-poclighton-dev/bbafb8c8-6613-40ed-9a77-8927b34c6681/Avanteam%20Process%20Suite.pdf
+        To: https://poc-ng-lighton.avanteam-online.com/GED/PageLoader.ashx?Open&IdDoc=bbafb8c8-6613-40ed-9a77-8927b34c6681&ext=1
+
+        Args:
+            blob_url: Azure Blob Storage URL
+
+        Returns:
+            Avanteam PageLoader URL or original URL if transformation fails
+        """
+        if not blob_url:
+            return None
+
+        # Check if Avanteam URL base is configured
+        if not hasattr(app_settings, 'avanteam') or not app_settings.avanteam or not app_settings.avanteam.url_base:
+            return blob_url  # Return original if not configured
+
+        try:
+            import re
+            # Extract GUID from blob URL
+            # Pattern: /container-name/GUID/filename
+            guid_pattern = r'/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/'
+            match = re.search(guid_pattern, blob_url, re.IGNORECASE)
+
+            if match:
+                guid = match.group(1)
+                # Construct Avanteam URL
+                base_url = app_settings.avanteam.url_base.rstrip('/')
+                avanteam_url = f"{base_url}/PageLoader.ashx?Open&IdDoc={guid}&ext=1"
+                return avanteam_url
+            else:
+                self.logger.warning(f"Could not extract GUID from blob URL: {blob_url}")
+                return blob_url  # Return original if GUID not found
+
+        except Exception as e:
+            self.logger.warning(f"Error transforming blob URL to Avanteam URL: {e}")
+            return blob_url  # Return original on error
     
     def _normalize_score(self, raw_score: float, search_query: SearchQuery) -> float:
         """
