@@ -470,6 +470,7 @@ const Chat = () => {
         getToken(),
         currentUser,
         userFullDef,
+        {"Service" : "RH"}, //To replace by actual user data
         customizationPreferences
       )
 
@@ -627,6 +628,7 @@ const Chat = () => {
             request,
             abortController.signal,
             userFullDef,
+            {"Service" : "RH"},
             customizationPreferences,
             conversationId
           )
@@ -636,6 +638,7 @@ const Chat = () => {
             request,
             abortController.signal,
             userFullDef,
+            {"Service" : "RH"},
             customizationPreferences
           )
 
