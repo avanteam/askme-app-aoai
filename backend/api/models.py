@@ -29,21 +29,12 @@ class SearchRequest(BaseModel):
     """
     model_config = ConfigDict(
         json_schema_extra={
-            "examples": [
-                {
-                    "query": "Comment configurer l'authentification Azure AD?",
-                    "max_results": 10,
-                    "include_metadata": True,
-                    "sort_by": "relevance"
-                },
-                {
-                    "query": "Guide installation Office 365 entreprise",
-                    "max_results": 5,
-                    "include_metadata": False,
-                    "sort_by": "date_desc",
-                    "use_semantic_search": False
-                }
-            ]
+            "example": {
+                "query": "Comment configurer l'authentification Azure AD?",
+                "max_results": 10,
+                "include_metadata": True,
+                "sort_by": "relevance"
+            }
         }
     )
 
