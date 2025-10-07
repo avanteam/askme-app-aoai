@@ -20,9 +20,8 @@ from backend.api.models import (
 )
 from backend.api.auth import require_api_key, security_middleware
 from backend.api.rate_limiter import rate_limit
-# Import search providers locally to avoid conflicts
-# from backend.search_providers import create_search_provider
-# from backend.search_providers.base import SearchQuery, SearchDocument
+from backend.search_providers import create_search_provider
+from backend.search_providers.base import SearchQuery, SearchDocument
 from backend.settings import app_settings
 
 
@@ -124,9 +123,6 @@ async def search_documents():
 
         # Try to use real search provider
         try:
-            from backend.search_providers import create_search_provider
-            from backend.search_providers.base import SearchQuery
-
             search_provider = await create_search_provider()
 
             if search_provider:
