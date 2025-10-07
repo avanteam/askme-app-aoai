@@ -48,7 +48,28 @@ def generate_openapi_spec() -> Dict[str, Any]:
             "/search": {
                 "post": {
                     "summary": "Search documents",
-                    "description": "Search through indexed documents using advanced search capabilities",
+                    "description": """**Perform semantic search** across your document index.
+
+**Features:**
+- Natural language query support
+- Semantic search for better relevance
+- Advanced filtering by metadata fields
+- Multiple sorting options (relevance, date, title)
+- Rich metadata including security rights and custom fields
+
+**Authentication:**
+Required - Use Bearer token with your API key
+
+**Rate Limits:**
+- 60 requests/minute
+- 1000 requests/hour
+- 10000 requests/day
+
+**Best Practices:**
+1. Use `include_metadata=true` to get file URLs and access rights
+2. Filter by `securityRights` to implement access control
+3. Sort by `date_desc` for recent documents
+4. Keep queries concise and specific for best results""",
                     "operationId": "searchDocuments",
                     "tags": ["Search"],
                     "security": [{"ApiKeyAuth": []}],
@@ -67,16 +88,26 @@ def generate_openapi_spec() -> Dict[str, Any]:
                                         }
                                     },
                                     "advanced_search": {
-                                        "summary": "Advanced search with all options",
+                                        "summary": "Advanced search with filters",
                                         "value": {
                                             "query": "Configuration authentification SSO Azure Active Directory",
                                             "max_results": 20,
                                             "include_metadata": True,
-                                            "sort_by": "relevance",
+                                            "sort_by": "date_desc",
                                             "use_semantic_search": True,
                                             "filters": {
-                                                "document_type": "pdf",
-                                                "language": "fr"
+                                                "securityRights": ["QDMAdmin", "QDMLecteur"]
+                                            }
+                                        }
+                                    },
+                                    "filtered_search": {
+                                        "summary": "Search with security filter",
+                                        "value": {
+                                            "query": "guide installation",
+                                            "max_results": 10,
+                                            "include_metadata": True,
+                                            "filters": {
+                                                "securityRights": ["QDMAdmin"]
                                             }
                                         }
                                     }

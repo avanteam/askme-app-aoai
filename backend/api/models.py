@@ -24,8 +24,19 @@ class SearchRequest(BaseModel):
     """
     Search request model with comprehensive parameters.
 
-    This model validates incoming search requests and provides
-    OpenAPI documentation for API consumers.
+    Use this model to perform semantic searches across your document index.
+    The API supports advanced filtering, sorting, and metadata retrieval.
+
+    **Key Features:**
+    - Semantic search with Azure Cognitive Search
+    - Advanced filtering by document attributes
+    - Multiple sorting options (relevance, date, title)
+    - Optional metadata inclusion for rich results
+
+    **Rate Limits:**
+    - 60 requests per minute
+    - 1000 requests per hour
+    - 10000 requests per day
     """
     model_config = ConfigDict(
         json_schema_extra={
@@ -33,7 +44,11 @@ class SearchRequest(BaseModel):
                 "query": "Comment configurer l'authentification Azure AD?",
                 "max_results": 10,
                 "include_metadata": True,
-                "sort_by": "relevance"
+                "sort_by": "relevance",
+                "use_semantic_search": True,
+                "filters": {
+                    "securityRights": ["QDMAdmin", "QDMLecteur"]
+                }
             }
         }
     )
@@ -42,7 +57,7 @@ class SearchRequest(BaseModel):
         ...,
         min_length=1,
         max_length=1000,
-        description="Search query string",
+        description="**Search query string**. Natural language queries are supported. Examples: 'configuration Azure AD', 'guide installation Office 365'",
         example="Comment configurer l'authentification Azure AD?"
     )
 
@@ -50,31 +65,45 @@ class SearchRequest(BaseModel):
         default=10,
         ge=1,
         le=50,
-        description="Maximum number of results to return (1-50)",
+        description="**Maximum number of results** to return. Limited to 50 for performance. Default: 10",
         example=10
     )
 
     include_metadata: bool = Field(
         default=True,
-        description="Include document metadata in response",
+        description="**Include document metadata** in response (filename, URL, dates, security rights, etc.). Recommended: true",
         example=True
     )
 
     sort_by: SearchSortBy = Field(
         default=SearchSortBy.RELEVANCE,
-        description="Sort results by specified criteria",
+        description="""**Sort order** for results:
+        - `relevance`: By search score (default, best match first)
+        - `date_desc`: By modification date (newest first)
+        - `date_asc`: By modification date (oldest first)
+        - `title`: Alphabetically by document title""",
         example="relevance"
     )
 
     filters: Optional[Dict[str, Union[str, List[str]]]] = Field(
         default=None,
-        description="Optional OData filters to apply to search results. Supports single values or lists for OR conditions.",
-        example={"metadata_storage_name": "report.pdf"}
+        description="""**OData filters** to refine search results.
+
+**Common filter fields:**
+- `securityRights`: Filter by access rights (e.g., `["QDMAdmin", "QDMLecteur"]`)
+- `metadata_storage_name`: Filter by filename
+- `titreDocument`: Filter by document title
+
+**Examples:**
+- Single value: `{"metadata_storage_name": "guide.pdf"}`
+- Multiple values (OR): `{"securityRights": ["QDMAdmin", "QDMLecteur"]}`
+- Combined (AND): `{"securityRights": ["QDMAdmin"], "metadata_storage_name": "guide.pdf"}`""",
+        example={"securityRights": ["QDMAdmin", "QDMLecteur"]}
     )
 
     use_semantic_search: bool = Field(
         default=True,
-        description="Use semantic search capabilities if available",
+        description="**Enable semantic search** for better relevance using AI understanding. Recommended: true for natural language queries",
         example=True
     )
 
@@ -86,135 +115,195 @@ class SearchRequest(BaseModel):
 
 
 class DocumentMetadata(BaseModel):
-    """Document metadata model."""
+    """
+    Document metadata providing rich information about the search result.
+
+    **Available Fields:**
+    - File information: filename, url, file_size
+    - Timestamps: created_date, modified_date
+    - Access control: security_rights
+    - Custom metadata: custom_fields (JSON string with business-specific data)
+
+    All fields are optional and depend on the document's indexed metadata.
+    """
 
     filename: Optional[str] = Field(
         None,
-        description="Original filename of the document",
-        example="azure_ad_guide.pdf"
+        description="**Original filename** of the document as stored in the system",
+        example="Avanteam Process Suite.pdf"
     )
 
     url: Optional[str] = Field(
         None,
-        description="URL or link to the original document",
-        example="https://docs.microsoft.com/azure-ad"
+        description="**Direct access URL** to view/download the document. Uses Avanteam PageLoader format for secure access",
+        example="https://poc-ng-lighton.avanteam-online.com/GED/PageLoader.ashx?Open&IdDoc=bbafb8c8-6613-40ed-9a77-8927b34c6681&ext=1"
     )
 
     document_type: Optional[str] = Field(
         None,
-        description="Type/format of the document",
+        description="**Document type/format** (e.g., pdf, docx, xlsx)",
         example="pdf"
     )
 
     language: Optional[str] = Field(
         None,
-        description="Detected language of the content",
+        description="**Detected language** of the document content (ISO 639-1 code)",
         example="fr"
     )
 
     created_date: Optional[datetime] = Field(
         None,
-        description="Document creation date",
-        example="2024-01-15T10:30:00Z"
+        description="**Document creation date** in ISO 8601 format (UTC)",
+        example="2025-01-24T14:45:58Z"
     )
 
     modified_date: Optional[datetime] = Field(
         None,
-        description="Document last modification date",
-        example="2024-03-20T14:45:00Z"
+        description="**Last modification date** in ISO 8601 format (UTC). Useful for sorting by recency",
+        example="2025-10-07T09:42:50Z"
     )
 
     file_size: Optional[int] = Field(
         None,
-        description="File size in bytes",
+        description="**File size in bytes**. Example: 2048576 = ~2 MB",
         example=2048576
     )
 
     custom_fields: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Additional custom metadata fields",
-        example={"department": "IT", "classification": "internal"}
+        description="""**Custom business metadata** stored as JSON string. May contain fields like:
+- Type: Document type classification
+- Categorie: Business category
+- Secteur d'application: Application area
+
+Parse the JSON string to access individual fields.""",
+        example={"Type": "DOCUMENT TEST", "Categorie": "CATEGORIE TEST", "Secteur d'application": "Produits"}
     )
 
     security_rights: Optional[List[str]] = Field(
         default=None,
-        description="Access rights/permissions required to view this document",
+        description="""**Access rights/permissions** required to view this document.
+
+Users must have at least one of these rights to access the document.
+Common values: QDMAdmin, QDMLecteur, etc.
+
+Use this field to implement client-side access control.""",
         example=["QDMAdmin", "QDMLecteur"]
     )
 
 
 class SearchResult(BaseModel):
-    """Individual search result model."""
+    """
+    Individual search result representing a relevant document chunk.
+
+    Each result contains:
+    - The matched content excerpt
+    - Relevance score (0.0-1.0)
+    - Optional metadata with file info, dates, and access rights
+
+    Results are ordered by relevance (or custom sort order).
+    """
 
     content: str = Field(
         ...,
-        description="Relevant content excerpt from the document",
-        example="Pour configurer l'authentification Azure AD, vous devez d'abord créer une application dans le portail Azure..."
+        description="""**Content excerpt** from the matched document.
+
+This is the actual text content that matched your search query.
+Typically a paragraph or section from the source document.""",
+        example="Pour configurer l'authentification Azure AD, vous devez d'abord créer une application dans le portail Azure. Accédez à Azure Active Directory > Inscriptions d'applications > Nouvelle inscription..."
     )
 
     title: Optional[str] = Field(
         None,
-        description="Document or section title",
-        example="Configuration de l'authentification Azure AD"
+        description="**Document title** or filename. Useful for displaying result headers",
+        example="Avanteam Process Suite.pdf"
     )
 
     score: float = Field(
         ...,
         ge=0.0,
         le=1.0,
-        description="Relevance score (0.0 to 1.0, higher is more relevant)",
+        description="""**Relevance score** from 0.0 (low) to 1.0 (perfect match).
+
+Higher scores indicate better relevance to your query.
+Scores above 0.7 are typically excellent matches.
+Scores below 0.3 may be tangentially related.""",
         example=0.85
     )
 
     chunk_id: str = Field(
         ...,
-        description="Unique identifier for this content chunk",
-        example="doc_123_chunk_5"
+        description="**Unique identifier** for this content chunk. Format: `chunk_{number}_{request_id}`",
+        example="chunk_1_req_1759842804_9583"
     )
 
     metadata: Optional[DocumentMetadata] = Field(
         None,
-        description="Document metadata (included if include_metadata=true)"
+        description="""**Document metadata** containing file info, dates, and access rights.
+
+Only included when `include_metadata=true` in the request.
+Provides rich information for displaying results and implementing access control."""
     )
 
 
 class SearchResponse(BaseModel):
-    """Complete search response model."""
+    """
+    Complete search response containing results and metadata.
+
+    **Response Structure:**
+    - `results`: Array of matching documents
+    - `total_results`: Number of results returned
+    - `query`: Your original query (for confirmation)
+    - `response_time_ms`: Query execution time
+    - `search_provider`: Backend search engine used
+    - `api_version`: API version (currently v1)
+
+    **Success Response:** HTTP 200 with this model
+    **Error Responses:** HTTP 4xx/5xx with APIError model
+    """
 
     results: List[SearchResult] = Field(
         ...,
-        description="List of search results ordered by relevance"
+        description="""**Array of search results** ordered by relevance (or custom sort).
+
+Empty array if no matches found.
+Maximum length: 50 (as specified by max_results)"""
     )
 
     total_results: int = Field(
         ...,
         ge=0,
-        description="Total number of results found",
-        example=156
+        description="**Total number of results** returned in this response. May be less than max_results if fewer documents matched",
+        example=10
     )
 
     query: str = Field(
         ...,
-        description="Original search query",
+        description="**Original search query** echoed back for verification",
         example="Comment configurer l'authentification Azure AD?"
     )
 
     response_time_ms: float = Field(
         ...,
         ge=0,
-        description="Response time in milliseconds",
+        description="""**Query execution time** in milliseconds.
+
+Typical response times:
+- Simple queries: 100-300ms
+- Complex queries with filters: 300-800ms
+- Semantic search: 400-1000ms""",
         example=245.67
     )
 
     search_provider: str = Field(
         ...,
-        description="Search provider used for this query",
-        example="azure_search"
+        description="**Search backend** used to execute the query. Currently: `azuresearchprovider`",
+        example="azuresearchprovider"
     )
 
     api_version: str = Field(
         default="v1",
-        description="API version used",
+        description="**API version** used for this request. Current stable version: `v1`",
         example="v1"
     )
 
@@ -323,30 +412,46 @@ class AuthValidationResponse(BaseModel):
 
 
 class APIError(BaseModel):
-    """Standard API error response model."""
+    """
+    Standard API error response for all error conditions.
+
+    **Common Error Codes:**
+    - `VALIDATION_ERROR`: Invalid request parameters
+    - `AUTHENTICATION_FAILED`: Missing or invalid API key
+    - `RATE_LIMIT_EXCEEDED`: Too many requests
+    - `SEARCH_PROVIDER_UNAVAILABLE`: Search backend unavailable
+    - `INTERNAL_ERROR`: Server error
+
+    **HTTP Status Codes:**
+    - 400: Validation errors
+    - 401: Authentication failures
+    - 429: Rate limit exceeded
+    - 503: Service unavailable
+    - 500: Internal server error
+    """
 
     error_code: str = Field(
         ...,
-        description="Machine-readable error code",
-        example="INVALID_QUERY"
+        description="**Machine-readable error code** for programmatic error handling",
+        example="VALIDATION_ERROR"
     )
 
     error_message: str = Field(
         ...,
-        description="Human-readable error message",
-        example="The search query is invalid or too short"
+        description="**Human-readable error message** explaining what went wrong",
+        example="Request validation failed: query field is required"
     )
 
     details: Optional[Dict[str, Any]] = Field(
         None,
-        description="Additional error details",
-        example={"field": "query", "constraint": "min_length"}
+        description="**Additional context** about the error (validation errors, affected fields, etc.)",
+        example={"validation_errors": [{"field": "query", "message": "Field required"}]}
     )
 
     timestamp: datetime = Field(
         ...,
-        description="Error timestamp",
-        example="2024-01-15T10:30:00Z"
+        description="**Error timestamp** in ISO 8601 format (UTC)",
+        example="2025-10-07T14:30:00Z"
     )
 
     request_id: Optional[str] = Field(
