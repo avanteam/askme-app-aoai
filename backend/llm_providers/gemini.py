@@ -84,24 +84,26 @@ class GeminiProvider(LLMProvider):
     
     @handle_provider_errors("GEMINI")
     async def send_request(
-        self, 
-        messages: List[Dict[str, Any]], 
-        stream: bool = True, 
+        self,
+        messages: List[Dict[str, Any]],
+        stream: bool = True,
+        user_custom_data: Optional[Dict[str, str]] = None,
         **kwargs
     ) -> Tuple[Any, Optional[str]]:
         """
         Send request to Gemini API with Azure Search integration.
-        
+
         Args:
             messages: List of messages in OpenAI chat format
             stream: Whether to return a streaming response
+            user_custom_data: User custom data for metadata filtering in search
             **kwargs: Additional parameters including search configuration
-            
+
         Returns:
             Tuple of (response, apim_request_id) for compatibility with app.py
             For streaming: (AsyncGenerator, None)
             For non-streaming: (Raw Gemini API response, None)
-            
+
         Raises:
             LLMProviderRequestError: If the request fails
         """
@@ -121,7 +123,7 @@ class GeminiProvider(LLMProvider):
             self.logger.debug(f"Detected language: {detected_language}")
         
         # Enhance messages with Azure Search if configured
-        enhanced_messages = await self._enhance_with_search_context(messages, detected_language=detected_language, **kwargs)
+        enhanced_messages = await self._enhance_with_search_context(messages, detected_language=detected_language, user_custom_data=user_custom_data, **kwargs)
         
         # Convert messages from OpenAI to Gemini format
         gemini_request = self._convert_messages_to_gemini_format(enhanced_messages, **kwargs)
@@ -166,9 +168,10 @@ class GeminiProvider(LLMProvider):
             return self._format_non_streaming_response(raw_response)
     
     async def _enhance_with_search_context(
-        self, 
-        messages: List[Dict[str, Any]], 
+        self,
+        messages: List[Dict[str, Any]],
         detected_language: str = "en",
+        user_custom_data: Optional[Dict[str, str]] = None,
         **kwargs
     ) -> List[Dict[str, Any]]:
         """
@@ -205,7 +208,8 @@ class GeminiProvider(LLMProvider):
                     query=user_query,
                     top_k=documents_count,
                     filters=kwargs.get("search_filters"),
-                    user_permissions=kwargs.get("user_permissions")
+                    user_permissions=kwargs.get("user_permissions"),
+                    user_custom_data=user_custom_data
                 )
                 
                 self.logger.debug(f"Azure Search returned {len(search_results) if search_results else 0} results")

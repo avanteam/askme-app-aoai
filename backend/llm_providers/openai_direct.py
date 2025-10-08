@@ -134,22 +134,24 @@ class OpenAIDirectProvider(LLMProvider):
     
     @handle_provider_errors("OPENAI_DIRECT")
     async def send_request(
-        self, 
-        messages: List[Dict[str, Any]], 
-        stream: bool = True, 
+        self,
+        messages: List[Dict[str, Any]],
+        stream: bool = True,
+        user_custom_data: Optional[Dict[str, str]] = None,
         **kwargs
     ) -> Tuple[Any, Optional[str]]:
         """
         Send request to OpenAI Direct API.
-        
+
         Args:
             messages: List of messages in OpenAI chat format
             stream: Whether to return a streaming response
+            user_custom_data: User custom data for metadata filtering in search
             **kwargs: Additional OpenAI parameters
-            
+
         Returns:
             Tuple of (response, request_id)
-            
+
         Raises:
             LLMProviderRequestError: If the request fails
         """
@@ -166,7 +168,7 @@ class OpenAIDirectProvider(LLMProvider):
             self.logger.debug(f"Detected language: {detected_language}")
         
         # Convert OpenAI messages and enhance with Azure Search if configured
-        enhanced_messages = await self._enhance_with_search_context(messages, detected_language=detected_language, **kwargs)
+        enhanced_messages = await self._enhance_with_search_context(messages, detected_language=detected_language, user_custom_data=user_custom_data, **kwargs)
         
         # Get max_tokens based on response size
         response_size = kwargs.get("response_size", "medium")
@@ -362,9 +364,10 @@ class OpenAIDirectProvider(LLMProvider):
         )
     
     async def _enhance_with_search_context(
-        self, 
-        messages: List[Dict[str, Any]], 
+        self,
+        messages: List[Dict[str, Any]],
         detected_language: str = "en",
+        user_custom_data: Optional[Dict[str, str]] = None,
         **kwargs
     ) -> List[Dict[str, Any]]:
         """
@@ -402,7 +405,8 @@ class OpenAIDirectProvider(LLMProvider):
                     query=user_query,
                     top_k=kwargs.get("documents_count"),
                     filters=kwargs.get("search_filters"),
-                    user_permissions=kwargs.get("user_permissions")
+                    user_permissions=kwargs.get("user_permissions"),
+                    user_custom_data=user_custom_data
                 )
                 
                 self.logger.debug(f"Azure Search returned {len(search_results) if search_results else 0} results")

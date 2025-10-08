@@ -623,7 +623,7 @@ class AzureSearchProvider(SearchProvider):
         Build combined OData filter from query filters and permissions.
         """
         filters = []
-        
+
         # Add permission-based filter
         if search_query.user_permissions and self.permitted_groups_column:
             try:
@@ -633,13 +633,67 @@ class AzureSearchProvider(SearchProvider):
                     self.logger.debug(f"Added permission filter: {permission_filter}")
             except Exception as e:
                 self.logger.warning(f"Failed to generate permission filter: {e}")
-        
+
+        # Add user custom data filter
+        if search_query.user_custom_data:
+            custom_filter = self._build_custom_data_filter(search_query.user_custom_data)
+            if custom_filter:
+                filters.append(f"({custom_filter})")
+                self.logger.info(f"Added custom data filter: {custom_filter}")
+
         # Add custom filters
         if search_query.filters:
             filters.append(f"({search_query.filters})")
-        
+
         # Combine filters with AND logic
         return " and ".join(filters) if filters else None
+
+    def _escape_odata_string(self, value: str) -> str:
+        """
+        Escape special characters for OData string literals.
+
+        In OData, single quotes in string literals must be escaped by doubling them.
+        Example: O'Brien → O''Brien
+
+        Args:
+            value: String value to escape
+
+        Returns:
+            Escaped string safe for use in OData filter
+        """
+        return value.replace("'", "''")
+
+    def _build_custom_data_filter(self, user_custom_data: Dict[str, str]) -> Optional[str]:
+        """
+        Build OData filter from user custom data for fieldMetadata filtering.
+
+        Format: fieldMetadata/[key] eq '[value]'
+
+        Examples:
+            {"Service": "RH"} → "fieldMetadata/Service eq 'RH'"
+            {"Service": "RH", "Department": "IT"} → "fieldMetadata/Service eq 'RH' and fieldMetadata/Department eq 'IT'"
+            {"Name": "O'Brien"} → "fieldMetadata/Name eq 'O''Brien'"  (apostrophe escaped)
+
+        Args:
+            user_custom_data: Dictionary of key-value pairs for filtering
+
+        Returns:
+            OData filter string or None if no data provided
+        """
+        if not user_custom_data:
+            return None
+
+        filter_parts = []
+        for key, value in user_custom_data.items():
+            # Escape single quotes in the value for OData compatibility
+            escaped_value = self._escape_odata_string(str(value))
+
+            # Build OData filter for fieldMetadata subfields
+            # Format: fieldMetadata/Service eq 'RH'
+            filter_parts.append(f"fieldMetadata/{key} eq '{escaped_value}'")
+
+        # Combine with AND if multiple filters
+        return " and ".join(filter_parts) if filter_parts else None
     
     async def _process_search_results(
         self, 

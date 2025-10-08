@@ -51,13 +51,14 @@ class SearchQuery:
     top_k: Optional[int] = None
     filters: Optional[str] = None
     user_permissions: Optional[str] = None
+    user_custom_data: Optional[Dict[str, str]] = None
     use_semantic_search: bool = False
     use_vector_search: bool = False
     use_hybrid_search: bool = False
     semantic_configuration: Optional[str] = None
     vector_fields: Optional[List[str]] = None
     include_total_count: bool = True
-    
+
     # Advanced search parameters
     min_score_threshold: Optional[float] = None
     boost_fields: Optional[Dict[str, float]] = None

@@ -51,24 +51,26 @@ class AzureSearchService:
                 self.initialized = False
     
     async def search_documents(
-        self, 
-        query: str, 
-        top_k: int = None, 
-        filters: str = None, 
-        user_permissions: str = None
+        self,
+        query: str,
+        top_k: int = None,
+        filters: str = None,
+        user_permissions: str = None,
+        user_custom_data: Optional[Dict[str, str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Search for documents relevant to the query.
-        
+
         This method now uses the enhanced search_providers system for improved
         performance and relevance while maintaining full backward compatibility.
-        
+
         Args:
             query: The search query string
             top_k: Maximum number of documents to return
             filters: Additional OData filter string
             user_permissions: User permissions for document filtering
-            
+            user_custom_data: User custom data for metadata filtering
+
         Returns:
             List of documents with content, metadata, and relevance scores
         """
@@ -118,6 +120,7 @@ class AzureSearchService:
                 top_k=top_k,
                 filters=filters,
                 user_permissions=user_permissions,
+                user_custom_data=user_custom_data,
                 use_semantic_search=True,  # Enable advanced search features
                 include_total_count=True
             )

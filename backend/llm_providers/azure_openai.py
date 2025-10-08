@@ -111,22 +111,24 @@ class AzureOpenAIProvider(LLMProvider):
     
     @handle_provider_errors("AZURE_OPENAI")
     async def send_request(
-        self, 
-        messages: List[Dict[str, Any]], 
-        stream: bool = True, 
+        self,
+        messages: List[Dict[str, Any]],
+        stream: bool = True,
+        user_custom_data: Optional[Dict[str, str]] = None,
         **kwargs
     ) -> Tuple[Any, Optional[str]]:
         """
         Send request to Azure OpenAI.
-        
+
         Args:
             messages: List of messages in OpenAI chat format
             stream: Whether to return a streaming response
+            user_custom_data: User custom data for metadata filtering (not used in native Azure OpenAI)
             **kwargs: Additional Azure OpenAI parameters
-            
+
         Returns:
             Tuple of (response, apim_request_id)
-            
+
         Raises:
             LLMProviderRequestError: If the request fails
         """
