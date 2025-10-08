@@ -51,7 +51,8 @@ class SearchQuery:
     top_k: Optional[int] = None
     filters: Optional[str] = None
     user_permissions: Optional[str] = None
-    use_semantic_search: Optional[bool] = None  # None = use config default, True/False = explicit
+    user_custom_data: Optional[Dict[str, str]] = None
+    use_semantic_search: bool = False
     use_vector_search: bool = False
     use_hybrid_search: bool = False
     semantic_configuration: Optional[str] = None

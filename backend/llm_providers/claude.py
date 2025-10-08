@@ -100,24 +100,26 @@ class ClaudeProvider(LLMProvider):
     
     @handle_provider_errors("CLAUDE")
     async def send_request(
-        self, 
-        messages: List[Dict[str, Any]], 
-        stream: bool = True, 
+        self,
+        messages: List[Dict[str, Any]],
+        stream: bool = True,
+        user_custom_data: Optional[Dict[str, str]] = None,
         **kwargs
     ) -> Tuple[Any, Optional[str]]:
         """
         Send request to Claude API with Azure Search integration.
-        
+
         Args:
             messages: List of messages in OpenAI chat format
             stream: Whether to return a streaming response
+            user_custom_data: User custom data for metadata filtering in search
             **kwargs: Additional parameters including search configuration
-            
+
         Returns:
             Tuple of (response, apim_request_id) for compatibility with app.py
             For streaming: (AsyncGenerator, None)
             For non-streaming: (Raw Claude API response, None)
-            
+
         Raises:
             LLMProviderRequestError: If the request fails
         """
@@ -145,7 +147,7 @@ class ClaudeProvider(LLMProvider):
         claude_messages = self._convert_messages_to_claude_format(messages, detected_language)
         
         # Perform Azure Search if configured and inject context
-        claude_messages = await self._enhance_with_search_context(claude_messages, detected_language=detected_language, **kwargs)
+        claude_messages = await self._enhance_with_search_context(claude_messages, detected_language=detected_language, user_custom_data=user_custom_data, **kwargs)
         
         # Get max_tokens based on response size
         response_size = kwargs.get("response_size", "medium")
@@ -335,9 +337,10 @@ class ClaudeProvider(LLMProvider):
             return self._format_non_streaming_response(raw_response)
     
     async def _enhance_with_search_context(
-        self, 
-        claude_messages: List[Dict[str, Any]], 
+        self,
+        claude_messages: List[Dict[str, Any]],
         detected_language: str = "en",
+        user_custom_data: Optional[Dict[str, str]] = None,
         **kwargs
     ) -> List[Dict[str, Any]]:
         """
@@ -381,7 +384,8 @@ class ClaudeProvider(LLMProvider):
                 query=user_query,
                 top_k=kwargs.get("documents_count"),
                 filters=kwargs.get("search_filters"),
-                user_permissions=kwargs.get("user_permissions")
+                user_permissions=kwargs.get("user_permissions"),
+                user_custom_data=user_custom_data
             )
             self.logger.debug(f"Claude: search_documents completed successfully")
         except Exception as e:

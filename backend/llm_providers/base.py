@@ -435,23 +435,25 @@ Language code:"""
     
     @abstractmethod
     async def send_request(
-        self, 
-        messages: List[Dict[str, Any]], 
-        stream: bool = True, 
+        self,
+        messages: List[Dict[str, Any]],
+        stream: bool = True,
+        user_custom_data: Optional[Dict[str, str]] = None,
         **kwargs
     ) -> Any:
         """
         Send a request to the LLM provider.
-        
+
         Args:
             messages: List of messages in OpenAI chat format
             stream: Whether to return a streaming response
+            user_custom_data: User custom data for metadata filtering in search
             **kwargs: Additional provider-specific parameters
-        
+
         Returns:
             For streaming: AsyncGenerator yielding response chunks
             For non-streaming: Raw response from the provider
-            
+
         Note: This method returns the raw provider response.
         Use format_response() to convert to standard format.
         """

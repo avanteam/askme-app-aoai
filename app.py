@@ -533,19 +533,25 @@ async def send_chat_request(request_body, request_headers, shouldStream = True):
         user_full_definition = request_body.get("userFullDefinition", "*")
         search_filters = None
         user_permissions = None
-        
+
         if user_full_definition and user_full_definition != "*":
             # For Claude, we need to pass this as user permissions for rights management
             user_permissions = user_full_definition
             logging.debug(f"Setting user_permissions for {provider_type}: {user_permissions}")
-        
+
+        # Extract user custom data for metadata filtering
+        user_custom_data = request_body.get("userCustomData", {})
+        if user_custom_data:
+            logging.info(f"User custom data for filtering: {user_custom_data}")
+
         response, apim_request_id = await provider.send_request(
             messages=messages,
             stream=shouldStream,
             documents_count=documents_count,
             response_size=response_size,
             search_filters=search_filters,
-            user_permissions=user_permissions
+            user_permissions=user_permissions,
+            user_custom_data=user_custom_data
         )
         
         logging.debug(f"Response from {provider_type}: {type(response)} - {str(response)[:200]}...")
