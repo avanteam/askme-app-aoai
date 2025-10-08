@@ -166,6 +166,7 @@ async def search_documents():
                 top_k=data.max_results,
                 use_semantic_search=data.use_semantic_search,
                 filters=filter_string,
+                for_external_api=True  # Enable URL transformation for External API
             )
 
             # Safely truncate query for logging

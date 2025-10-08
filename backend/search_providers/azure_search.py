@@ -688,8 +688,11 @@ class AzureSearchProvider(SearchProvider):
                 # Extract metadata fields
                 title = self._extract_field(result, self.title_column)
                 blob_url = self._extract_field(result, self.url_column)
-                # Transform blob URL to Avanteam URL
-                url = self._transform_blob_url_to_avanteam(blob_url)
+                # Transform blob URL to Avanteam URL only for External API
+                if search_query.for_external_api:
+                    url = self._transform_blob_url_to_avanteam(blob_url)
+                else:
+                    url = blob_url
                 filename = self._extract_field(result, self.filename_column)
                 
                 # Get and normalize search score with hybrid support

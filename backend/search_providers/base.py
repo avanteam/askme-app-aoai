@@ -39,11 +39,11 @@ class SearchDocument:
             self.metadata = {}
 
 
-@dataclass 
+@dataclass
 class SearchQuery:
     """
     Standardized search query parameters.
-    
+
     Encapsulates all search parameters to provide a clean interface
     and enable advanced search features across different providers.
     """
@@ -57,11 +57,14 @@ class SearchQuery:
     semantic_configuration: Optional[str] = None
     vector_fields: Optional[List[str]] = None
     include_total_count: bool = True
-    
+
     # Advanced search parameters
     min_score_threshold: Optional[float] = None
     boost_fields: Optional[Dict[str, float]] = None
     custom_parameters: Optional[Dict[str, Any]] = None
+
+    # External API flag - when True, URLs are transformed to Avanteam PageLoader format
+    for_external_api: bool = False
 
 
 class SearchProvider(ABC):
