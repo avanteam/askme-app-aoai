@@ -30,12 +30,11 @@ def generate_openapi_spec() -> Dict[str, Any]:
             "description": settings.external_api_description,
             "version": settings.external_api_version,
             "contact": {
-                "name": "AskMe API Support",
-                "url": "https://github.com/avanteam/askme-app-aoai"
+                "email": "support@avanteam.fr",
+                "url": "https://avanteam.fr"
             },
             "license": {
-                "name": "Proprietary",
-                "url": "https://avanteam.fr"
+                "name": "Proprietary"
             }
         },
         "servers": [
