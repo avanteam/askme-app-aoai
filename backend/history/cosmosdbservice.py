@@ -128,11 +128,11 @@ class CosmosConversationClient():
         else:
             return conversations[0]
  
-    async def create_message(self, uuid, conversation_id, user_id, input_message: dict):
+    async def create_message(self, uuid, conversation_id, user_id, input_message: dict, user_custom_data: dict = None):
         # Pour le stockage CosmosDB : compresser les images pour éviter les erreurs de taille
         # (Les LLM reçoivent toujours les images originales haute qualité)
         processed_content = process_message_content_for_storage(input_message['content'])
-        
+
         message = {
             'id': uuid,
             'type': 'message',
@@ -143,6 +143,10 @@ class CosmosConversationClient():
             'role': input_message['role'],
             'content': processed_content
         }
+
+        # Store user custom data if provided
+        if user_custom_data:
+            message['userData'] = user_custom_data
 
         if self.enable_message_feedback:
             message['feedback'] = ''

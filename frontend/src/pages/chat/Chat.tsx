@@ -491,9 +491,16 @@ const Chat = () => {
                 runningText += obj
                 result = JSON.parse(runningText)
                 if (result.choices?.length > 0) {
+                  // Extract userData from history_metadata if available
+                  const userData = result.history_metadata?.user_custom_data
+
                   result.choices[0].messages.forEach(msg => {
                     msg.id = result.id
                     msg.date = new Date().toISOString()
+                    // Add userData to assistant messages
+                    if (msg.role === 'assistant' && userData) {
+                      msg.userData = userData
+                    }
                   })
                   if (result.choices[0].messages?.some(m => m.role === ASSISTANT)) {
                     setShowLoadingMessage(false)
@@ -701,9 +708,16 @@ const Chat = () => {
                   }
                 }
                 if (result.choices?.length > 0) {
+                  // Extract userData from history_metadata if available
+                  const userData = result.history_metadata?.user_custom_data
+
                   result.choices[0].messages.forEach(msg => {
                     msg.id = result.id
                     msg.date = new Date().toISOString()
+                    // Add userData to assistant messages
+                    if (msg.role === 'assistant' && userData) {
+                      msg.userData = userData
+                    }
                   })
                   if (result.choices[0].messages?.some(m => m.role === ASSISTANT)) {
                     setShowLoadingMessage(false)
@@ -1240,6 +1254,7 @@ const Chat = () => {
                             isStreaming={isLoading}
                             questionImage={getQuestionImageForAnswer(index)}
                             messageDate={answer.date}
+                            userData={answer.userData}
                           />
                         )}
                       </div>

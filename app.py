@@ -602,7 +602,9 @@ async def complete_chat_request(request_body, request_headers, user_id, provider
             provider_type=provider_type
         )
 
-        non_streaming_response = format_non_streaming_response(response, history_metadata, apim_request_id)
+        # Extract user custom data from request
+        user_custom_data = request_body.get("userCustomData")
+        non_streaming_response = format_non_streaming_response(response, history_metadata, apim_request_id, provider_type, user_custom_data)
         logging.debug(f"non_streaming_response: {type(non_streaming_response)} - {str(non_streaming_response)[:200]}...")
 
         if app_settings.azure_openai.function_call_azure_functions_enabled:
@@ -701,8 +703,11 @@ async def stream_chat_request(request_body, request_headers):
     
     response, apim_request_id = await send_chat_request(request_body, request_headers, shouldStream)
     history_metadata = request_body.get("history_metadata", {})
-    
-    async def generate(apim_request_id, history_metadata, provider_type):
+
+    # Extract user custom data from request
+    user_custom_data = request_body.get("userCustomData")
+
+    async def generate(apim_request_id, history_metadata, provider_type, user_custom_data):
         # Variables to capture usage information for token tracking
         final_usage_response = None
 
@@ -728,7 +733,7 @@ async def stream_chat_request(request_body, request_headers):
                         if hasattr(delta, 'content') and delta.content:
                             complete_response_text += delta.content
 
-                    yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
+                    yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type, user_custom_data)
                     # Capture usage information from each chunk
                     if hasattr(completionChunk, 'usage') and completionChunk.usage:
                         final_usage_response = completionChunk
@@ -745,7 +750,7 @@ async def stream_chat_request(request_body, request_headers):
                             if hasattr(delta, 'content') and delta.content:
                                 complete_response_text += delta.content
 
-                        yield format_stream_response(functionCompletionChunk, history_metadata, apim_request_id, provider_type)
+                        yield format_stream_response(functionCompletionChunk, history_metadata, apim_request_id, provider_type, user_custom_data)
                         # Capture usage from function response
                         if hasattr(functionCompletionChunk, 'usage') and functionCompletionChunk.usage:
                             final_usage_response = functionCompletionChunk
@@ -764,7 +769,7 @@ async def stream_chat_request(request_body, request_headers):
                     elif hasattr(completionChunk, 'content') and completionChunk.content:
                         complete_response_text += completionChunk.content
 
-                    yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type)
+                    yield format_stream_response(completionChunk, history_metadata, apim_request_id, provider_type, user_custom_data)
                     # Capture usage information from each chunk
                     if hasattr(completionChunk, 'usage') and completionChunk.usage:
                         final_usage_response = completionChunk
@@ -774,7 +779,7 @@ async def stream_chat_request(request_body, request_headers):
                 # Extract content for non-streaming response
                 if response.get('choices') and response['choices'][0].get('message', {}).get('content'):
                     complete_response_text += response['choices'][0]['message']['content']
-                yield format_stream_response(response, history_metadata, apim_request_id, provider_type)
+                yield format_stream_response(response, history_metadata, apim_request_id, provider_type, user_custom_data)
                 final_usage_response = response
             elif hasattr(response, 'id'):
                 # Response is a single completion object (MockAzureOpenAIResponse for Claude)
@@ -1036,7 +1041,7 @@ async def stream_chat_request(request_body, request_headers):
         def __init__(self, headers):
             self.headers = headers
 
-    return generate(apim_request_id=apim_request_id, history_metadata=history_metadata, provider_type=provider_type)
+    return generate(apim_request_id=apim_request_id, history_metadata=history_metadata, provider_type=provider_type, user_custom_data=user_custom_data)
 
 def LogCallToAiManager(request_body):
     
@@ -1369,12 +1374,14 @@ async def add_conversation():
         ## Format the incoming message object in the "chat/completions" messages format
         ## then write it to the conversation history in cosmos
         messages = request_json["messages"]
+        user_custom_data = request_json.get("userCustomData")
         if len(messages) > 0 and messages[-1]["role"] == "user":
             createdMessageValue = await history_client.create_message(
                 uuid=str(uuid.uuid4()),
                 conversation_id=conversation_id,
                 user_id=user_id,
                 input_message=messages[-1],
+                user_custom_data=user_custom_data,
             )
             if createdMessageValue == "Conversation not found":
                 raise Exception(
@@ -1461,6 +1468,9 @@ async def update_conversation():
         logging.info(f"DEBUG /history/update after filtering: {len(messages)} valid messages")
         
         if len(messages) > 0 and messages[-1]["role"] == "assistant":
+            # Extract user_custom_data from history_metadata if available
+            user_custom_data = request_json.get("history_metadata", {}).get("user_custom_data")
+
             if len(messages) > 1 and messages[-2].get("role", None) == "tool":
                 # write the tool message first
                 await history_client.create_message(
@@ -1468,6 +1478,7 @@ async def update_conversation():
                     conversation_id=conversation_id,
                     user_id=user_id,
                     input_message=messages[-2],
+                    user_custom_data=user_custom_data,
                 )
             # write the assistant message
             await history_client.create_message(
@@ -1475,6 +1486,7 @@ async def update_conversation():
                 conversation_id=conversation_id,
                 user_id=user_id,
                 input_message=messages[-1],
+                user_custom_data=user_custom_data,
             )
         else:
             # Pas de messages valides à sauvegarder, retourner succès sans erreur

@@ -94,7 +94,7 @@ def generateFilterStringFromFullDef(fullDef):
     return f"{AZURE_SEARCH_PERMITTED_GROUPS_COLUMN}/any(g:search.in(g, '{group_ids}'))"
 
 
-def format_non_streaming_response(chatCompletion, history_metadata, apim_request_id, provider_name=None):
+def format_non_streaming_response(chatCompletion, history_metadata, apim_request_id, provider_name=None, user_custom_data=None):
     response_obj = {
         "id": chatCompletion.id,
         "model": chatCompletion.model,
@@ -104,6 +104,10 @@ def format_non_streaming_response(chatCompletion, history_metadata, apim_request
         "history_metadata": history_metadata,
         "apim-request-id": apim_request_id,
     }
+
+    # Add user_custom_data to history_metadata if provided
+    if user_custom_data:
+        response_obj["history_metadata"]["user_custom_data"] = user_custom_data
 
     if len(chatCompletion.choices) > 0:
         message = chatCompletion.choices[0].message
@@ -135,7 +139,7 @@ def format_non_streaming_response(chatCompletion, history_metadata, apim_request
 
     return {}
 
-def format_stream_response(chatCompletionChunk, history_metadata, apim_request_id, provider_name=None):
+def format_stream_response(chatCompletionChunk, history_metadata, apim_request_id, provider_name=None, user_custom_data=None):
     response_obj = {
         "id": chatCompletionChunk.id,
         "model": chatCompletionChunk.model,
@@ -145,7 +149,11 @@ def format_stream_response(chatCompletionChunk, history_metadata, apim_request_i
         "history_metadata": history_metadata,
         "apim-request-id": apim_request_id,
     }
-    
+
+    # Add user_custom_data to history_metadata if provided
+    if user_custom_data:
+        response_obj["history_metadata"]["user_custom_data"] = user_custom_data
+
 
     if len(chatCompletionChunk.choices) > 0:
         delta = chatCompletionChunk.choices[0].delta

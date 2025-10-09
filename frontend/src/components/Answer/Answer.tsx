@@ -38,6 +38,7 @@ interface Props {
   isStreaming?: boolean
   questionImage?: string // Image base64 de la question précédente (optionnelle)
   messageDate?: string // Date de création du message (optionnelle)
+  userData?: { [key: string]: string } // User custom data for filtering
 }
 
 export const Answer = ({
@@ -49,7 +50,8 @@ export const Answer = ({
   resumeVoiceRecognition,
   isStreaming,
   questionImage,
-  messageDate
+  messageDate,
+  userData
 }: Props) => {
   const appStateContext = useContext(AppStateContext)
   const initializeAnswerFeedback = (answer: AskResponse) => {
@@ -939,21 +941,42 @@ export const Answer = ({
         data-message-id={answer.message_id}>
         <Stack.Item>
           <Stack horizontal grow>
-            <Stack.Item grow>
-              {parsedAnswer && (
-                <ReactMarkdown
-                  linkTarget="_blank"
-                  remarkPlugins={[remarkGfm, supersub]}
-                  rehypePlugins={[rehypeRaw]}
-                  /* Utilisation de sanitize, comme on utilise rehypeRax pour autoriser l'exécution des balises */
-                  children={DOMPurify.sanitize(parsedAnswer?.markdownFormatText, {
-                    ALLOWED_TAGS: XSSAllowTags,
-                    ALLOWED_ATTR: XSSAllowAttributes
-                  })}
-                  className={styles.answerText}
-                  components={components}
-                />
+            <Stack.Item grow style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+              {userData && Object.keys(userData).length > 0 && (
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '2px' }}>
+                  {Object.entries(userData).map(([key, value]) => (
+                    <span
+                      key={key}
+                      style={{
+                        backgroundColor: '#e8f4f8',
+                        color: '#0078d4',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '500',
+                        border: '1px solid #cce5f0'
+                      }}>
+                      {key}: {value}
+                    </span>
+                  ))}
+                </div>
               )}
+              <div style={{ flex: 1 }}>
+                {parsedAnswer && (
+                  <ReactMarkdown
+                    linkTarget="_blank"
+                    remarkPlugins={[remarkGfm, supersub]}
+                    rehypePlugins={[rehypeRaw]}
+                    /* Utilisation de sanitize, comme on utilise rehypeRax pour autoriser l'exécution des balises */
+                    children={DOMPurify.sanitize(parsedAnswer?.markdownFormatText, {
+                      ALLOWED_TAGS: XSSAllowTags,
+                      ALLOWED_ATTR: XSSAllowAttributes
+                    })}
+                    className={styles.answerText}
+                    components={components}
+                  />
+                )}
+              </div>
             </Stack.Item>
             <Stack.Item className={styles.answerHeader}>
               {(FEEDBACK_ENABLED && answer.message_id !== undefined) ||
