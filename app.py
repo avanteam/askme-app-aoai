@@ -1468,9 +1468,6 @@ async def update_conversation():
         logging.info(f"DEBUG /history/update after filtering: {len(messages)} valid messages")
         
         if len(messages) > 0 and messages[-1]["role"] == "assistant":
-            # Extract user_custom_data from history_metadata if available
-            user_custom_data = request_json.get("history_metadata", {}).get("user_custom_data")
-
             if len(messages) > 1 and messages[-2].get("role", None) == "tool":
                 # write the tool message first
                 await history_client.create_message(
@@ -1478,7 +1475,7 @@ async def update_conversation():
                     conversation_id=conversation_id,
                     user_id=user_id,
                     input_message=messages[-2],
-                    user_custom_data=user_custom_data,
+                    user_custom_data= messages[-2].get("userData", None),
                 )
             # write the assistant message
             await history_client.create_message(
@@ -1486,7 +1483,7 @@ async def update_conversation():
                 conversation_id=conversation_id,
                 user_id=user_id,
                 input_message=messages[-1],
-                user_custom_data=user_custom_data,
+                user_custom_data= messages[-1].get("userData", None),
             )
         else:
             # Pas de messages valides à sauvegarder, retourner succès sans erreur
