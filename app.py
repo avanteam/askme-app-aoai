@@ -1121,21 +1121,58 @@ async def conversation_internal(request_body, request_headers, preventShouldStre
                         elif result.get('action') == 'clear_conversation':
                             # Ajouter l'action de nettoyage
                             result['clear_messages'] = True
-                        
-                        # Retourner la réponse de la commande directement
-                        response_id = str(uuid.uuid4())
-                        return jsonify({
-                            "id": response_id,
-                            "choices": [{
-                                "messages": [{
+                        elif result.get('action') == 'remove_filters':
+                            # Action recherche sans filtre : trouver la question précédente et la re-traiter
+                            logging.info("Commande remove_filters détectée - recherche de la question précédente")
+
+                            # Chercher la dernière question utilisateur (avant le "oui")
+                            previous_user_message = None
+                            for i in range(len(messages) - 2, -1, -1):  # Partir de l'avant-dernier message
+                                msg = messages[i]
+                                if msg.get("role") == "user":
+                                    previous_user_message = msg
+                                    logging.info(f"Question précédente trouvée: {msg.get('content')}")
+                                    break
+
+                            if previous_user_message:
+                                # Remplacer le dernier message ("oui") par la question précédente
+                                messages[-1] = previous_user_message.copy()
+                                request_body['messages'] = messages
+                                request_body['userCustomData'] = {}  # Vider les filtres
+                                logging.info("Question précédente va être retraitée sans filtres")
+                                # Continuer le flux normal avec la question modifiée
+                            else:
+                                # Pas de question précédente trouvée
+                                response_id = str(uuid.uuid4())
+                                return jsonify({
                                     "id": response_id,
-                                    "role": "assistant", 
-                                    "content": result['message'],
-                                    "date": datetime.now().isoformat()
-                                }]
-                            }],
-                            "command_result": result
-                        })
+                                    "choices": [{
+                                        "messages": [{
+                                            "id": response_id,
+                                            "role": "assistant",
+                                            "content": "Aucune question précédente trouvée à re-traiter.",
+                                            "date": datetime.now().isoformat()
+                                        }]
+                                    }],
+                                    "command_result": result
+                                })
+
+                        # Pour les actions remove_filters, on continue le flux normal sans retourner
+                        # Pour toutes les autres commandes, retourner la réponse
+                        if result.get('action') != 'remove_filters':
+                            response_id = str(uuid.uuid4())
+                            return jsonify({
+                                "id": response_id,
+                                "choices": [{
+                                    "messages": [{
+                                        "id": response_id,
+                                        "role": "assistant",
+                                        "content": result['message'],
+                                        "date": datetime.now().isoformat()
+                                    }]
+                                }],
+                                "command_result": result
+                            })
 
         # DEBUG: Log incoming messages to see if images are present BEFORE processing
         logging.info(f"DEBUG: conversation_internal received {len(messages)} messages")

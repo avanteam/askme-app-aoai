@@ -15,6 +15,7 @@ class CommandType(Enum):
     SET_RESPONSE_LENGTH = "set_response_length"
     NEW_CONVERSATION = "new_conversation"
     CLEAR_CONVERSATION = "clear_conversation"
+    SEARCH_WITHOUT_FILTER = "search_without_filter"
     UNKNOWN = "unknown"
 
 class ResponseLength(Enum):
@@ -173,6 +174,12 @@ class ChatCommandParser:
             r'(?:nettoie|vide|efface|clear|reset|rase?).*?(?:la |cette )?(?:conversation|chat|discussion|historique)',
             re.IGNORECASE
         )
+
+        # Pattern pour rechercher sans filtre (réponse affirmative au message)
+        self.search_without_filter_pattern = re.compile(
+            r'^\s*(?:oui|yes|ok|d\'accord|vas-y|go|enlevez? les filtres?|sans filtres?|without filters?|remove filters?)\s*$',
+            re.IGNORECASE
+        )
     
     def parse_command(self, text: str) -> Optional[ChatCommand]:
         """
@@ -230,7 +237,12 @@ class ChatCommandParser:
         command = self._try_parse_clear_conversation(text)
         if command:
             commands.append(command)
-        
+
+        # Recherche sans filtre (réponse affirmative)
+        command = self._try_parse_search_without_filter(text)
+        if command:
+            commands.append(command)
+
         return commands
     
     def _try_parse_llm_change(self, text: str) -> Optional[ChatCommand]:
@@ -339,6 +351,17 @@ class ChatCommandParser:
                 parameters={},
                 original_text=text,
                 confidence=0.85
+            )
+        return None
+
+    def _try_parse_search_without_filter(self, text: str) -> Optional[ChatCommand]:
+        """Tente de parser une commande de recherche sans filtre (réponse affirmative)"""
+        if self.search_without_filter_pattern.search(text):
+            return ChatCommand(
+                command_type=CommandType.SEARCH_WITHOUT_FILTER,
+                parameters={},
+                original_text=text,
+                confidence=0.95
             )
         return None
     
@@ -507,7 +530,10 @@ class ChatCommandExecutor:
                 
             elif command.command_type == CommandType.CLEAR_CONVERSATION:
                 return await self._execute_clear_conversation(command, user_session)
-                
+
+            elif command.command_type == CommandType.SEARCH_WITHOUT_FILTER:
+                return await self._execute_search_without_filter(command, user_session)
+
             else:
                 return {
                     'success': False,
@@ -633,6 +659,21 @@ class ChatCommandExecutor:
             'message': "OK",  # Message simple qui sera affiché puis disparaîtra avec le clear
             'command_type': CommandType.CLEAR_CONVERSATION.value,
             'action': 'clear_conversation'
+        }
+
+    async def _execute_search_without_filter(self, command: ChatCommand, user_session: Dict[str, Any]) -> Dict[str, Any]:
+        """Exécute la recherche sans filtre en vidant les userData"""
+        # Vider les userData de la session utilisateur
+        if user_session is None:
+            user_session = {}
+        user_session['userData'] = {}
+
+        return {
+            'success': True,
+            'message': "Recherche sans filtre en cours...",
+            'command_type': CommandType.SEARCH_WITHOUT_FILTER.value,
+            'action': 'remove_filters',
+            'user_session': user_session
         }
 
 # Instance globale du parser
