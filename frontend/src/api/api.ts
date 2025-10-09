@@ -207,6 +207,7 @@ export const historyGenerate = async (
     signal: abortSignal
   })
     .then(res => {
+      console.log(res)
       return res
     })
     .catch(_err => {
@@ -222,6 +223,7 @@ export const historyUpdate = async (
   authToken: string,
   encryptedUsername: string
 ): Promise<Response> => {
+  console.log(messages)
   const response = await fetch('/history/update', {
     method: 'POST',
     body: JSON.stringify({

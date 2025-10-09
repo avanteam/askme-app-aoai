@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import uuid from 'react-uuid'
-import { isEmpty } from 'lodash'
+import { Dictionary, isEmpty } from 'lodash'
 import DOMPurify from 'dompurify'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { nord } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -84,6 +84,7 @@ const Chat = () => {
   const [encryptedCurrentUser, setEncryptedCurrentUser] = useState<string>('')
   const [userFullDef, setUserFullDef] = useState<string>('')
   const [appReady, setAppReady] = useState(false)
+  const [userData, setUserData] = useState<Dictionary<string>>({"Service" : "RH"})
 
   // Voice recognition functions from QuestionInput
   const [pauseVoiceRecognition, setPauseVoiceRecognition] = useState<(() => void) | undefined>(undefined)
@@ -470,7 +471,7 @@ const Chat = () => {
         getToken(),
         currentUser,
         userFullDef,
-        {"Service" : "RH"}, //To replace by actual user data
+        userData,
         customizationPreferences
       )
 
@@ -498,9 +499,7 @@ const Chat = () => {
                     msg.id = result.id
                     msg.date = new Date().toISOString()
                     // Add userData to assistant messages
-                    if (msg.role === 'assistant' && userData) {
-                      msg.userData = userData
-                    }
+                    msg.userData = userData
                   })
                   if (result.choices[0].messages?.some(m => m.role === ASSISTANT)) {
                     setShowLoadingMessage(false)
@@ -635,7 +634,7 @@ const Chat = () => {
             request,
             abortController.signal,
             userFullDef,
-            {"Service" : "RH"},
+            userData,
             customizationPreferences,
             conversationId
           )
@@ -645,7 +644,7 @@ const Chat = () => {
             request,
             abortController.signal,
             userFullDef,
-            {"Service" : "RH"},
+            userData,
             customizationPreferences
           )
 
@@ -715,9 +714,7 @@ const Chat = () => {
                     msg.id = result.id
                     msg.date = new Date().toISOString()
                     // Add userData to assistant messages
-                    if (msg.role === 'assistant' && userData) {
-                      msg.userData = userData
-                    }
+                    msg.userData = userData
                   })
                   if (result.choices[0].messages?.some(m => m.role === ASSISTANT)) {
                     setShowLoadingMessage(false)
