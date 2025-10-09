@@ -8,8 +8,11 @@ import {
   IChoiceGroupOption,
   MessageBar,
   MessageBarType,
-  DefaultButton
+  DefaultButton,
+  TextField,
+  IconButton
 } from '@fluentui/react'
+import { Dictionary } from 'lodash'
 import { AppStateContext } from '../../state/AppProvider'
 
 // Importation des fichiers de style
@@ -71,6 +74,12 @@ export function CustomizationPanel() {
   const [documentsCount, setDocumentsCount] = useState<number>(initialPrefs.documentsCount)
 
   const [llmProvider, setLlmProvider] = useState<string>(initialPrefs.llmProvider || appStateContext?.state.frontendSettings?.default_llm_provider || '')
+
+  // États pour userData
+  const [userData, setUserData] = useState<Dictionary<string>>(appStateContext?.state.userData || {})
+  const [newKey, setNewKey] = useState<string>('')
+  const [newValue, setNewValue] = useState<string>('')
+  const [userDataError, setUserDataError] = useState<string>('')
 
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -146,6 +155,41 @@ export function CustomizationPanel() {
     }
   }
 
+  // Gestionnaires pour userData
+  const handleAddUserData = () => {
+    // Validation
+    if (!newKey.trim()) {
+      setUserDataError(currentLanguage === 'FR' ? 'La clé ne peut pas être vide' : 'Key cannot be empty')
+      return
+    }
+
+    if (userData[newKey]) {
+      setUserDataError(currentLanguage === 'FR' ? 'Cette clé existe déjà' : 'This key already exists')
+      return
+    }
+
+    // Ajouter la nouvelle paire clé-valeur
+    const updatedUserData = { ...userData, [newKey]: newValue }
+    setUserData(updatedUserData)
+
+    // Mettre à jour le contexte global
+    appStateContext?.dispatch({ type: 'UPDATE_USER_DATA', payload: updatedUserData })
+
+    // Réinitialiser les champs
+    setNewKey('')
+    setNewValue('')
+    setUserDataError('')
+  }
+
+  const handleRemoveUserData = (key: string) => {
+    const updatedUserData = { ...userData }
+    delete updatedUserData[key]
+    setUserData(updatedUserData)
+
+    // Mettre à jour le contexte global
+    appStateContext?.dispatch({ type: 'UPDATE_USER_DATA', payload: updatedUserData })
+  }
+
   // Fermeture du panneau de personnalisation
   const handleCloseCustomization = () => {
     // Animer la fermeture du panneau
@@ -178,16 +222,19 @@ export function CustomizationPanel() {
     setResponseSize('medium')
     setDocumentsCount(5)
     setLlmProvider(defaultProvider)
+    setUserData({})
 
     // Supprimer les préférences du localStorage
     try {
       localStorage.removeItem('userCustomizationPreferences')
+      localStorage.removeItem('userData')
     } catch (error) {
       console.warn('Failed to remove customization preferences from localStorage:', error)
     }
 
     // Mettre à jour l'état global
     appStateContext?.dispatch({ type: 'UPDATE_CUSTOMIZATION_PREFERENCES', payload: defaultPreferences })
+    appStateContext?.dispatch({ type: 'UPDATE_USER_DATA', payload: {} })
 
     // Afficher un toast de confirmation
     setToastMessage(currentLanguage === 'FR' ? 'Préférences réinitialisées' : 'Preferences reset to defaults')
@@ -229,6 +276,11 @@ export function CustomizationPanel() {
       setResponseSize(appStateContext.state.customizationPreferences.responseSize)
       setDocumentsCount(appStateContext.state.customizationPreferences.documentsCount)
       setLlmProvider(appStateContext.state.customizationPreferences.llmProvider)
+    }
+
+    // Synchroniser userData
+    if (appStateContext?.state.userData) {
+      setUserData(appStateContext.state.userData)
     }
 
     // Ajouter l'écouteur pour la touche Escape
@@ -366,6 +418,80 @@ export function CustomizationPanel() {
               />
             </div>
           )}
+
+          {/* Section des données utilisateur */}
+          <div className={styles.settingSection}>
+            <h3 className={styles.settingTitle}>
+              <Icon iconName="ContactInfo" className={styles.settingIcon} />
+              {currentLanguage === 'FR' ? 'Données utilisateur' : 'User Data'}
+            </h3>
+            <p className={styles.settingDescription}>
+              {currentLanguage === 'FR'
+                ? 'Ajoutez des métadonnées personnalisées pour filtrer les documents selon vos besoins.'
+                : 'Add custom metadata to filter documents according to your needs.'}
+            </p>
+
+            {/* Liste des paires clé-valeur existantes */}
+            {Object.keys(userData).length > 0 && (
+              <div className={styles.userDataList}>
+                {Object.entries(userData).map(([key, value]) => (
+                  <div key={key} className={styles.userDataItem}>
+                    <div className={styles.userDataContent}>
+                      <span className={styles.userDataKey}>{key}:</span>
+                      <span className={styles.userDataValue}>{value}</span>
+                    </div>
+                    <IconButton
+                      iconProps={{ iconName: 'Delete' }}
+                      title={currentLanguage === 'FR' ? 'Supprimer' : 'Delete'}
+                      ariaLabel={currentLanguage === 'FR' ? 'Supprimer' : 'Delete'}
+                      onClick={() => handleRemoveUserData(key)}
+                      className={styles.deleteButton}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Formulaire d'ajout */}
+            <div className={styles.userDataForm}>
+              <TextField
+                label={currentLanguage === 'FR' ? 'Clé' : 'Key'}
+                value={newKey}
+                onChange={(_, newValue) => {
+                  setNewKey(newValue || '')
+                  setUserDataError('')
+                }}
+                placeholder={currentLanguage === 'FR' ? 'Ex: Service, Département...' : 'Ex: Service, Department...'}
+                className={styles.userDataInput}
+              />
+              <TextField
+                label={currentLanguage === 'FR' ? 'Valeur' : 'Value'}
+                value={newValue}
+                onChange={(_, newValue) => setNewValue(newValue || '')}
+                placeholder={currentLanguage === 'FR' ? 'Ex: RH, IT...' : 'Ex: HR, IT...'}
+                className={styles.userDataInput}
+              />
+              <DefaultButton
+                text={currentLanguage === 'FR' ? 'Ajouter' : 'Add'}
+                iconProps={{ iconName: 'Add' }}
+                onClick={handleAddUserData}
+                className={styles.addButton}
+              />
+            </div>
+
+            {/* Message d'erreur */}
+            {userDataError && (
+              <MessageBar messageBarType={MessageBarType.error} className={styles.errorMessage}>
+                {userDataError}
+              </MessageBar>
+            )}
+
+            <MessageBar className={styles.infoMessage} messageBarType={MessageBarType.info}>
+              {currentLanguage === 'FR'
+                ? 'Ces données seront utilisées pour filtrer les documents dans Azure Search.'
+                : 'This data will be used to filter documents in Azure Search.'}
+            </MessageBar>
+          </div>
 
           {/* Bouton de réinitialisation uniquement */}
           <div className={styles.actionButtons}>
