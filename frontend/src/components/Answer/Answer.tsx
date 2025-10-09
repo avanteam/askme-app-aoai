@@ -1046,6 +1046,13 @@ export const Answer = ({
             </Stack.Item>
           </Stack>
         )}
+        {userData && Object.keys(userData).length > 0 && (
+          <div className={styles.searchWithoutFilterContainer}>
+            <span className={styles.searchWithoutFilterText}>
+              {language === 'FR' ? 'Voulez-vous rechercher sans filtre ?' : 'Do you want to search without filter?'}
+            </span>
+          </div>
+        )}
         <Stack horizontal className={styles.answerFooter}>
           {!!parsedAnswer?.citations.length && (
             <Stack.Item onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? toggleIsRefAccordionOpen() : null)}>

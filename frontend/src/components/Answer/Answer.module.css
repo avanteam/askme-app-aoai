@@ -430,3 +430,23 @@ sup {
 }
 
 /* Plus besoin d'animation spécifique pour mobile - utilise la version dynamique */
+
+.searchWithoutFilterContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 12px;
+  padding: 8px 16px;
+  background-color: #f3f2f1;
+  border-radius: 4px;
+  border-left: 3px solid #0078d4;
+}
+
+.searchWithoutFilterText {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 18px;
+  color: #323130;
+  text-align: center;
+}
