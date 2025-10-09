@@ -326,6 +326,17 @@ const Chat = () => {
       return
     }
 
+    if (result.command_result?.action === 'remove_filters') {
+      // Action de suppression des filtres : mettre à jour le state global
+      appStateContext?.dispatch({
+        type: 'UPDATE_USER_DATA',
+        payload: {}
+      })
+      // Le backend a déjà retraité la question sans filtres
+      // Pas besoin de relancer manuellement ici
+      return
+    }
+
     // Mettre à jour les préférences si la commande a modifié des paramètres
     if (result.command_result?.user_session) {
       const session = result.command_result.user_session
