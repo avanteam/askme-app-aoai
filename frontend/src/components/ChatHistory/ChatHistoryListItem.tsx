@@ -370,6 +370,7 @@ export const ChatHistoryListItemGroups: React.FC<ChatHistoryListItemGroupsProps>
       await historyList(offset, appStateContext?.state?.authToken, appStateContext?.state?.encryptedUsername).then(
         response => {
           const concatenatedChatHistory = currentChatHistory && response && currentChatHistory.concat(...response)
+          console.log(concatenatedChatHistory)
           if (response) {
             appStateContext?.dispatch({ type: 'FETCH_CHAT_HISTORY', payload: concatenatedChatHistory || response })
           } else {
