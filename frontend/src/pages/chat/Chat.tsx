@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import uuid from 'react-uuid'
-import { Dictionary, isEmpty } from 'lodash'
+import { isEmpty } from 'lodash'
 import DOMPurify from 'dompurify'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { nord } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -84,7 +84,6 @@ const Chat = () => {
   const [encryptedCurrentUser, setEncryptedCurrentUser] = useState<string>('')
   const [userFullDef, setUserFullDef] = useState<string>('')
   const [appReady, setAppReady] = useState(false)
-  const [userData, setUserData] = useState<Dictionary<string>>({"Service" : "RH"})
 
   // Voice recognition functions from QuestionInput
   const [pauseVoiceRecognition, setPauseVoiceRecognition] = useState<(() => void) | undefined>(undefined)
@@ -471,7 +470,7 @@ const Chat = () => {
         getToken(),
         currentUser,
         userFullDef,
-        userData,
+        appStateContext?.state.userData || {},
         customizationPreferences
       )
 
@@ -634,7 +633,7 @@ const Chat = () => {
             request,
             abortController.signal,
             userFullDef,
-            userData,
+            appStateContext?.state.userData || {},
             customizationPreferences,
             conversationId
           )
@@ -644,7 +643,7 @@ const Chat = () => {
             request,
             abortController.signal,
             userFullDef,
-            userData,
+            appStateContext?.state.userData || {},
             customizationPreferences
           )
 

@@ -1,4 +1,5 @@
 import React, { createContext, ReactNode, useEffect, useReducer } from 'react'
+import { Dictionary } from 'lodash'
 
 import {
   ChatHistoryLoadingState,
@@ -36,6 +37,7 @@ export interface AppState {
   isAuthenticated: boolean
   customizationPreferences: CustomizationPreferences
   isAutoAudioEnabled: boolean
+  userData: Dictionary<string>
 }
 
 export type Action =
@@ -67,6 +69,7 @@ export type Action =
   | { type: 'SET_AUTHENTICATION_STATUS'; payload: boolean }
   | { type: 'UPDATE_CUSTOMIZATION_PREFERENCES'; payload: CustomizationPreferences }
   | { type: 'TOGGLE_AUTO_AUDIO'; payload: boolean }
+  | { type: 'UPDATE_USER_DATA'; payload: Dictionary<string> }
 
 const initialState: AppState = {
   isChatHistoryOpen: false,
@@ -95,7 +98,8 @@ const initialState: AppState = {
     documentsCount: 5,
     llmProvider: '' // Will be set from frontendSettings
   },
-  isAutoAudioEnabled: false
+  isAutoAudioEnabled: false,
+  userData: {}
 }
 
 export const AppStateContext = createContext<
@@ -113,7 +117,7 @@ type AppStateProviderProps = {
 export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(appStateReducer, initialState)
 
-  // Load customization preferences and audio settings from localStorage on startup
+  // Load customization preferences, audio settings, and userData from localStorage on startup
   useEffect(() => {
     const loadPreferencesFromStorage = (): CustomizationPreferences | null => {
       try {
@@ -147,6 +151,21 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
       }
     }
 
+    const loadUserDataFromStorage = (): Dictionary<string> | null => {
+      try {
+        const saved = localStorage.getItem('userData')
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (parsed && typeof parsed === 'object') {
+            return parsed
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load userData from localStorage:', error)
+      }
+      return null
+    }
+
     const savedPreferences = loadPreferencesFromStorage()
     if (savedPreferences) {
       dispatch({ type: 'UPDATE_CUSTOMIZATION_PREFERENCES', payload: savedPreferences })
@@ -158,6 +177,11 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
       dispatch({ type: 'TOGGLE_AUTO_AUDIO', payload: savedAudioSetting })
     }
     // Sinon, garder la valeur par défaut (false) définie dans initialState
+
+    const savedUserData = loadUserDataFromStorage()
+    if (savedUserData) {
+      dispatch({ type: 'UPDATE_USER_DATA', payload: savedUserData })
+    }
   }, [])
 
   useEffect(() => {

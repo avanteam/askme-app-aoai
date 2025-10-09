@@ -148,6 +148,14 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
         console.warn('Failed to save audio settings to localStorage:', error)
       }
       return { ...state, isAutoAudioEnabled: action.payload }
+    case 'UPDATE_USER_DATA':
+      // Save to localStorage
+      try {
+        localStorage.setItem('userData', JSON.stringify(action.payload))
+      } catch (error) {
+        console.warn('Failed to save userData to localStorage:', error)
+      }
+      return { ...state, userData: action.payload }
     default:
       return state
   }
