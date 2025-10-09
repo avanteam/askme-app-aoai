@@ -258,7 +258,8 @@ class MongoConversationClient:
         uuid: str,
         conversation_id: str,
         user_id: str,
-        input_message: Dict[str, Any]
+        input_message: Dict[str, Any],
+        user_custom_data: dict = None
     ) -> Any:
         """
         Crée un nouveau message dans une conversation
@@ -281,6 +282,10 @@ class MongoConversationClient:
                 'content': processed_content,
                 'timestamp': current_time  # datetime object pour tri par date
             }
+
+            # Store user custom data if provided
+            if user_custom_data:
+                message['userData'] = user_custom_data
 
             if self.enable_message_feedback:
                 message['feedback'] = ''

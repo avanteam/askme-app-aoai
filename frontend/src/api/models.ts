@@ -45,6 +45,7 @@ export type ChatMessage = {
   date: string
   feedback?: Feedback
   context?: string
+  userData?: { [key: string]: string }
 }
 
 export type ExecResults = {
@@ -80,6 +81,7 @@ export type ChatResponse = {
     conversation_id: string
     title: string
     date: string
+    user_custom_data?: { [key: string]: string }
   }
   error?: any
   command_result?: {
