@@ -105,6 +105,7 @@ export const historyList = async (
               console.error('error fetching messages: ', err)
               return []
             })
+            console.log(convMessages)
           const conversation: Conversation = {
             id: conv.id,
             title: conv.title,
@@ -153,7 +154,8 @@ export const historyRead = async (
             role: msg.role,
             date: msg.createdAt,
             content: msg.content,
-            feedback: msg.feedback ?? undefined
+            feedback: msg.feedback ?? undefined,
+            userData: msg.userData ?? undefined
           }
           messages.push(message)
         })

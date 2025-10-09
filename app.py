@@ -1688,6 +1688,7 @@ async def get_conversation():
             "content": msg["content"],
             "createdAt": msg["createdAt"],
             "feedback": msg.get("feedback"),
+            "userData": msg.get("userData"),
         }
         for msg in conversation_messages
     ]
