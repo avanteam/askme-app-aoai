@@ -27,6 +27,30 @@
   word-wrap: break-word;
   max-width: 800px;
   overflow-x: auto;
+  text-align: left;
+}
+
+/* Ensure all child elements within answerText are left-aligned */
+.answerText * {
+  text-align: left;
+}
+
+.answerText p,
+.answerText div,
+.answerText span,
+.answerText h1,
+.answerText h2,
+.answerText h3,
+.answerText h4,
+.answerText h5,
+.answerText h6,
+.answerText ul,
+.answerText ol,
+.answerText li,
+.answerText blockquote,
+.answerText pre,
+.answerText code {
+  text-align: left;
 }
 
 .answerHeader {
@@ -433,7 +457,7 @@ sup {
 
 .searchWithoutFilterContainer {
   display: flex;
-  justify-content: center;
+  justify-content: start;
   align-items: center;
   margin-top: 12px;
   padding: 8px 16px;
