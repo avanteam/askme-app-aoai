@@ -1046,7 +1046,7 @@ export const Answer = ({
             </Stack.Item>
           </Stack>
         )}
-        {userData && Object.keys(userData).length > 0 && (
+        {userData && Object.keys(userData).length > 0 && !isStreaming && (
           <div className={styles.searchWithoutFilterContainer}>
             <span className={styles.searchWithoutFilterText}>
               {language === 'FR' ? 'Voulez-vous rechercher sans filtre ?' : 'Do you want to search without filter?'}
