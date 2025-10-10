@@ -438,7 +438,8 @@ const Chat = () => {
       id: uuid(),
       role: 'user',
       content: questionContent as string,
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      userData: appStateContext?.state.userData
     }
 
     let conversation: Conversation | null | undefined
@@ -606,7 +607,8 @@ const Chat = () => {
       id: uuid(),
       role: 'user',
       content: questionContent as string,
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      userData: appStateContext?.state.userData
     }
 
     let request: ConversationRequest
@@ -1295,6 +1297,7 @@ const Chat = () => {
                         isStreaming={true}
                         questionImage={undefined}
                         messageDate={undefined}
+                        userData={appStateContext?.state.userData}
                       />
                     </div>
                   </>
