@@ -21,7 +21,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 from backend.settings import app_settings
 from .base import LLMProvider, LLMProviderInitializationError, LLMProviderRequestError, handle_provider_errors
 from .models import StandardResponse, StandardResponseAdapter, StandardChoice, StandardMessage, StandardUsage
-from .utils import AzureSearchService, build_search_context
+from .utils import AzureSearchService, build_search_context, format_user_filters_for_prompt
 from .language_detection import get_system_message_for_language
 from .i18n import get_documents_header, get_user_question_prefix, get_help_request
 try:
@@ -397,10 +397,10 @@ class ClaudeProvider(LLMProvider):
         if not search_results:
             self.logger.warning("No search results found - Claude will respond without context")
             return claude_messages
-        
+
         # Inject search context into messages with language awareness
         response_size = kwargs.get("response_size", "medium")
-        return self._inject_search_context(claude_messages, search_results, response_size, detected_language)
+        return self._inject_search_context(claude_messages, search_results, response_size, detected_language, user_custom_data)
     
     def _convert_messages_to_claude_format(self, messages: List[Dict[str, Any]], detected_language: str = "en") -> List[Dict[str, Any]]:
         """
@@ -870,21 +870,23 @@ class ClaudeProvider(LLMProvider):
         return original_query
     
     def _inject_search_context(
-        self, 
-        claude_messages: List[Dict[str, Any]], 
+        self,
+        claude_messages: List[Dict[str, Any]],
         search_results: List[Dict[str, Any]],
         response_size: str = "medium",
-        detected_language: str = "en"
+        detected_language: str = "en",
+        user_custom_data: Optional[Dict[str, str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Inject Azure Search results into Claude message context with multilingual support.
-        
+
         Args:
             claude_messages: Messages in Claude format
             search_results: Documents from Azure Search
             response_size: Response size preference
             detected_language: Detected language code for response localization
-            
+            user_custom_data: User custom data filters applied to the search
+
         Returns:
             Enhanced messages with search context and multilingual instructions
         """
@@ -897,18 +899,21 @@ class ClaudeProvider(LLMProvider):
         if not search_context:
             self.logger.warning("No search context built from results")
             return claude_messages
-        
+
         # Store citations for use in response formatting
         self._current_search_citations = citations
         self.logger.debug(f"Claude: stored {len(citations)} citations for response formatting")
-        
-        # Build enhanced system message with search context, language awareness and response size preference  
+
+        # Build enhanced system message with search context, language awareness and response size preference
         base_system_message = app_settings.claude.system_message
         system_with_size = get_system_message_for_language(detected_language, base_system_message, response_size)
-        
+
+        # Format user filters if present
+        filters_context = format_user_filters_for_prompt(user_custom_data, detected_language)
+
         # Get localized documents header
         documents_header = get_documents_header(detected_language)
-        
+
         # Get language instruction to reinforce at the end
         language_reinforcement = ""
         if detected_language == "es":
@@ -919,8 +924,17 @@ class ClaudeProvider(LLMProvider):
             language_reinforcement = "\n\nIMPORTANT: Always respond in English, even if documents are in French."
         elif detected_language == "de":
             language_reinforcement = "\n\nWICHTIG: Antworte IMMER auf Deutsch, auch wenn die Dokumente auf Französisch sind."
-        
-        enhanced_system_message = f"""{system_with_size}
+
+        # Build enhanced system message with filters (if present) and search context
+        if filters_context:
+            enhanced_system_message = f"""{system_with_size}
+
+{filters_context}
+
+{documents_header}
+{search_context}{language_reinforcement}"""
+        else:
+            enhanced_system_message = f"""{system_with_size}
 
 {documents_header}
 {search_context}{language_reinforcement}"""

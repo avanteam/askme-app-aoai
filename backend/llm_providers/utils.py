@@ -323,39 +323,81 @@ def create_citation_from_document(doc: Dict[str, Any], doc_id: int, max_length: 
     }
 
 
+def format_user_filters_for_prompt(user_custom_data: Optional[Dict[str, str]], detected_language: str = "fr") -> str:
+    """
+    Format user custom data filters into a readable text for LLM prompt.
+
+    Args:
+        user_custom_data: Dictionary of filter key-value pairs
+        detected_language: Language code for localized text (fr, en, es, it, de)
+
+    Returns:
+        Formatted filter text or empty string if no filters
+
+    Examples:
+        >>> format_user_filters_for_prompt({"Service": "RH", "Department": "IT"}, "fr")
+        "Filtres actifs sur la recherche documentaire :\n- Service: RH\n- Department: IT"
+
+        >>> format_user_filters_for_prompt({"Service": "HR"}, "en")
+        "Active filters on document search:\n- Service: HR"
+    """
+    if not user_custom_data or not isinstance(user_custom_data, dict):
+        return ""
+
+    # Remove empty values
+    filters = {k: v for k, v in user_custom_data.items() if v}
+    if not filters:
+        return ""
+
+    # Localized header
+    headers = {
+        "fr": "Filtres actifs sur la recherche documentaire :",
+        "en": "Active filters on document search:",
+        "es": "Filtros activos en la búsqueda de documentos:",
+        "it": "Filtri attivi sulla ricerca documentale:",
+        "de": "Aktive Filter bei der Dokumentensuche:"
+    }
+    header = headers.get(detected_language, headers["fr"])
+
+    # Format filters as bullet points
+    filter_lines = [f"- {key}: {value}" for key, value in filters.items()]
+
+    return f"{header}\n" + "\n".join(filter_lines)
+
+
 def build_search_context(search_results: List[Dict[str, Any]], citation_max_length: int = 200) -> tuple[str, List[Dict[str, Any]]]:
     """
     Build search context and citations from search results.
-    
+
     Args:
         search_results: List of documents from Azure Search
         citation_max_length: Maximum length for citation content (default: 200)
-        
+
     Returns:
         Tuple of (context_string, citations_list)
     """
     if not search_results:
         return "", []
-    
+
     context_parts = []
     citations = []
-    
+
     for i, doc in enumerate(search_results):
         doc_id = i + 1
         content = doc.get("content", "").strip()
         title = doc.get("title") or doc.get("filename") or f"Document {doc_id}"
-        
+
         if content:
             # Limit content size to prevent Claude API errors (max ~8000 chars per doc)
             if len(content) > 8000:
                 content = content[:7900] + "... [contenu tronqué]"
-            
+
             # Add document to context
             context_parts.append(f"[doc{doc_id}] {title}\n{content}")
-            
+
             # Create citation
             citation = create_citation_from_document(doc, doc_id, citation_max_length)
             citations.append(citation)
-    
+
     search_context = "\n\n".join(context_parts)
     return search_context, citations
