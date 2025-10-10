@@ -33,7 +33,7 @@ from openai import AsyncOpenAI
 from backend.settings import app_settings
 from .base import LLMProvider, LLMProviderInitializationError, LLMProviderRequestError, handle_provider_errors
 from .models import StandardResponse, StandardResponseAdapter, StandardChoice, StandardMessage, StandardUsage
-from .utils import AzureSearchService, build_search_context
+from .utils import AzureSearchService, build_search_context, format_user_filters_for_prompt
 from .language_detection import get_system_message_for_language
 from .i18n import get_documents_header, get_default_system_message, get_emergency_keywords
 
@@ -419,13 +419,25 @@ class OpenAIDirectProvider(LLMProvider):
                     self._current_search_context = search_context
 
                     self._current_search_citations = citations
-        
+
+        # Format user filters if present
+        filters_context = format_user_filters_for_prompt(user_custom_data, detected_language)
+
         # Build enhanced system message with localization
         if search_context:
             # Get localized documents header
             documents_header = get_documents_header(detected_language)
-            
-            enhanced_system_message = f"""{system_message}
+
+            # Include filters in the system message if present
+            if filters_context:
+                enhanced_system_message = f"""{system_message}
+
+{filters_context}
+
+{documents_header}
+{search_context}"""
+            else:
+                enhanced_system_message = f"""{system_message}
 
 {documents_header}
 {search_context}"""
