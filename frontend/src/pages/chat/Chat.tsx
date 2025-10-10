@@ -217,6 +217,15 @@ const Chat = () => {
         /* Si la full definition n'est pas renseigné, on met *, qui montrera les docs accessibles à tout le monde*/
         setUserFullDef(event.data.FullDefinition ? event.data.FullDefinition : '*')
 
+        //userData
+        if(event.data.userData){
+          appStateContext?.dispatch({
+            type: 'UPDATE_USER_DATA', 
+            payload: event.data.userData 
+          })
+        }
+
+
         // Est-ce que le token pour accéder à l'appli est OK ?
         const resp = await authenticate(event.data.AuthToken)
         if (resp) {
