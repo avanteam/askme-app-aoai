@@ -2,7 +2,7 @@ import { FormEvent, useContext, useEffect, useMemo, useState, useRef, useCallbac
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { nord } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { Checkbox, DefaultButton, Dialog, FontIcon, Stack, Text } from '@fluentui/react'
+import { Checkbox, DefaultButton, Dialog, FontIcon, Stack, StackItem, Text } from '@fluentui/react'
 import { useBoolean } from '@fluentui/react-hooks'
 import {
   ThumbDislike20Filled,
@@ -888,7 +888,7 @@ export const Answer = ({
   }
 
   const components = {
-    code({ node, ...props }: { node: any; [key: string]: any }) {
+    code({ node, ...props }: { node: any;[key: string]: any }) {
       let language
       if (props.className) {
         const match = props.className.match(/language-(\w+)/)
@@ -902,7 +902,7 @@ export const Answer = ({
       )
     },
     // Gestion des éléments personnalisés créés via le parser
-    span({ className, children, ...props }: { className?: string; children: React.ReactNode; [key: string]: any }) {
+    span({ className, children, ...props }: { className?: string; children: React.ReactNode;[key: string]: any }) {
       if (className === 'iddoc-link') {
         const id = props['data-id']
         const ref = props['data-ref']
@@ -939,49 +939,36 @@ export const Answer = ({
         tabIndex={0}
         data-message-role="assistant"
         data-message-id={answer.message_id}>
-        <Stack.Item>
-          <Stack horizontal grow>
-            <Stack.Item grow style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+        {/*Header*/}
+        <Stack.Item grow style={{ width: '100%' }}>
+          <Stack horizontal grow horizontalAlign="space-between">
+            <Stack.Item>
               {userData && Object.keys(userData).length > 0 && (
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '2px' }}>
+                <Stack horizontal>
                   {Object.entries(userData).map(([key, value]) => (
-                    <span
-                      key={key}
-                      style={{
-                        backgroundColor: '#e8f4f8',
-                        color: '#0078d4',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: '500',
-                        border: '1px solid #cce5f0'
-                      }}>
-                      {key}: {value}
-                    </span>
+                    <Stack.Item>
+                      <span
+                        key={key}
+                        style={{
+                          backgroundColor: '#e8f4f8',
+                          color: '#0078d4',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: '500',
+                          border: '1px solid #cce5f0'
+                        }}>
+                        {key}: {value}
+                      </span>
+                    </Stack.Item>
                   ))}
-                </div>
+                </Stack>
               )}
-              <div style={{ flex: 1 }}>
-                {parsedAnswer && (
-                  <ReactMarkdown
-                    linkTarget="_blank"
-                    remarkPlugins={[remarkGfm, supersub]}
-                    rehypePlugins={[rehypeRaw]}
-                    /* Utilisation de sanitize, comme on utilise rehypeRax pour autoriser l'exécution des balises */
-                    children={DOMPurify.sanitize(parsedAnswer?.markdownFormatText, {
-                      ALLOWED_TAGS: XSSAllowTags,
-                      ALLOWED_ATTR: XSSAllowAttributes
-                    })}
-                    className={styles.answerText}
-                    components={components}
-                  />
-                )}
-              </div>
             </Stack.Item>
-            <Stack.Item className={styles.answerHeader}>
+            <Stack.Item className={styles.answerHeader} grow >
               {(FEEDBACK_ENABLED && answer.message_id !== undefined) ||
-              (!FEEDBACK_ENABLED && answer.message_id !== undefined) ? (
-                <Stack horizontal horizontalAlign="space-between">
+                (!FEEDBACK_ENABLED && answer.message_id !== undefined) ? (
+                <Stack horizontal horizontalAlign="end">
                   {isPlaying ? (
                     <SpeakerOff20Regular
                       aria-hidden="false"
@@ -1015,7 +1002,7 @@ export const Answer = ({
                         onClick={() => onLikeResponseClicked()}
                         style={
                           feedbackState === Feedback.Positive ||
-                          appStateContext?.state.feedbackState[answer.message_id] === Feedback.Positive
+                            appStateContext?.state.feedbackState[answer.message_id] === Feedback.Positive
                             ? { color: 'darkgreen', cursor: 'pointer' }
                             : { color: 'slategray', cursor: 'pointer' }
                         }
@@ -1026,8 +1013,8 @@ export const Answer = ({
                         onClick={() => onDislikeResponseClicked()}
                         style={
                           feedbackState !== Feedback.Positive &&
-                          feedbackState !== Feedback.Neutral &&
-                          feedbackState !== undefined
+                            feedbackState !== Feedback.Neutral &&
+                            feedbackState !== undefined
                             ? { color: 'darkred', cursor: 'pointer' }
                             : { color: 'slategray', cursor: 'pointer' }
                         }
@@ -1039,169 +1026,204 @@ export const Answer = ({
             </Stack.Item>
           </Stack>
         </Stack.Item>
-        {parsedAnswer?.generated_chart !== null && (
-          <Stack className={styles.answerContainer}>
-            <Stack.Item grow>
-              <img src={`data:image/png;base64, ${parsedAnswer?.generated_chart}`} />
-            </Stack.Item>
-          </Stack>
-        )}
-        {userData && Object.keys(userData).length > 0 && !isStreaming && (
-          <div className={styles.searchWithoutFilterContainer}>
-            <span className={styles.searchWithoutFilterText}>
-              {language === 'FR' ? 'Voulez-vous rechercher sans filtre ?' : 'Do you want to search without filter?'}
-            </span>
-          </div>
-        )}
-        <Stack horizontal className={styles.answerFooter}>
-          {!!parsedAnswer?.citations.length && (
-            <Stack.Item onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? toggleIsRefAccordionOpen() : null)}>
-              <Stack style={{ width: '100%' }}>
-                <Stack horizontal horizontalAlign="start" verticalAlign="center">
-                  <Text
-                    className={styles.accordionTitle}
-                    onClick={toggleIsRefAccordionOpen}
-                    aria-label="Open references"
-                    tabIndex={0}
-                    role="button">
-                    <span>
-                      {parsedAnswer.citations.length > 1
-                        ? parsedAnswer.citations.length + ' references'
-                        : '1 reference'}
-                    </span>
-                  </Text>
-                  <FontIcon
-                    className={styles.accordionIcon}
-                    onClick={handleChevronClick}
-                    iconName={chevronIsExpanded ? 'ChevronDown' : 'ChevronRight'}
-                  />
-                </Stack>
-              </Stack>
-            </Stack.Item>
+        {/*Body*/}
+        <Stack.Item>
+          {parsedAnswer && (
+            <ReactMarkdown
+              linkTarget="_blank"
+              remarkPlugins={[remarkGfm, supersub]}
+              rehypePlugins={[rehypeRaw]}
+              /* Utilisation de sanitize, comme on utilise rehypeRax pour autoriser l'exécution des balises */
+              children={DOMPurify.sanitize(parsedAnswer?.markdownFormatText, {
+                ALLOWED_TAGS: XSSAllowTags,
+                ALLOWED_ATTR: XSSAllowAttributes
+              })}
+              className={styles.answerText}
+              components={components}
+            />
           )}
-          <Stack.Item className={styles.answerDisclaimerContainer}>
-            <span className={styles.answerDisclaimer}>{generateDisclaimer()}</span>
-          </Stack.Item>
-          {!!answer.exec_results?.length && (
-            <Stack.Item onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? toggleIsRefAccordionOpen() : null)}>
-              <Stack style={{ width: '100%' }}>
-                <Stack horizontal horizontalAlign="start" verticalAlign="center">
-                  <Text
-                    className={styles.accordionTitle}
-                    onClick={() => onExectResultClicked(answer.message_id ?? '')}
-                    aria-label="Open Intents"
-                    tabIndex={0}
-                    role="button">
-                    <span>Show Intents</span>
-                  </Text>
-                  <FontIcon className={styles.accordionIcon} onClick={handleChevronClick} iconName={'ChevronRight'} />
-                </Stack>
-              </Stack>
-            </Stack.Item>
+          {parsedAnswer?.generated_chart !== null && (
+            <Stack className={styles.answerContainer}>
+              <Stack.Item grow>
+                <img src={`data:image/png;base64, ${parsedAnswer?.generated_chart}`} />
+              </Stack.Item>
+            </Stack>
           )}
-        </Stack>
-        {chevronIsExpanded && (
-          <div className={styles.citationWrapper}>
-            {parsedAnswer?.citations.map((citation, idx) => {
-              var shouldDisplayLink = shouldDisplayCitationLink(citation)
-              var shouldDisplayAttLink = shouldDisplayAttachmentLink(citation)
-
-              return (
-                <div className={styles.citationOverlapDiv}>
-                  <span
-                    title={createCitationFilepath(citation, ++idx)}
-                    tabIndex={0}
-                    role="link"
-                    key={idx}
-                    onClick={() => onCitationClicked(citation)}
-                    onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? onCitationClicked(citation) : null)}
-                    className={styles.citationContainer}
-                    ref={el => (citationContainerRefs.current[idx] = el)}
-                    aria-label={createCitationFilepath(citation, idx)}>
-                    <div className={styles.citation}>{idx}</div>
-                    <div className={styles.citationTextContainer}>
-                      <span className={styles.citationText} ref={el => (citationTextRefs.current[idx] = el)}>
-                        {createCitationFilepath(citation, idx, false)}
-                      </span>
-                    </div>
-                  </span>
-                  {shouldDisplayLink && (
-                    <div className={styles.referencesContainer}>
-                      {/* Exemple pour une seule référence */}
-                      <div className={styles.referenceItem}>
-                        <div className={styles.dropdown}>
-                          <button className={styles.dropdownButton}>
-                            <img src={logoEye} height="20px" width="20px" alt="Document" />
-                            <span className={styles.arrow}>▼</span>
-                          </button>
-                          <div className={styles.dropdownMenu}>
-                            <span
-                              onClick={() => handleOpenDocument(citation, 'OpenIdDoc')}
-                              role="button" // Ceci améliore l'accessibilité
-                              tabIndex={0} // Pour le rendre focusable, accessible au clavier
-                              className={styles.dropdownLink}>
-                              <img src={logoDocument} height="16px" width="16px" alt="Ouvrir" />
-                              <span className={styles.hideOnSmall}>{localizedStrings.openDocument}</span>
+          {userData && Object.keys(userData).length > 0 && !isStreaming && (
+            <div className={styles.searchWithoutFilterContainer}>
+              <span className={styles.searchWithoutFilterText}>
+                {language === 'FR' ? 'Voulez-vous rechercher sans filtre ?' : 'Do you want to search without filter?'}
+              </span>
+            </div>
+          )}
+        </Stack.Item>
+        {/* Footer */}
+        <Stack.Item grow style={{ width: '100%' }}>
+          <Stack>
+            <Stack.Item grow style={{ width: '100%' }}>
+              <Stack horizontal className={styles.answerFooter} horizontalAlign="space-between">
+                {!!parsedAnswer?.citations.length && (
+                  <Stack.Item onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? toggleIsRefAccordionOpen() : null)}>
+                    <Stack.Item>
+                      <Stack style={{ width: '100%' }}>
+                        <Stack horizontal horizontalAlign="start" verticalAlign="center">
+                          <Text
+                            className={styles.accordionTitle}
+                            onClick={toggleIsRefAccordionOpen}
+                            aria-label="Open references"
+                            tabIndex={0}
+                            role="button">
+                            <span>
+                              {parsedAnswer.citations.length > 1
+                                ? parsedAnswer.citations.length + ' references'
+                                : '1 reference'}
                             </span>
-                            {shouldDisplayAttLink && (
-                              <span
-                                onClick={() => handleOpenDocument(citation, 'OpenAttachmentsIdDoc')}
-                                role="button" // Ceci améliore l'accessibilité
-                                tabIndex={0} // Pour le rendre focusable, accessible au clavier
-                                className={styles.dropdownLink}>
-                                <img src={logoUrl} height="16px" width="16px" alt="Prévisualiser" />
-                                <span className={styles.hideOnSmall}>{localizedStrings.openAttachment}</span>
-                              </span>
+                          </Text>
+                          <FontIcon
+                            className={styles.accordionIcon}
+                            onClick={handleChevronClick}
+                            iconName={chevronIsExpanded ? 'ChevronDown' : 'ChevronRight'}
+                          />
+                        </Stack>
+                      </Stack>
+                    </Stack.Item>
+                  </Stack.Item>
+                )}
+                <Stack.Item className={styles.answerDisclaimerContainer}>
+                  <span className={styles.answerDisclaimer}>{generateDisclaimer()}</span>
+                </Stack.Item>
+                {!!answer.exec_results?.length && (
+                  <Stack.Item onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? toggleIsRefAccordionOpen() : null)}>
+                    <Stack style={{ width: '100%' }}>
+                      <Stack horizontal horizontalAlign="start" verticalAlign="center">
+                        <Text
+                          className={styles.accordionTitle}
+                          onClick={() => onExectResultClicked(answer.message_id ?? '')}
+                          aria-label="Open Intents"
+                          tabIndex={0}
+                          role="button">
+                          <span>Show Intents</span>
+                        </Text>
+                        <FontIcon className={styles.accordionIcon} onClick={handleChevronClick} iconName={'ChevronRight'} />
+                      </Stack>
+                    </Stack>
+                  </Stack.Item>
+                )}
+              </Stack>
+            </Stack.Item>
+            {/*Expandable */}
+            <Stack.Item>
+              <Stack>
+                {chevronIsExpanded && (
+                  <Stack.Item>
+                    <div className={styles.citationWrapper}>
+                      {parsedAnswer?.citations.map((citation, idx) => {
+                        var shouldDisplayLink = shouldDisplayCitationLink(citation)
+                        var shouldDisplayAttLink = shouldDisplayAttachmentLink(citation)
+
+                        return (
+                          <div className={styles.citationOverlapDiv}>
+                            <span
+                              title={createCitationFilepath(citation, ++idx)}
+                              tabIndex={0}
+                              role="link"
+                              key={idx}
+                              onClick={() => onCitationClicked(citation)}
+                              onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? onCitationClicked(citation) : null)}
+                              className={styles.citationContainer}
+                              ref={el => (citationContainerRefs.current[idx] = el)}
+                              aria-label={createCitationFilepath(citation, idx)}>
+                              <div className={styles.citation}>{idx}</div>
+                              <div className={styles.citationTextContainer}>
+                                <span className={styles.citationText} ref={el => (citationTextRefs.current[idx] = el)}>
+                                  {createCitationFilepath(citation, idx, false)}
+                                </span>
+                              </div>
+                            </span>
+                            {shouldDisplayLink && (
+                              <div className={styles.referencesContainer}>
+                                {/* Exemple pour une seule référence */}
+                                <div className={styles.referenceItem}>
+                                  <div className={styles.dropdown}>
+                                    <button className={styles.dropdownButton}>
+                                      <img src={logoEye} height="20px" width="20px" alt="Document" />
+                                      <span className={styles.arrow}>▼</span>
+                                    </button>
+                                    <div className={styles.dropdownMenu}>
+                                      <span
+                                        onClick={() => handleOpenDocument(citation, 'OpenIdDoc')}
+                                        role="button" // Ceci améliore l'accessibilité
+                                        tabIndex={0} // Pour le rendre focusable, accessible au clavier
+                                        className={styles.dropdownLink}>
+                                        <img src={logoDocument} height="16px" width="16px" alt="Ouvrir" />
+                                        <span className={styles.hideOnSmall}>{localizedStrings.openDocument}</span>
+                                      </span>
+                                      {shouldDisplayAttLink && (
+                                        <span
+                                          onClick={() => handleOpenDocument(citation, 'OpenAttachmentsIdDoc')}
+                                          role="button" // Ceci améliore l'accessibilité
+                                          tabIndex={0} // Pour le rendre focusable, accessible au clavier
+                                          className={styles.dropdownLink}>
+                                          <img src={logoUrl} height="16px" width="16px" alt="Prévisualiser" />
+                                          <span className={styles.hideOnSmall}>{localizedStrings.openAttachment}</span>
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             )}
                           </div>
-                        </div>
-                      </div>
+                        )
+                      })}
                     </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+                  </Stack.Item>
+                )}
+                <Dialog
+                  onDismiss={() => {
+                    resetFeedbackDialog()
+                    setFeedbackState(Feedback.Neutral)
+                  }}
+                  hidden={!isFeedbackDialogOpen}
+                  styles={{
+                    main: [
+                      {
+                        selectors: {
+                          ['@media (min-width: 480px)']: {
+                            maxWidth: '600px',
+                            background: '#FFFFFF',
+                            boxShadow: '0px 14px 28.8px rgba(0, 0, 0, 0.24), 0px 0px 8px rgba(0, 0, 0, 0.2)',
+                            borderRadius: '8px',
+                            maxHeight: '600px',
+                            minHeight: '100px'
+                          }
+                        }
+                      }
+                    ]
+                  }}
+                  dialogContentProps={{
+                    title: localizedStrings.submitFeedbakc,
+                    showCloseButton: true
+                  }}>
+                  <Stack tokens={{ childrenGap: 4 }}>
+                    <div>{localizedStrings.feedbackHelps}</div>
+
+                    {!showReportInappropriateFeedback ? <UnhelpfulFeedbackContent /> : <ReportInappropriateFeedbackContent />}
+
+                    <div>{localizedStrings.feedbackWillBVisible}</div>
+
+                    <DefaultButton disabled={negativeFeedbackList.length < 1} onClick={onSubmitNegativeFeedback}>
+                      {localizedStrings.submit}
+                    </DefaultButton>
+                  </Stack>
+                </Dialog>
+              </Stack>
+            </Stack.Item>
+          </Stack>
+        </Stack.Item>
+
       </Stack>
-      <Dialog
-        onDismiss={() => {
-          resetFeedbackDialog()
-          setFeedbackState(Feedback.Neutral)
-        }}
-        hidden={!isFeedbackDialogOpen}
-        styles={{
-          main: [
-            {
-              selectors: {
-                ['@media (min-width: 480px)']: {
-                  maxWidth: '600px',
-                  background: '#FFFFFF',
-                  boxShadow: '0px 14px 28.8px rgba(0, 0, 0, 0.24), 0px 0px 8px rgba(0, 0, 0, 0.2)',
-                  borderRadius: '8px',
-                  maxHeight: '600px',
-                  minHeight: '100px'
-                }
-              }
-            }
-          ]
-        }}
-        dialogContentProps={{
-          title: localizedStrings.submitFeedbakc,
-          showCloseButton: true
-        }}>
-        <Stack tokens={{ childrenGap: 4 }}>
-          <div>{localizedStrings.feedbackHelps}</div>
 
-          {!showReportInappropriateFeedback ? <UnhelpfulFeedbackContent /> : <ReportInappropriateFeedbackContent />}
-
-          <div>{localizedStrings.feedbackWillBVisible}</div>
-
-          <DefaultButton disabled={negativeFeedbackList.length < 1} onClick={onSubmitNegativeFeedback}>
-            {localizedStrings.submit}
-          </DefaultButton>
-        </Stack>
-      </Dialog>
     </>
   )
 }
