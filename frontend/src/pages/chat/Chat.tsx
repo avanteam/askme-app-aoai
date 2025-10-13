@@ -225,6 +225,13 @@ const Chat = () => {
           })
         }
 
+        if(event.data.filterKeys){
+          appStateContext?.dispatch({
+            type: 'SET_FILTER_KEYS',
+            payload: event.data.filterKeys
+          })
+        }
+
 
         // Est-ce que le token pour accéder à l'appli est OK ?
         const resp = await authenticate(event.data.AuthToken)
