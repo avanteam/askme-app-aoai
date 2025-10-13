@@ -1194,6 +1194,15 @@ const Chat = () => {
     )
   }
 
+  const handleSendMessage = (message: string) => {
+    const conversationId = appStateContext?.state.currentChat?.id
+    if (appStateContext?.state.isDatabaseAvailable?.database) {
+      makeApiRequestWithCosmosDB(message, conversationId)
+    } else {
+      makeApiRequestWithoutCosmosDB(message, conversationId)
+    }
+  }
+
   return (
     <div className={styles.container} role="main">
       {showAuthMessage ? (
@@ -1280,6 +1289,7 @@ const Chat = () => {
                             questionImage={getQuestionImageForAnswer(index)}
                             messageDate={answer.date}
                             userData={answer.userData}
+                            onSendMessage={handleSendMessage}
                           />
                         )}
                       </div>
@@ -1314,6 +1324,7 @@ const Chat = () => {
                         questionImage={undefined}
                         messageDate={undefined}
                         userData={appStateContext?.state.userData}
+                        onSendMessage={handleSendMessage}
                       />
                     </div>
                   </>

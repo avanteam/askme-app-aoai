@@ -39,6 +39,7 @@ interface Props {
   questionImage?: string // Image base64 de la question précédente (optionnelle)
   messageDate?: string // Date de création du message (optionnelle)
   userData?: { [key: string]: string } // User custom data for filtering
+  onSendMessage?: (message: string) => void // Fonction pour envoyer un message
 }
 
 export const Answer = ({
@@ -51,7 +52,8 @@ export const Answer = ({
   isStreaming,
   questionImage,
   messageDate,
-  userData
+  userData,
+  onSendMessage
 }: Props) => {
   const appStateContext = useContext(AppStateContext)
   const initializeAnswerFeedback = (answer: AskResponse) => {
@@ -707,6 +709,14 @@ export const Answer = ({
     }
   }
 
+  const handleSearchWithoutFilter = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault()
+    if (onSendMessage) {
+      const message = language === 'FR' ? 'oui' : 'yes'
+      onSendMessage(message)
+    }
+  }
+
   const shouldDisplayCitationLink = (citation: Citation) => {
     try {
       return (
@@ -1052,9 +1062,13 @@ export const Answer = ({
           )}
           {userData && Object.keys(userData).length > 0 && !isStreaming && (
             <div className={styles.searchWithoutFilterContainer}>
-              <span className={styles.searchWithoutFilterText}>
+              <a
+                href="#"
+                onClick={handleSearchWithoutFilter}
+                className={styles.searchWithoutFilterText}
+              >
                 {language === 'FR' ? 'Voulez-vous rechercher sans filtre ?' : 'Do you want to search without filter?'}
-              </span>
+              </a>
             </div>
           )}
         </Stack.Item>

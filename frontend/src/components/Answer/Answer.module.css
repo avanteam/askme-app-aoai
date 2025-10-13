@@ -480,6 +480,14 @@ sup {
   font-weight: 400;
   font-size: 13px;
   line-height: 18px;
-  color: #323130;
+  color: #0078d4;
   text-align: center;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.searchWithoutFilterText:hover {
+  color: #004578;
+  text-decoration: underline;
 }
