@@ -38,6 +38,7 @@ export interface AppState {
   customizationPreferences: CustomizationPreferences
   isAutoAudioEnabled: boolean
   userData: Dictionary<string>
+  filterKeys: string[]
 }
 
 export type Action =
@@ -70,6 +71,7 @@ export type Action =
   | { type: 'UPDATE_CUSTOMIZATION_PREFERENCES'; payload: CustomizationPreferences }
   | { type: 'TOGGLE_AUTO_AUDIO'; payload: boolean }
   | { type: 'UPDATE_USER_DATA'; payload: Dictionary<string> }
+  | { type: 'SET_FILTER_KEYS'; payload: string[] }
 
 const initialState: AppState = {
   isChatHistoryOpen: false,
@@ -99,7 +101,8 @@ const initialState: AppState = {
     llmProvider: '' // Will be set from frontendSettings
   },
   isAutoAudioEnabled: false,
-  userData: {}
+  userData: {},
+  filterKeys: []
 }
 
 export const AppStateContext = createContext<

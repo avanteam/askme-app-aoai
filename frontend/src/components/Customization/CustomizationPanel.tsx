@@ -12,11 +12,13 @@ import {
   TextField,
   IconButton
 } from '@fluentui/react'
-import { Dictionary } from 'lodash'
+import { Dictionary, List } from 'lodash'
 import { AppStateContext } from '../../state/AppProvider'
 
 // Importation des fichiers de style
 import styles from './CustomizationPanel.module.css'
+import Select from '@mui/material/Select'
+import { InputLabel, MenuItem } from '@mui/material'
 
 // Types pour les préférences de personnalisation
 export interface CustomizationPreferences {
@@ -77,6 +79,7 @@ export function CustomizationPanel() {
 
   // États pour userData
   const [userData, setUserData] = useState<Dictionary<string>>(appStateContext?.state.userData || {})
+  const [filterKeys, setFilterKeys] = useState<string[] | undefined>(appStateContext?.state.filterKeys)
   const [newKey, setNewKey] = useState<string>('')
   const [newValue, setNewValue] = useState<string>('')
   const [userDataError, setUserDataError] = useState<string>('')
@@ -283,6 +286,11 @@ export function CustomizationPanel() {
       setUserData(appStateContext.state.userData)
     }
 
+    // Synchroniser filterKeys
+    if(appStateContext?.state.filterKeys){
+      setFilterKeys(appStateContext.state.filterKeys)
+    }
+
     // Ajouter l'écouteur pour la touche Escape
     const handleEscapeKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -453,17 +461,24 @@ export function CustomizationPanel() {
             )}
 
             {/* Formulaire d'ajout */}
-            <div className={styles.userDataForm}>
-              <TextField
-                label={currentLanguage === 'FR' ? 'Clé' : 'Key'}
+            {filterKeys && (filterKeys?.filter(key => !(key in userData)).length > 0) && (
+              <div className={styles.userDataForm}>
+              <InputLabel id="filter-keys-label">{currentLanguage === 'FR' ? 'Clé' : 'Key'}</InputLabel>
+              <Select
+                labelId='filter-keys-label'
                 value={newKey}
-                onChange={(_, newValue) => {
-                  setNewKey(newValue || '')
+                onChange={(e) => {
+                  console.log(e)
+                  setNewKey(e.target.value || '')
                   setUserDataError('')
-                }}
-                placeholder={currentLanguage === 'FR' ? 'Ex: Service, Département...' : 'Ex: Service, Department...'}
+                }}       
                 className={styles.userDataInput}
-              />
+              >
+                {filterKeys?.filter(key => !(key in userData)).map(key => (
+                  <MenuItem value={key} key={key}>{key}</MenuItem>
+
+                ))}
+              </Select>
               <TextField
                 label={currentLanguage === 'FR' ? 'Valeur' : 'Value'}
                 value={newValue}
@@ -478,6 +493,9 @@ export function CustomizationPanel() {
                 className={styles.addButton}
               />
             </div>
+
+            )}
+            
 
             {/* Message d'erreur */}
             {userDataError && (

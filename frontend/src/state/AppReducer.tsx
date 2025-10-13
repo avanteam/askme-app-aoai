@@ -156,6 +156,8 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
         console.warn('Failed to save userData to localStorage:', error)
       }
       return { ...state, userData: action.payload }
+    case 'SET_FILTER_KEYS':
+      return { ...state, filterKeys: action.payload }
     default:
       return state
   }
