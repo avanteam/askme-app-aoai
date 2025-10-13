@@ -941,10 +941,10 @@ export const Answer = ({
         data-message-id={answer.message_id}>
         {/*Header*/}
         <Stack.Item grow style={{ width: '100%' }}>
-          <Stack horizontal grow horizontalAlign="space-between">
-            <Stack.Item>
+          <Stack horizontal grow horizontalAlign="space-between" className={styles.headerStack}>
+            <Stack.Item className={styles.badgesStackContainer}>
               {userData && Object.keys(userData).length > 0 && (
-                <Stack horizontal>
+                <Stack horizontal className={styles.badgeStack}>
                   {Object.entries(userData).map(([key, value]) => (
                     <Stack.Item>
                       <span
@@ -957,6 +957,7 @@ export const Answer = ({
                           fontSize: '11px',
                           fontWeight: '500',
                           border: '1px solid #cce5f0'
+
                         }}>
                         {key}: {value}
                       </span>

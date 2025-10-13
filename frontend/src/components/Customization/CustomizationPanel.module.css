@@ -302,12 +302,16 @@
   gap: 8px;
   align-items: center;
   flex: 1;
+  width: 100%;
+  overflow: auto;
 }
 
 .userDataKey {
   font-weight: 600;
   color: #0f6cbd;
   font-size: 14px;
+  text-overflow: clip;
+  text-wrap-mode: nowrap;
 }
 
 .userDataValue {
