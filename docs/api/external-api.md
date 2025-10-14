@@ -110,22 +110,83 @@ Local: http://localhost:5007/api/v1
   "include_metadata": "boolean (défaut: true)",
   "sort_by": "enum (relevance|date_asc|date_desc|title, défaut: relevance)",
   "use_semantic_search": "boolean (défaut: true)",
-  "filters": "object (optionnel, future feature)"
+  "filters": "object (optionnel)"
 }
 ```
 
-### Exemple de Requête
+#### Filtres Disponibles
+
+Les champs suivants peuvent être utilisés dans le paramètre `filters` :
+
+| Champ | Type | Description | Exemple |
+|-------|------|-------------|---------|
+| `securityRights` | Collection | Droits d'accès (OR logique) | `["QDMAdmin", "QDMLecteur"]` |
+| `metadata_storage_name` | String | Nom exact du fichier | `"guide.pdf"` |
+| `metadata_storage_path` | String | URL complète Azure Blob | `"https://..."` |
+| `title` | String | Titre du document | `"User Guide"` |
+| `titreDocument` | String | Titre (version française) | `"Manuel Utilisateur"` |
+| `parent_id` | String | ID du document parent | `"doc-123"` |
+
+### Exemples de Requêtes
+
+#### Requête Simple (sans filtres)
 
 ```bash
 curl -X POST "https://askme.your-domain.com/api/v1/search" \
   -H "Authorization: Bearer sk-ext-lighton-prod-xyz123" \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Comment configurer l'\''authentification Azure AD pour une application web?",
+    "query": "Comment configurer l'\''authentification Azure AD?",
     "max_results": 10,
     "include_metadata": true,
     "sort_by": "relevance",
     "use_semantic_search": true
+  }'
+```
+
+#### Requête avec Filtre par Nom de Fichier
+
+```bash
+curl -X POST "https://askme.your-domain.com/api/v1/search" \
+  -H "Authorization: Bearer sk-ext-lighton-prod-xyz123" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "installation",
+    "max_results": 10,
+    "filters": {
+      "metadata_storage_name": "guide-installation.pdf"
+    }
+  }'
+```
+
+#### Requête avec Filtre par Droits de Sécurité
+
+```bash
+curl -X POST "https://askme.your-domain.com/api/v1/search" \
+  -H "Authorization: Bearer sk-ext-lighton-prod-xyz123" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "procédure dérogation",
+    "max_results": 10,
+    "filters": {
+      "securityRights": ["QDMAdmin", "QDMLecteur"]
+    }
+  }'
+```
+
+#### Requête avec Filtres Combinés
+
+```bash
+curl -X POST "https://askme.your-domain.com/api/v1/search" \
+  -H "Authorization: Bearer sk-ext-lighton-prod-xyz123" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "configuration",
+    "max_results": 5,
+    "filters": {
+      "titreDocument": "Manuel Utilisateur",
+      "securityRights": ["QDMAdmin"]
+    }
   }'
 ```
 

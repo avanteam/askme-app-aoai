@@ -89,15 +89,21 @@ class SearchRequest(BaseModel):
         default=None,
         description="""**OData filters** to refine search results.
 
-**Common filter fields:**
-- `securityRights`: Filter by access rights (e.g., `["QDMAdmin", "QDMLecteur"]`)
-- `metadata_storage_name`: Filter by filename
-- `titreDocument`: Filter by document title
+**Available filterable fields:**
+- `securityRights` (Collection): Filter by access rights (e.g., `["QDMAdmin", "QDMLecteur"]`)
+- `metadata_storage_name` (String): Filter by exact filename (e.g., `"guide.pdf"`)
+- `metadata_storage_path` (String): Filter by full Azure Blob URL
+- `title` (String): Filter by document title
+- `titreDocument` (String): Filter by document title (French version)
+- `parent_id` (String): Filter by parent document ID
 
 **Examples:**
-- Single value: `{"metadata_storage_name": "guide.pdf"}`
-- Multiple values (OR): `{"securityRights": ["QDMAdmin", "QDMLecteur"]}`
-- Combined (AND): `{"securityRights": ["QDMAdmin"], "metadata_storage_name": "guide.pdf"}`""",
+- Filter by filename: `{"metadata_storage_name": "guide.pdf"}`
+- Filter by security rights (OR): `{"securityRights": ["QDMAdmin", "QDMLecteur"]}`
+- Filter by title: `{"titreDocument": "Manuel Utilisateur"}`
+- Combined filters (AND): `{"securityRights": ["QDMAdmin"], "metadata_storage_name": "guide.pdf"}`
+
+**Note:** Multiple values in a list create OR conditions. Multiple keys create AND conditions.""",
         example={"securityRights": ["QDMAdmin", "QDMLecteur"]}
     )
 
