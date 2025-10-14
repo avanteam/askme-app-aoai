@@ -15,6 +15,7 @@
 
 .badgesStackContainer{
   max-width: 70%;
+  height: 50px;
   overflow-y: hidden;
   overflow-x: auto;
   text-overflow: clip;
