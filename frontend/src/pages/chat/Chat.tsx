@@ -219,9 +219,17 @@ const Chat = () => {
 
         //userData
         if(event.data.userData){
+           // Récupérer les userData existants (qui incluent déjà ceux du localStorage)
+          const existingUserData = appStateContext?.state.userData || {}
+          
+          // Fusionner : localStorage a la priorité (écrase les valeurs du postMessage)
+          const mergedUserData = {
+            ...event.data.userData,      // Données du système (base)
+            ...existingUserData           // Données localStorage (priorité)
+          }
           appStateContext?.dispatch({
             type: 'UPDATE_USER_DATA', 
-            payload: event.data.userData 
+            payload: mergedUserData
           })
         }
 
