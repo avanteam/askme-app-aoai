@@ -483,7 +483,6 @@ export function CustomizationPanel() {
                 label={currentLanguage === 'FR' ? 'Valeur' : 'Value'}
                 value={newValue}
                 onChange={(_, newValue) => setNewValue(newValue || '')}
-                placeholder={currentLanguage === 'FR' ? 'Ex: RH, IT...' : 'Ex: HR, IT...'}
                 className={styles.userDataInput}
               />
               <DefaultButton
