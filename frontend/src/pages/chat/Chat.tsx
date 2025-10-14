@@ -60,6 +60,7 @@ const Chat = () => {
   const chatMessageStreamEnd = useRef<HTMLDivElement | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [showLoadingMessage, setShowLoadingMessage] = useState<boolean>(false)
+  const [searchWithoutFilter, setSearchWithoutFilter] = useState<boolean>(false)
   const [activeCitation, setActiveCitation] = useState<Citation>()
   const [isCitationPanelOpen, setIsCitationPanelOpen] = useState<boolean>(false)
   const [isIntentsPanelOpen, setIsIntentsPanelOpen] = useState<boolean>(false)
@@ -431,7 +432,7 @@ const Chat = () => {
     return token
   }
 
-  const makeApiRequestWithoutCosmosDB = async (question: ChatMessage['content'], conversationId?: string) => {
+  const makeApiRequestWithoutCosmosDB = async (question: ChatMessage['content'], conversationId?: string, withoutFilter:boolean = false) => {
     setIsLoading(true)
     setShowLoadingMessage(true)
     const abortController = new AbortController()
@@ -601,7 +602,7 @@ const Chat = () => {
     return abortController.abort()
   }
 
-  const makeApiRequestWithCosmosDB = async (question: ChatMessage['content'], conversationId?: string) => {
+  const makeApiRequestWithCosmosDB = async (question: ChatMessage['content'], conversationId?: string, withoutFilter:boolean = false) => {
     setIsLoading(true)
     setShowLoadingMessage(true)
     const abortController = new AbortController()
@@ -1202,12 +1203,13 @@ const Chat = () => {
     )
   }
 
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = (message: string, withoutFilter:boolean = false) => {
     const conversationId = appStateContext?.state.currentChat?.id
+    setSearchWithoutFilter(withoutFilter)
     if (appStateContext?.state.isDatabaseAvailable?.database) {
-      makeApiRequestWithCosmosDB(message, conversationId)
+      makeApiRequestWithCosmosDB(message, conversationId, withoutFilter)
     } else {
-      makeApiRequestWithoutCosmosDB(message, conversationId)
+      makeApiRequestWithoutCosmosDB(message, conversationId, withoutFilter)
     }
   }
 
@@ -1331,7 +1333,7 @@ const Chat = () => {
                         isStreaming={true}
                         questionImage={undefined}
                         messageDate={undefined}
-                        userData={appStateContext?.state.userData}
+                        userData={(searchWithoutFilter)?{}:appStateContext?.state.userData}
                         onSendMessage={handleSendMessage}
                       />
                     </div>

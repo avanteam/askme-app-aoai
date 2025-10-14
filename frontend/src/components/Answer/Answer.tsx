@@ -39,7 +39,7 @@ interface Props {
   questionImage?: string // Image base64 de la question précédente (optionnelle)
   messageDate?: string // Date de création du message (optionnelle)
   userData?: { [key: string]: string } // User custom data for filtering
-  onSendMessage?: (message: string) => void // Fonction pour envoyer un message
+  onSendMessage?: (message: string, withoutFilter: boolean) => void // Fonction pour envoyer un message
 }
 
 export const Answer = ({
@@ -713,7 +713,7 @@ export const Answer = ({
     e.preventDefault()
     if (onSendMessage) {
       const message = language === 'FR' ? 'oui' : 'yes'
-      onSendMessage(message)
+      onSendMessage(message, true)
     }
   }
 
