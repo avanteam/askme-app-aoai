@@ -711,8 +711,8 @@ class AzureSearchProvider(SearchProvider):
             escaped_value = self._escape_odata_string(str(value))
 
             # Build OData filter for fieldMetadata subfields
-            # Format: fieldMetadata/Service eq 'RH'
-            filter_parts.append(f"fieldMetadata/{key} eq '{escaped_value}'")
+            # Old Format: fieldMetadata/Service eq 'RH'
+            filter_parts.append(f"search.ismatch('{escaped_value}*', 'fieldMetadata/{key}')")
 
         # Combine with AND if multiple filters
         return " and ".join(filter_parts) if filter_parts else None
