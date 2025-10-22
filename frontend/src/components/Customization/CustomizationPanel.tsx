@@ -12,7 +12,7 @@ import {
   TextField,
   IconButton
 } from '@fluentui/react'
-import { Dictionary, List } from 'lodash'
+import { Dictionary, filter, List } from 'lodash'
 import { AppStateContext } from '../../state/AppProvider'
 
 // Importation des fichiers de style
@@ -79,7 +79,7 @@ export function CustomizationPanel() {
 
   // États pour userData
   const [userData, setUserData] = useState<Dictionary<string>>(appStateContext?.state.userData || {})
-  const [filterKeys, setFilterKeys] = useState<string[] | undefined>(appStateContext?.state.filterKeys)
+  const [filterKeys, setFilterKeys] = useState<Array<{id: string, label: string}> | undefined>(appStateContext?.state.filterKeys)
   const [newKey, setNewKey] = useState<string>('')
   const [newValue, setNewValue] = useState<string>('')
   const [userDataError, setUserDataError] = useState<string>('')
@@ -306,6 +306,16 @@ export function CustomizationPanel() {
     }
   }, [appStateContext?.state.userLanguage, appStateContext?.state.customizationPreferences])
 
+  const replace_filter_key_label = (key : string) => {
+    if(!filterKeys) return key
+
+    const res = filterKeys.filter((f) => f.id == key);
+    if(res.length == 0) return key
+
+    return res[0].label
+
+  }
+
   return (
     <>
       {/* Overlay semi-transparent */}
@@ -445,7 +455,7 @@ export function CustomizationPanel() {
                 {Object.entries(userData).map(([key, value]) => (
                   <div key={key} className={styles.userDataItem}>
                     <div className={styles.userDataContent}>
-                      <span className={styles.userDataKey}>{key}:</span>
+                      <span className={styles.userDataKey}>{replace_filter_key_label(key)}:</span>
                       <span className={styles.userDataValue}>{value}</span>
                     </div>
                     <IconButton
@@ -461,7 +471,7 @@ export function CustomizationPanel() {
             )}
 
             {/* Formulaire d'ajout */}
-            {filterKeys && (filterKeys?.filter(key => !(key in userData)).length > 0) && (
+            {filterKeys && (filterKeys?.filter(item => !(item.id in userData)).length > 0) && (
               <div className={styles.userDataForm}>
               <InputLabel id="filter-keys-label">{currentLanguage === 'FR' ? 'Clé' : 'Key'}</InputLabel>
               <Select
@@ -471,11 +481,11 @@ export function CustomizationPanel() {
                   console.log(e)
                   setNewKey(e.target.value || '')
                   setUserDataError('')
-                }}       
+                }}
                 className={styles.userDataInput}
               >
-                {filterKeys?.filter(key => !(key in userData)).map(key => (
-                  <MenuItem value={key} key={key}>{key}</MenuItem>
+                {filterKeys?.filter(item => !(item.id in userData)).map(item => (
+                  <MenuItem value={item.id} key={item.id}>{item.label}</MenuItem>
 
                 ))}
               </Select>

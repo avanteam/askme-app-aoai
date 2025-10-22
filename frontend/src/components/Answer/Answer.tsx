@@ -955,24 +955,30 @@ export const Answer = ({
             <Stack.Item className={styles.badgesStackContainer}>
               {userData && Object.keys(userData).length > 0 && (
                 <Stack horizontal className={styles.badgeStack}>
-                  {Object.entries(userData).map(([key, value]) => (
-                    <Stack.Item>
-                      <span
-                        key={key}
-                        style={{
-                          backgroundColor: '#e8f4f8',
-                          color: '#0078d4',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontSize: '11px',
-                          fontWeight: '500',
-                          border: '1px solid #cce5f0'
+                  {Object.entries(userData).map(([key, value]) => {
+                    // Trouver le label correspondant à la clé
+                    const filterKeys = appStateContext?.state.filterKeys || []
+                    const filterItem = filterKeys.find(item => item.id === key)
+                    const displayLabel = filterItem ? filterItem.label : key
 
-                        }}>
-                        {key}: {value}
-                      </span>
-                    </Stack.Item>
-                  ))}
+                    return (
+                      <Stack.Item key={key}>
+                        <span
+                          style={{
+                            backgroundColor: '#e8f4f8',
+                            color: '#0078d4',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: '500',
+                            border: '1px solid #cce5f0'
+
+                          }}>
+                          {displayLabel}: {value}
+                        </span>
+                      </Stack.Item>
+                    )
+                  })}
                 </Stack>
               )}
             </Stack.Item>

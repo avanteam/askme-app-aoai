@@ -166,6 +166,7 @@ export type FrontendSettings = {
   azure_speech_voice_en?: string
   image_max_size_mb?: number
   version?: string
+  filter_keys?: Array<{id: string, label: string}>
 }
 
 export enum Feedback {

@@ -38,7 +38,7 @@ export interface AppState {
   customizationPreferences: CustomizationPreferences
   isAutoAudioEnabled: boolean
   userData: Dictionary<string>
-  filterKeys: string[]
+  filterKeys: Array<{id: string, label: string}>
 }
 
 export type Action =
@@ -71,7 +71,7 @@ export type Action =
   | { type: 'UPDATE_CUSTOMIZATION_PREFERENCES'; payload: CustomizationPreferences }
   | { type: 'TOGGLE_AUTO_AUDIO'; payload: boolean }
   | { type: 'UPDATE_USER_DATA'; payload: Dictionary<string> }
-  | { type: 'SET_FILTER_KEYS'; payload: string[] }
+  | { type: 'SET_FILTER_KEYS'; payload: Array<{id: string, label: string}> }
 
 const initialState: AppState = {
   isChatHistoryOpen: false,
@@ -293,6 +293,16 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
           ...state.customizationPreferences,
           llmProvider: finalLlmProvider
         }
+      })
+    }
+  }, [state.frontendSettings]) // Only trigger when frontendSettings change
+
+  // Load filter_keys from frontend settings if available
+  useEffect(() => {
+    if (state.frontendSettings?.filter_keys && state.frontendSettings.filter_keys.length > 0) {
+      dispatch({
+        type: 'SET_FILTER_KEYS',
+        payload: state.frontendSettings.filter_keys
       })
     }
   }, [state.frontendSettings]) // Only trigger when frontendSettings change
