@@ -438,6 +438,7 @@ export function CustomizationPanel() {
           )}
 
           {/* Section des données utilisateur */}
+          {filterKeys && (filterKeys.length > 0) && (
           <div className={styles.settingSection}>
             <h3 className={styles.settingTitle}>
               <Icon iconName="ContactInfo" className={styles.settingIcon} />
@@ -519,6 +520,8 @@ export function CustomizationPanel() {
                 : 'This data will be used to filter documents in Azure Search.'}
             </MessageBar>
           </div>
+
+          )}
 
           {/* Bouton de réinitialisation uniquement */}
           <div className={styles.actionButtons}>
