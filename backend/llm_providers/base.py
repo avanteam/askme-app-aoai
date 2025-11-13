@@ -97,7 +97,7 @@ class LLMProvider(ABC):
         elif response_size == "comprehensive":
             return base_message + " IMPORTANT: Fournissez des réponses détaillées et complètes avec des explications approfondies, des exemples et du contexte supplémentaire."
         else:
-            return base_message
+            return base_message + " IMPORTANT: Répondez de manière exhaustive mais concise, en équilibrant détails et clarté."
     
     def _enhance_messages_with_response_size(self, messages: List[Dict[str, Any]], response_size: str) -> List[Dict[str, Any]]:
         """
