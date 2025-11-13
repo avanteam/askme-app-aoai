@@ -1171,14 +1171,6 @@ export const Answer = ({
                                       <span className={styles.arrow}>▼</span>
                                     </button>
                                     <div className={styles.dropdownMenu}>
-                                      <span
-                                        onClick={() => handleOpenDocument(citation, 'OpenIdDoc')}
-                                        role="button" // Ceci améliore l'accessibilité
-                                        tabIndex={0} // Pour le rendre focusable, accessible au clavier
-                                        className={styles.dropdownLink}>
-                                        <img src={logoDocument} height="16px" width="16px" alt="Ouvrir" />
-                                        <span className={styles.hideOnSmall}>{localizedStrings.openDocument}</span>
-                                      </span>
                                       {shouldDisplayAttLink && (
                                         <span
                                           onClick={() => handleOpenDocument(citation, 'OpenAttachmentsIdDoc')}
@@ -1189,6 +1181,14 @@ export const Answer = ({
                                           <span className={styles.hideOnSmall}>{localizedStrings.openAttachment}</span>
                                         </span>
                                       )}
+                                      <span
+                                        onClick={() => handleOpenDocument(citation, 'OpenIdDoc')}
+                                        role="button" // Ceci améliore l'accessibilité
+                                        tabIndex={0} // Pour le rendre focusable, accessible au clavier
+                                        className={styles.dropdownLink}>
+                                        <img src={logoDocument} height="16px" width="16px" alt="Ouvrir" />
+                                        <span className={styles.hideOnSmall}>{localizedStrings.openDocument}</span>
+                                      </span>
                                     </div>
                                   </div>
                                 </div>
