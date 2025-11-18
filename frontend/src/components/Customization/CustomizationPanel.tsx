@@ -88,10 +88,16 @@ export function CustomizationPanel() {
 
   // Options pour le choix de la taille de réponse
   const responseSizeOptions: IChoiceGroupOption[] = [
-    { key: 'veryShort', text: currentLanguage === 'FR' ? 'Très courte' : 'Very short' },
-    { key: 'medium', text: currentLanguage === 'FR' ? 'Moyenne' : 'Medium' },
-    { key: 'comprehensive', text: currentLanguage === 'FR' ? 'Très complète' : 'Comprehensive' }
+    { key: 'veryShort', text: currentLanguage === 'FR' ? 'Synthétique' : 'Synthetic' },
+    { key: 'medium', text: currentLanguage === 'FR' ? 'Complète' : 'Complete' },
+    { key: 'comprehensive', text: currentLanguage === 'FR' ? 'Très détaillée' : 'Very detailed' }
   ]
+
+  // Filtrer les options selon le provider actif
+  // Mistral ne supporte que 2 options : synthétique et complète
+  const filteredResponseSizeOptions = llmProvider === 'MISTRAL'
+    ? responseSizeOptions.filter(option => option.key !== 'comprehensive')
+    : responseSizeOptions
 
   // Récupérer la liste des providers disponibles depuis les settings frontend
   const availableProviders = appStateContext?.state.frontendSettings?.available_llm_providers || []
@@ -264,6 +270,14 @@ export function CustomizationPanel() {
     }
   }, []) // Se déclenche seulement au montage du composant
 
+  // Auto-switch : Si on passe à Mistral et que comprehensive est sélectionné, basculer vers medium
+  useEffect(() => {
+    if (llmProvider === 'MISTRAL' && responseSize === 'comprehensive') {
+      setResponseSize('medium')
+      updatePreferences('medium', undefined, undefined)
+    }
+  }, [llmProvider]) // Se déclenche à chaque changement de provider
+
   useEffect(() => {
     // Définir l'animation d'apparition après montage du composant
     setTimeout(() => {
@@ -373,7 +387,7 @@ export function CustomizationPanel() {
 
             <ChoiceGroup
               selectedKey={responseSize}
-              options={responseSizeOptions}
+              options={filteredResponseSizeOptions}
               onChange={handleResponseSizeChange}
               className={styles.choiceGroup}
             />

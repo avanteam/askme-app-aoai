@@ -2259,14 +2259,19 @@ async def user_session():
             data = await request.get_json()
             if user_id not in user_sessions:
                 user_sessions[user_id] = {}
-            
+
             if 'llm_provider' in data:
                 user_sessions[user_id]['llm_provider'] = data['llm_provider']
+
+                # Auto-switch : Si on passe à Mistral et que comprehensive est sélectionné, basculer vers NORMAL
+                if data['llm_provider'] == 'MISTRAL' and user_sessions[user_id].get('response_length') == 'COMPREHENSIVE':
+                    user_sessions[user_id]['response_length'] = 'NORMAL'
+
             if 'documents_count' in data:
                 user_sessions[user_id]['documents_count'] = data['documents_count']
             if 'response_length' in data:
                 user_sessions[user_id]['response_length'] = data['response_length']
-            
+
             return jsonify({
                 "status": "success",
                 "session": user_sessions[user_id]
