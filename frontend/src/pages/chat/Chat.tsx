@@ -15,8 +15,6 @@ import styles from './Chat.module.css'
 import Contoso from '../../assets/Contoso.svg'
 import { XSSAllowTags } from '../../constants/sanatizeAllowables'
 
-import { encryptString } from '../../utils/encryptAES'
-
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
 
@@ -184,9 +182,10 @@ const Chat = () => {
       setToken('dev-token')
       appStateContext?.dispatch({ type: 'SET_AUTH_TOKEN', payload: 'dev-token' })
       
-      // Configurer un utilisateur crypté factice
-      setEncryptedCurrentUser(encryptString('dev-user'))
-      appStateContext?.dispatch({ type: 'SET_ENCRYPTED_USERNAME', payload: encryptString('dev-user') })
+      // Note: Username is now sent in plain-text (TLS provides encryption)
+      // Variable name "encryptedCurrentUser" is legacy (kept for compatibility)
+      setEncryptedCurrentUser('dev-user')
+      appStateContext?.dispatch({ type: 'SET_ENCRYPTED_USERNAME', payload: 'dev-user' })
       
       setUserFullDef('*')
       return
@@ -209,10 +208,12 @@ const Chat = () => {
 
         setCurrentUser(event.data.UserNameDN ? event.data.UserNameDN : 'Anonyme (WEB)')
         appStateContext?.dispatch({ type: 'SET_USERNAME', payload: event.data.UserNameDN ? event.data.UserNameDN : '' })
-        setEncryptedCurrentUser(event.data.UserNameDN ? encryptString(event.data.UserNameDN) : '')
+
+        // Username is sent in plain-text via EncodedUsername header (TLS provides encryption)
+        setEncryptedCurrentUser(event.data.UserNameDN ? event.data.UserNameDN : '')
         appStateContext?.dispatch({
           type: 'SET_ENCRYPTED_USERNAME',
-          payload: event.data.UserNameDN ? encryptString(event.data.UserNameDN) : ''
+          payload: event.data.UserNameDN ? event.data.UserNameDN : ''
         })
 
         /* Si la full definition n'est pas renseigné, on met *, qui montrera les docs accessibles à tout le monde*/

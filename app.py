@@ -9,9 +9,6 @@ import asyncio
 
 import requests
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import padding
-from cryptography.hazmat.backends import default_backend
 import base64
 from datetime import datetime
 from hashlib import sha256
@@ -1057,7 +1054,7 @@ def LogCallToAiManager(request_body):
 
         query_params = {
             'q': 'LogAskMeCall',
-            'logContent': encrypt_string(json.dumps(logContent))
+            'logContent': json.dumps(logContent)
         }
 
         response = requests.get(app_settings.custom_avanteam_settings.licencehub_handlerurl, params=query_params)
@@ -1267,12 +1264,17 @@ def CheckAuthenticate(request):
         return False
     
 def GetDecryptedUsername(request):
+    """
+    Retrieve username from request headers.
+    Note: Despite the function name, username is now plain-text (protected by TLS).
+    Function name retained for backwards compatibility.
+    """
     # Si l'authentification est désactivée, utiliser un utilisateur par défaut
     if not app_settings.base_settings.auth_enabled:
         return "dev-user"
 
     if "EncodedUsername" in request.headers:
-        return decrypt_string(request.headers["EncodedUsername"])
+        return request.headers["EncodedUsername"]  # Now plain-text
     else:
         return None
     
@@ -2273,61 +2275,6 @@ async def user_session():
             })
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-
-
-def get_encryption_key():
-    # Cette fonction doit retourner la clé de chiffrement en base64, comme dans la version .NET
-    # Exemple : 'your_base64_encoded_key'
-    key_base64 = '+gSxYLZWesSFOppNJg1v7K7VvK4JzbxrLGPH+C6Ettc='
-    return base64.b64decode(key_base64)
-
-
-def encrypt_string(plain_text):
-    key = get_encryption_key()
-    iv = os.urandom(16)  # Générer un IV aléatoire de 16 octets (128 bits)
-    
-    # Créer le chiffreur AES avec la clé et l'IV
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-    encryptor = cipher.encryptor()
-    
-    # Appliquer le padding PKCS7
-    padder = padding.PKCS7(algorithms.AES.block_size).padder()
-    padded_data = padder.update(plain_text.encode()) + padder.finalize()
-    
-    # Chiffrer les données
-    encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
-    
-    # Combiner l'IV et les données chiffrées
-    combined_data = iv + encrypted_data
-    
-    # Convertir le résultat en base64
-    encrypted_base64 = base64.b64encode(combined_data).decode('utf-8')
-    
-    return encrypted_base64
-
-def decrypt_string(encrypted_base64):
-    key = get_encryption_key()
-    
-    # Décoder les données en base64
-    combined_data = base64.b64decode(encrypted_base64)
-    
-    # Extraire l'IV (les 16 premiers octets)
-    iv = combined_data[:16]
-    encrypted_data = combined_data[16:]
-    
-    # Créer le déchiffreur AES avec la clé et l'IV
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-    decryptor = cipher.decryptor()
-    
-    # Déchiffrer les données
-    padded_data = decryptor.update(encrypted_data) + decryptor.finalize()
-    
-    # Retirer le padding PKCS7
-    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
-    plain_text = unpadder.update(padded_data) + unpadder.finalize()
-    
-    # Convertir les données en chaîne de caractères
-    return plain_text.decode('utf-8')
 
 
 @bp.route("/speech/synthesize", methods=["POST"])
