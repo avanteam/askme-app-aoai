@@ -69,6 +69,13 @@ class APIKeyManager:
                 allowed_ips = parts[2].split(',') if len(parts) > 2 else ['*']
                 allowed_ips = [ip.strip() for ip in allowed_ips]
 
+                # Parse security_rights (4th field)
+                security_rights = None  # None = Admin (full access)
+                if len(parts) > 3:
+                    rights_str = parts[3].strip()
+                    if rights_str:  # If not empty
+                        security_rights = [right.strip() for right in rights_str.split(',')]
+
                 # Hash the key for secure storage
                 key_hash = self._hash_key(api_key)
 
@@ -83,10 +90,14 @@ class APIKeyManager:
                     # Future fields for rotation
                     'expires_at': None,
                     'rotation_schedule_days': 90,
-                    'grace_period_days': 7
+                    'grace_period_days': 7,
+                    # Security rights for document filtering
+                    'security_rights': security_rights  # None = admin, List = restricted
                 }
 
-                logger.info(f"Loaded API key for client: {client_name}")
+                # Enhanced logging with permissions info
+                rights_info = "ADMIN (all documents)" if security_rights is None else f"Restricted to: {security_rights}"
+                logger.info(f"Loaded API key for client: {client_name} - Permissions: {rights_info}")
 
         except Exception as e:
             logger.error(f"Error loading API keys: {e}")
@@ -138,6 +149,36 @@ class APIKeyManager:
         """Get client information for valid API key."""
         key_hash = self._hash_key(api_key)
         return self.api_keys.get(key_hash)
+
+    def get_client_permissions(self, api_key: str) -> Optional[List[str]]:
+        """
+        Recupere les droits d'acces (security_rights) associes a une cle API.
+
+        Cette methode est utilisee pour appliquer automatiquement les filtres
+        de documents bases sur les permissions du token.
+
+        Args:
+            api_key: La cle API a verifier
+
+        Returns:
+            None: Si le token a des droits administrateur (acces a tous les documents)
+            List[str]: Liste des security_rights autorises pour ce token
+            []: Liste vide si le token n'existe pas (aucun acces)
+
+        Examples:
+            >>> manager.get_client_permissions("sk-admin-xyz")
+            None  # Admin - pas de restrictions
+
+            >>> manager.get_client_permissions("sk-compta-abc")
+            ["QDMLecteur", "Comptabilite"]  # Acces restreint
+        """
+        key_hash = self._hash_key(api_key)
+        key_info = self.api_keys.get(key_hash)
+
+        if not key_info:
+            return []  # Token inconnu
+
+        return key_info.get('security_rights')
 
     def get_usage_stats(self, client_name: Optional[str] = None) -> Dict:
         """Get usage statistics for monitoring."""
@@ -213,6 +254,16 @@ def require_api_key(f):
         request.client_name = client_name
         request.request_id = request_id
         request.start_time = start_time
+
+        # Get and store client permissions for automatic filtering
+        client_permissions = manager.get_client_permissions(api_key)
+        request.client_permissions = client_permissions
+
+        # Log permissions for audit
+        if client_permissions is None:
+            logger.debug(f"Client {client_name} has ADMIN permissions (no filtering)")
+        else:
+            logger.debug(f"Client {client_name} has RESTRICTED permissions: {client_permissions}")
 
         # Audit log for successful authentication
         logger.info(
