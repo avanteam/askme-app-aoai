@@ -139,32 +139,36 @@ class AzureOpenAIProvider(LLMProvider):
         if kwargs.get("_skip_language_detection", False):
             detected_language = "en"  # Default for internal calls
             self.logger.debug("Skipping language detection for internal call")
+            # For language detection calls, use messages as-is without any enhancement
+            enhanced_messages = messages
         else:
             user_message = messages[-1]["content"] if messages else ""
             detected_language = await self.detect_language_with_llm(user_message)
             self.logger.debug(f"Detected language: {detected_language}")
-        
+
         # Get max_tokens based on response size
         response_size = kwargs.get("response_size", "medium")
         max_tokens = self._get_max_tokens_for_response_size("azure_openai", response_size)
-        
-        # For Azure OpenAI, we handle both language and response size instructions:
-        # - If datasource is configured: inject into role_information (done in _build_azure_search_extra_body)
-        # - If no datasource: enhance system message normally
-        if app_settings.datasource:
-            # Don't enhance messages here - will be handled in datasource role_information
-            enhanced_messages = messages
-            self.logger.debug("Azure OpenAI with datasource: language and response size instructions will be in role_information")
-            
-            # Still process images even with datasource
-            enhanced_messages = self._process_images_for_azure_openai(enhanced_messages)
-        else:
-            # No datasource - enhance system message with language awareness
-            enhanced_messages = self._enhance_messages_with_language_and_response_size(messages, detected_language, response_size)
-            self.logger.debug(f"Azure OpenAI without datasource: enhanced system message with {detected_language} language and {response_size} response size instructions")
-            
-            # Process images for optimal Azure OpenAI performance  
-            enhanced_messages = self._process_images_for_azure_openai(enhanced_messages)
+
+        # Only enhance messages if this is not a language detection call
+        if not kwargs.get("_skip_language_detection", False):
+            # For Azure OpenAI, we handle both language and response size instructions:
+            # - If datasource is configured: inject into role_information (done in _build_azure_search_extra_body)
+            # - If no datasource: enhance system message normally
+            if app_settings.datasource:
+                # Don't enhance messages here - will be handled in datasource role_information
+                enhanced_messages = messages
+                self.logger.debug("Azure OpenAI with datasource: language and response size instructions will be in role_information")
+
+                # Still process images even with datasource
+                enhanced_messages = self._process_images_for_azure_openai(enhanced_messages)
+            else:
+                # No datasource - enhance system message with language awareness
+                enhanced_messages = self._enhance_messages_with_language_and_response_size(messages, detected_language, response_size)
+                self.logger.debug(f"Azure OpenAI without datasource: enhanced system message with {detected_language} language and {response_size} response size instructions")
+
+                # Process images for optimal Azure OpenAI performance
+                enhanced_messages = self._process_images_for_azure_openai(enhanced_messages)
         
         # Build request parameters with defaults from settings
         model_args = {

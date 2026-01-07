@@ -123,7 +123,13 @@ class GeminiProvider(LLMProvider):
             self.logger.debug(f"Detected language: {detected_language}")
         
         # Enhance messages with Azure Search if configured
-        enhanced_messages = await self._enhance_with_search_context(messages, detected_language=detected_language, user_custom_data=user_custom_data, **kwargs)
+        # Skip search enhancement during language detection to avoid polluting context with unfiltered documents
+        if kwargs.get("_skip_language_detection", False):
+            # Language detection call - don't perform search
+            enhanced_messages = messages
+        else:
+            # Normal request - perform search with user filters
+            enhanced_messages = await self._enhance_with_search_context(messages, detected_language=detected_language, user_custom_data=user_custom_data, **kwargs)
         
         # Convert messages from OpenAI to Gemini format
         gemini_request = self._convert_messages_to_gemini_format(enhanced_messages, **kwargs)

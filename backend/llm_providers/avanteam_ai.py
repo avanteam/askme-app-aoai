@@ -491,11 +491,17 @@ class AvanteamAIProvider(LLMProvider):
             optimal_model = self._select_optimal_model_for_request(messages, **kwargs)
 
             # Convert OpenAI messages and enhance with Azure Search if configured
-            enhanced_messages = await self._enhance_with_search_context(
-                messages,
-                detected_language=detected_language,
-                **kwargs
-            )
+            # Skip search enhancement during language detection to avoid polluting context with unfiltered documents
+            if kwargs.get("_skip_language_detection", False):
+                # Language detection call - don't perform search
+                enhanced_messages = messages
+            else:
+                # Normal request - perform search with user filters
+                enhanced_messages = await self._enhance_with_search_context(
+                    messages,
+                    detected_language=detected_language,
+                    **kwargs
+                )
 
             # Build request parameters
             request_params = await self._build_request_parameters(
