@@ -145,9 +145,13 @@ class ClaudeProvider(LLMProvider):
         
         # Convert messages from OpenAI to Claude format with language awareness
         claude_messages = self._convert_messages_to_claude_format(messages, detected_language)
-        
+
         # Perform Azure Search if configured and inject context
-        claude_messages = await self._enhance_with_search_context(claude_messages, detected_language=detected_language, user_custom_data=user_custom_data, **kwargs)
+        # Skip search enhancement during language detection to avoid polluting context with unfiltered documents
+        if not kwargs.get("_skip_language_detection", False):
+            # Normal request - perform search with user filters
+            claude_messages = await self._enhance_with_search_context(claude_messages, detected_language=detected_language, user_custom_data=user_custom_data, **kwargs)
+        # else: Language detection call - don't perform search, use converted messages as-is
         
         # Get max_tokens based on response size
         response_size = kwargs.get("response_size", "medium")
