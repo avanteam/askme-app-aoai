@@ -128,9 +128,10 @@ async def search_documents():
             search_provider = await create_search_provider()
 
             # Build filters string from API filters
-            filter_string = None
+            filter_parts = []
+
+            # 1. Process explicit filters from the request (if present)
             if data.filters:
-                filter_parts = []
                 for key, value in data.filters.items():
                     # Sanitize filter key (allow only alphanumeric and underscore)
                     safe_key = ''.join(c for c in key if c.isalnum() or c == '_')
@@ -142,7 +143,7 @@ async def search_documents():
                     if isinstance(value, list):
                         if safe_key in collection_fields:
                             # Use any() lambda for collection fields: field/any(r: r eq 'val1' or r eq 'val2')
-                            escaped_values = [str(v).replace(chr(39), chr(39)+chr(39)) for v in value]
+                            escaped_values = [str(v).replace("'", "''") for v in value]
                             or_conditions = [f"r eq '{v}'" for v in escaped_values]
                             filter_parts.append(f"{safe_key}/any(r: {' or '.join(or_conditions)})")
                         else:
@@ -152,13 +153,56 @@ async def search_documents():
                     else:
                         if safe_key in collection_fields:
                             # Single value for collection field: field/any(r: r eq 'value')
-                            safe_value = str(value).replace(chr(39), chr(39)+chr(39))
+                            safe_value = str(value).replace("'", "''")
                             filter_parts.append(f"{safe_key}/any(r: r eq '{safe_value}')")
                         else:
                             # Single value for regular field: field eq 'value'
-                            safe_value = str(value).replace(chr(39), chr(39)+chr(39))
+                            safe_value = str(value).replace("'", "''")
                             filter_parts.append(f"{safe_key} eq '{safe_value}'")
-                filter_string = " and ".join(filter_parts) if filter_parts else None
+
+            # 2. Apply automatic security filters based on token permissions
+            client_permissions = getattr(request, 'client_permissions', None)
+
+            if client_permissions is not None:
+                # Token has restricted permissions
+                if len(client_permissions) == 0:
+                    # No rights - deny access
+                    logger.warning(
+                        f"Client {client_name} has no permissions - denying access. "
+                        f"RequestID: {request_id}"
+                    )
+                    return jsonify(APIError(
+                        error_code='INSUFFICIENT_PERMISSIONS',
+                        error_message='This API key has no document access permissions',
+                        details=None,
+                        timestamp=datetime.utcnow(),
+                        request_id=request_id
+                    ).model_dump()), 403
+
+                # Build OData filter for securityRights
+                escaped_rights = [right.replace("'", "''") for right in client_permissions]
+                or_conditions = [f"r eq '{right}'" for right in escaped_rights]
+                rights_filter = f"securityRights/any(r: {' or '.join(or_conditions)})"
+
+                filter_parts.append(rights_filter)
+
+                logger.info(
+                    f"Auto-applied security filter for client {client_name}: {rights_filter}, "
+                    f"RequestID: {request_id}"
+                )
+            elif client_permissions is None:
+                # Admin token - no filtering
+                logger.info(
+                    f"Client {client_name} has ADMIN access - no security filtering. "
+                    f"RequestID: {request_id}"
+                )
+
+            # 3. Combine all filters with AND
+            filter_string = " and ".join(filter_parts) if filter_parts else None
+
+            # Log final filter for audit
+            if filter_string:
+                logger.debug(f"Final OData filter: {filter_string}, RequestID: {request_id}")
 
             # Convert API request to internal search query
             search_query = SearchQuery(

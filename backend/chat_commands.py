@@ -568,12 +568,19 @@ class ChatCommandExecutor:
             user_session = {}
         user_session['llm_provider'] = provider
 
+        # Auto-switch : Si on passe à Mistral et que comprehensive est sélectionné, basculer vers NORMAL
+        if provider == 'MISTRAL' and user_session.get('response_length') == 'COMPREHENSIVE':
+            user_session['response_length'] = 'NORMAL'
+            message_suffix = " Les réponses détaillées ne sont pas supportées par Mistral, la taille de réponse a été changée en 'Complète'."
+        else:
+            message_suffix = ""
+
         # Pour AVANTEAM_AI, sauvegarder aussi le modèle spécifique
         if provider == 'AVANTEAM_AI' and avanteam_ai_model:
             user_session['avanteam_ai_model'] = avanteam_ai_model
-            message = f"Configuration modifiée avec succès. Le modèle Avanteam AI {provider_name} ({avanteam_ai_model}) est maintenant utilisé."
+            message = f"Configuration modifiée avec succès. Le modèle Avanteam AI {provider_name} ({avanteam_ai_model}) est maintenant utilisé.{message_suffix}"
         else:
-            message = f"Configuration modifiée avec succès. Le modèle {provider_name} est maintenant utilisé."
+            message = f"Configuration modifiée avec succès. Le modèle {provider_name} est maintenant utilisé.{message_suffix}"
 
         return {
             'success': True,
@@ -621,20 +628,31 @@ class ChatCommandExecutor:
         """Exécute la modification de la longueur de réponse"""
         length = command.parameters['length']
         length_name = command.parameters['length_name']
-        
+
         # Sauvegarder dans la session utilisateur
         if user_session is None:
             user_session = {}
+
+        # Validation : Mistral ne supporte pas les réponses 'comprehensive'
+        current_provider = user_session.get('llm_provider', '')
+        if current_provider == 'MISTRAL' and length == 'COMPREHENSIVE':
+            return {
+                'success': False,
+                'message': "Mistral ne supporte que les réponses synthétiques ou complètes. Veuillez choisir l'une de ces options.",
+                'command_type': CommandType.SET_RESPONSE_LENGTH.value,
+                'user_session': user_session
+            }
+
         user_session['response_length'] = length
-        
+
         length_descriptions = {
             'VERY_SHORT': 'courtes',
             'NORMAL': 'normales',
             'COMPREHENSIVE': 'détaillées'
         }
-        
+
         description = length_descriptions.get(length, length_name)
-        
+
         return {
             'success': True,
             'message': f"Configuration modifiée avec succès. Les réponses seront maintenant {description}.",
