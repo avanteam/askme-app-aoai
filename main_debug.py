@@ -5,11 +5,20 @@ import time
 import os
 
 def check_port_in_use(port):
-    """Vérifie si un port est déjà utilisé"""
+    """Vérifie si un port est déjà utilisé en état LISTENING"""
     try:
         if os.name == 'nt':  # Windows
             result = subprocess.run(["netstat", "-an"], capture_output=True, text=True, encoding='utf-8', errors='ignore')
-            return f":{port}" in result.stdout
+            # Chercher spécifiquement le port en écoute (LISTENING)
+            # Format Windows: "  TCP    0.0.0.0:27017          0.0.0.0:0              LISTENING"
+            # ou              "  TCP    127.0.0.1:27017        0.0.0.0:0              LISTENING"
+            for line in result.stdout.splitlines():
+                if f":{port}" in line and "LISTENING" in line:
+                    # Vérifier que c'est bien le port local (pas distant)
+                    parts = line.split()
+                    if len(parts) >= 2 and f":{port}" in parts[1]:
+                        return True
+            return False
         else:  # Linux/Mac
             result = subprocess.run(["lsof", f"-i:{port}"], capture_output=True, text=True)
             return result.returncode == 0
@@ -38,11 +47,11 @@ def start_mongodb_tunnel():
         if os.name == 'nt':  # Windows
             subprocess.Popen([
                 "cmd", "/c", "start", "MongoDB Tunnel", "cmd", "/k",
-                "kubectl port-forward -n askme-mongodb service/mongodb-shared 27017:27017"
+                "kubectl port-forward -n askme-mongodb mongodb-0 27017:27017"
             ], shell=True)
         else:  # Linux/Mac
             subprocess.Popen(["kubectl", "port-forward", "-n", "askme-mongodb",
-                            "service/mongodb-shared", "27017:27017"])
+                            "mongodb-0", "27017:27017"])
 
         print("[MongoDB] Tunnel lancé dans une nouvelle fenêtre.")
         print("[MongoDB] Attente de l'établissement du tunnel...")
