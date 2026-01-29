@@ -1173,6 +1173,9 @@ class _BaseSettings(BaseSettings):
     azure_speech_voice_fr: str = "fr-FR-DeniseNeural"  # French voice
     azure_speech_voice_en: str = "en-US-JennyNeural"   # English voice
 
+    # Chat Commands Configuration
+    chat_commands_enabled: bool = False  # Enable chat commands functionality (disabled by default due to bugs)
+
     # External API Configuration
     external_api_enabled: bool = True  # Enable external REST API for document search
     external_api_keys: Optional[str] = Field(None, env="EXTERNAL_API_KEYS")  # API keys configuration (client:key:ips format)

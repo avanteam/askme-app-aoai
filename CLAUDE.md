@@ -681,6 +681,23 @@ processed_content = process_message_content_for_storage(input_message['content']
 
 L'application AskMe supporte un système de commandes qui permet aux utilisateurs de modifier les paramètres directement depuis le chat en utilisant des instructions en langage naturel.
 
+### Configuration
+
+La fonctionnalité peut être activée ou désactivée via variable d'environnement :
+
+```env
+# Activer/désactiver les commandes de chat
+CHAT_COMMANDS_ENABLED=true  # Désactivé par défaut (false)
+```
+
+**Comportement:**
+- **Activé (`true`)**: Les messages utilisateur sont analysés pour détecter les commandes
+- **Désactivé (`false`)**: Tous les messages passent directement au LLM sans détection de commandes
+- **⚠️ Défaut: DÉSACTIVÉ (false)** - Feature désactivée par défaut en raison de bugs
+
+**Pour réactiver:**
+Ajouter explicitement dans votre `.env`: `CHAT_COMMANDS_ENABLED=true`
+
 ### Commandes Disponibles
 
 #### 1. Changement de Modèle LLM
