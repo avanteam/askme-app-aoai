@@ -1098,8 +1098,8 @@ async def conversation_internal(request_body, request_headers, preventShouldStre
                             text_content = part.get("text", "")
                             break
                 
-                # Détecter les commandes
-                if text_content:
+                # Détecter les commandes (si activé)
+                if text_content and app_settings.base_settings.chat_commands_enabled:
                     commands = command_parser.parse_commands(text_content)
                     if commands:
                         # Exécuter les commandes
