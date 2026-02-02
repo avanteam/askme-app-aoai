@@ -180,6 +180,8 @@ frontend_settings = {
     "azure_speech_voice_fr": app_settings.base_settings.azure_speech_voice_fr,
     "azure_speech_voice_en": app_settings.base_settings.azure_speech_voice_en,
     "image_max_size_mb": app_settings.base_settings.image_max_size_mb,
+    "customization_sources_nbdefault": int(os.getenv("CUSTOMIZATION_SOURCES_NBDEFAULT", "5")),
+    "customization_sources_nbmax": int(os.getenv("CUSTOMIZATION_SOURCES_NBMAX", "20")),
 }
 
 

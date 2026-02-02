@@ -165,6 +165,8 @@ export type FrontendSettings = {
   azure_speech_voice_fr?: string
   azure_speech_voice_en?: string
   image_max_size_mb?: number
+  customization_sources_nbdefault?: number
+  customization_sources_nbmax?: number
   version?: string
   filter_keys?: Array<{id: string, label: string}>
 }

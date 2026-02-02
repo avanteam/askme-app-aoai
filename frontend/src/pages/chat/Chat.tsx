@@ -368,7 +368,7 @@ const Chat = () => {
       const session = result.command_result.user_session
       const currentPreferences = appStateContext?.state.customizationPreferences || {
         responseSize: 'medium' as const,
-        documentsCount: 5,
+        documentsCount: appStateContext?.state.frontendSettings?.customization_sources_nbdefault ?? 5,
         llmProvider: appStateContext?.state.frontendSettings?.default_llm_provider || ''
       }
 
