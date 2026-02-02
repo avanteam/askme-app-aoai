@@ -3,6 +3,7 @@ Module de gestion des commandes de chat pour AskMe
 Permet aux utilisateurs de modifier les paramètres directement depuis le chat.
 """
 
+import os
 import re
 import logging
 from typing import Optional, Dict, Any, Tuple, List
@@ -595,8 +596,8 @@ class ChatCommandExecutor:
         """Exécute la modification du nombre de documents"""
         count = command.parameters['count']
         
-        # Validation des limites (à adapter selon votre configuration)
-        max_documents = 50  # Limite configurable
+        # Validation des limites (lecture depuis variable d'environnement)
+        max_documents = int(os.getenv("CUSTOMIZATION_SOURCES_NBMAX", "20"))
         if count <= 0:
             return {
                 'success': False,

@@ -255,6 +255,23 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
         .then(response => {
           const frontendData = response as FrontendSettings
           dispatch({ type: 'FETCH_FRONTEND_SETTINGS', payload: frontendData })
+
+          // Mettre à jour documentsCount par défaut si pas de préférences sauvegardées
+          try {
+            const saved = localStorage.getItem('userCustomizationPreferences')
+            if (!saved && frontendData.customization_sources_nbdefault) {
+              dispatch({
+                type: 'UPDATE_CUSTOMIZATION_PREFERENCES',
+                payload: {
+                  responseSize: state.customizationPreferences.responseSize,
+                  documentsCount: frontendData.customization_sources_nbdefault,
+                  llmProvider: frontendData.default_llm_provider || state.customizationPreferences.llmProvider
+                }
+              })
+            }
+          } catch (error) {
+            console.warn('Failed to check localStorage:', error)
+          }
         })
         .catch(_err => {
           console.error('There was an issue fetching your data.')

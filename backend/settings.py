@@ -271,7 +271,7 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
         env_ignore_empty=True
     )
     _type: Literal["azure_search"] = PrivateAttr(default="azure_search")
-    top_k: int = Field(default=5, serialization_alias="top_n_documents")
+    top_k: int = Field(default=int(os.getenv("CUSTOMIZATION_SOURCES_NBDEFAULT", "5")), serialization_alias="top_n_documents")
     strictness: int = 3
     enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
     service: str = Field(exclude=True)
@@ -400,7 +400,7 @@ class _AzureCosmosDbMongoVcoreSettings(
         env_ignore_empty=True
     )
     _type: Literal["azure_cosmosdb"] = PrivateAttr(default="azure_cosmosdb")
-    top_k: int = Field(default=5, serialization_alias="top_n_documents")
+    top_k: int = Field(default=int(os.getenv("CUSTOMIZATION_SOURCES_NBDEFAULT", "5")), serialization_alias="top_n_documents")
     strictness: int = 3
     enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
     query_type: Literal['vector'] = "vector"
@@ -477,7 +477,7 @@ class _ElasticsearchSettings(BaseSettings, DatasourcePayloadConstructor):
         env_ignore_empty=True
     )
     _type: Literal["elasticsearch"] = PrivateAttr(default="elasticsearch")
-    top_k: int = Field(default=5, serialization_alias="top_n_documents")
+    top_k: int = Field(default=int(os.getenv("CUSTOMIZATION_SOURCES_NBDEFAULT", "5")), serialization_alias="top_n_documents")
     strictness: int = 3
     enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
     endpoint: str
@@ -557,7 +557,7 @@ class _PineconeSettings(BaseSettings, DatasourcePayloadConstructor):
         env_ignore_empty=True
     )
     _type: Literal["pinecone"] = PrivateAttr(default="pinecone")
-    top_k: int = Field(default=5, serialization_alias="top_n_documents")
+    top_k: int = Field(default=int(os.getenv("CUSTOMIZATION_SOURCES_NBDEFAULT", "5")), serialization_alias="top_n_documents")
     strictness: int = 3
     enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
     environment: str
@@ -634,7 +634,7 @@ class _AzureMLIndexSettings(BaseSettings, DatasourcePayloadConstructor):
         env_ignore_empty=True
     )
     _type: Literal["azure_ml_index"] = PrivateAttr(default="azure_ml_index")
-    top_k: int = Field(default=5, serialization_alias="top_n_documents")
+    top_k: int = Field(default=int(os.getenv("CUSTOMIZATION_SOURCES_NBDEFAULT", "5")), serialization_alias="top_n_documents")
     strictness: int = 3
     enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
     name: str
@@ -753,7 +753,7 @@ class _MongoDbSettings(BaseSettings, DatasourcePayloadConstructor):
     app_name: str
     index_name: str
     query_type: Literal["vector"] = "vector"
-    top_k: int = Field(default=5, serialization_alias="top_n_documents")
+    top_k: int = Field(default=int(os.getenv("CUSTOMIZATION_SOURCES_NBDEFAULT", "5")), serialization_alias="top_n_documents")
     strictness: int = 3
     enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
     content_columns: Optional[List[str]] = Field(default=None, exclude=True)

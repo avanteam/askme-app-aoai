@@ -58,14 +58,20 @@ export function CustomizationPanel() {
   // États pour les préférences utilisateur - initialisés avec les valeurs sauvegardées ou par défaut
   const getInitialPreferences = () => {
     const saved = loadPreferencesFromStorage()
+    // Récupération des valeurs de configuration depuis frontendSettings
+    const documentsDefaultCount = appStateContext?.state.frontendSettings?.customization_sources_nbdefault ?? 5
+
     return (
       saved || {
         responseSize: appStateContext?.state.customizationPreferences?.responseSize || 'medium',
-        documentsCount: appStateContext?.state.customizationPreferences?.documentsCount || 5,
+        documentsCount: documentsDefaultCount,
         llmProvider: appStateContext?.state.customizationPreferences?.llmProvider || appStateContext?.state.frontendSettings?.default_llm_provider || ''
       }
     )
   }
+
+  // Récupération du max depuis frontendSettings (pour le slider)
+  const documentsMaxCount = appStateContext?.state.frontendSettings?.customization_sources_nbmax ?? 20
 
   const initialPrefs = getInitialPreferences()
 
@@ -76,6 +82,15 @@ export function CustomizationPanel() {
   const [documentsCount, setDocumentsCount] = useState<number>(initialPrefs.documentsCount)
 
   const [llmProvider, setLlmProvider] = useState<string>(initialPrefs.llmProvider || appStateContext?.state.frontendSettings?.default_llm_provider || '')
+
+  // Effet pour initialiser documentsCount depuis frontendSettings si aucune préférence sauvegardée
+  useEffect(() => {
+    const saved = loadPreferencesFromStorage()
+    if (!saved && appStateContext?.state.frontendSettings?.customization_sources_nbdefault) {
+      const defaultCount = appStateContext.state.frontendSettings.customization_sources_nbdefault
+      setDocumentsCount(defaultCount)
+    }
+  }, [appStateContext?.state.frontendSettings?.customization_sources_nbdefault])
 
   // États pour userData
   const [userData, setUserData] = useState<Dictionary<string>>(appStateContext?.state.userData || {})
@@ -221,15 +236,16 @@ export function CustomizationPanel() {
   // Réinitialiser les paramètres par défaut
   const resetToDefaults = () => {
     const defaultProvider = availableProviders[0] || appStateContext?.state.frontendSettings?.default_llm_provider || ''
+    const defaultDocCount = appStateContext?.state.frontendSettings?.customization_sources_nbdefault ?? 5
     const defaultPreferences: CustomizationPreferences = {
       responseSize: 'medium',
-      documentsCount: 5,
+      documentsCount: defaultDocCount,
       llmProvider: defaultProvider
     }
 
     // Mettre à jour l'état local
     setResponseSize('medium')
-    setDocumentsCount(5)
+    setDocumentsCount(defaultDocCount)
     setLlmProvider(defaultProvider)
     setUserData({})
 
@@ -409,7 +425,7 @@ export function CustomizationPanel() {
               <Slider
                 label={`${documentsCount} ${currentLanguage === 'FR' ? 'documents' : 'documents'}`}
                 min={3}
-                max={20}
+                max={documentsMaxCount}
                 step={1}
                 value={documentsCount}
                 onChange={handleDocumentsCountChange}
@@ -418,7 +434,7 @@ export function CustomizationPanel() {
               />
               <div className={styles.sliderLegend}>
                 <span className={styles.sliderMin}>3</span>
-                <span className={styles.sliderMax}>20</span>
+                <span className={styles.sliderMax}>{documentsMaxCount}</span>
               </div>
             </div>
 
